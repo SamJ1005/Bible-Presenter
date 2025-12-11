@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Presentation</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+    />
+    <style>
+      :root {
+        --bg: #000;
+        --text: #fff;
+        --verse-size: 48px;
+        --ref-size: 32px;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: Arial, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+      }
+
+      #container {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        margin: 0;
+      }
+
+      /* TOP — Index/Reference (15%) */
+      #referenceArea {
+        height: 15%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      #reference {
+        font-size: 3vw;
+        opacity: 0.85;
+        white-space: normal; /* allow line wrap */
+        word-break: break-word;
+      }
+
+      /* MIDDLE — Tamil Verse (55%) */
+      #tamilArea {
+        height: 55%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 6vw;
+        text-align: center;
+      }
+      #tamilText {
+        font-size: 4vw;
+        line-height: 1.3;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      /* BOTTOM — English Verse + Watermark (30%) */
+      #englishArea {
+        height: 30%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 0 6vw;
+        text-align: center;
+      }
+      #englishText {
+        font-size: 2.8vw;
+        line-height: 1.3;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      #watermark {
+        position: absolute;
+        bottom: 15px;
+        right: 25px;
+        font-size: 1.2vw;
+        opacity: 0.35;
+        letter-spacing: 2px;
+        text-align: right;
+      }
+
+      #verseText {
+        font-size: var(--verse-size);
+        line-height: 1.2;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      .section {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        max-width: 80%;
+        margin: 0 auto;
+        text-align: center;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      /* Responsive font scaling */
+      .responsive-text {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .fade-in {
+        opacity: 0;
+        animation: fadeIn 0.8s ease forwards;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* responsive */
+      @media (max-width: 900px) {
+        #verseText {
+          font-size: 28px;
+        }
+        #reference {
+          font-size: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <div id="referenceArea" class="section">
+        <div id="reference" class="fade-in"></div>
+      </div>
+
+      <div id="tamilArea" class="section responsive-text">
+        <div id="tamilText" class="fade-in"></div>
+      </div>
+
+      <div id="englishArea" class="section responsive-text">
+        <div id="englishText" class="fade-in"></div>
+        <div id="watermark" class="fade-in"></div>
+      </div>
+    </div>
+
+    <script>
+      function autoFitText(element, maxFont, minFont = 18) {
+        if (!element) return;
+
+        const parent = element.parentElement;
+        if (!parent) return;
+
+        let fontSize = maxFont;
+        element.style.fontSize = fontSize + "px";
+
+        // Reduce font until it fits
+        while (
+          element.scrollHeight > parent.clientHeight &&
+          fontSize > minFont
+        ) {
+          fontSize -= 2;
+          element.style.fontSize = fontSize + "px";
+        }
+      }
+
+      // safe wrapper in case presentationAPI is not ready yet
+      function safeOnVerse(cb) {
+        if (
+          window.presentationAPI &&
+          typeof window.presentationAPI.onVerse === "function"
+        ) {
+          // presentationAPI.onVerse returns an optional unsubscribe function
+          window.presentationAPI.onVerse(cb);
+        } else {
+          console.warn("presentationAPI not available");
+        }
+      }
+
+      safeOnVerse((data) => {
+        if (!data) return;
+
+        const setFade = (el, value) => {
+          el.classList.remove("fade-in");
+          void el.offsetWidth; // force reflow to restart animation
+          el.innerText = value;
+          el.classList.add("fade-in");
+        };
+
+        setFade(document.getElementById("reference"), data.index || "");
+        function fillAndFit(el, text, maxSize) {
+          el.classList.remove("fade-in");
+          el.innerText = text || "";
+          el.style.fontSize = maxSize + "px";
+
+          // Auto-fit
+          autoFitText(el, maxSize);
+
+          // Fade animation restart
+          void el.offsetWidth;
+          el.classList.add("fade-in");
+        }
+
+        fillAndFit(document.getElementById("tamilText"), data.tamilText, 60);
+        fillAndFit(
+          document.getElementById("englishText"),
+          data.englishText,
+          40
+        );
+
+        setFade(
+          document.getElementById("watermark"),
+          data.watermark || "Bible Presenter"
+        );
+      });
+
+      // Key controls
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          if (window.presentationAPI && window.presentationAPI.close)
+            window.presentationAPI.close();
+        } else if (e.key === "ArrowRight") {
+          if (window.presentationAPI && window.presentationAPI.nextVerse)
+            window.presentationAPI.nextVerse();
+        } else if (e.key === "ArrowLeft") {
+          if (window.presentationAPI && window.presentationAPI.previousVerse)
+            window.presentationAPI.previousVerse();
+        }
+      });
+    </script>
+  </body>
+</html>

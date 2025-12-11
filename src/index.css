@@ -1,0 +1,84 @@
+body {
+    margin: 0;
+    font-family: sans-serif;
+}
+
+/* -------------------------------
+   LIGHT THEME
+--------------------------------*/
+html.light {
+    --bg-color: #ffffff;
+    --text-color: #000000;
+    --focus-color: #1a73e8;
+}
+
+/* -------------------------------
+   DARK THEME
+--------------------------------*/
+html.dark {
+    --bg-color: #0f0e0e;
+    --text-color: #ffffff;
+    --focus-color: #00ff99;
+}
+
+.app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.layout {
+    flex: 1;
+    display: flex;
+}
+
+.sidebar {
+    width: 250px;
+    background: #efefef;
+    padding: 1rem;
+}
+
+.verse-area {
+    flex: 1;
+    padding: 1rem;
+}
+
+header,
+footer {
+    background: #2a2a2a;
+    color: white;
+    padding: 10px 20px;
+}
+
+*:focus {
+    outline: 1px solid var(--focus-color);
+    outline-offset: 1px;
+}
+
+/* Remove ugly default blue outline (Chrome/Edge) */
+*:focus-visible {
+    outline: 1px solid var(--focus-color);
+    outline-offset: 1px;
+    box-shadow: 0 0 4px var(--focus-color);
+}
+
+@font-face {
+    font-family: "TamilBibleFont";
+    src: url("/fonts/static/NotoSansTamil-SemiBold.ttf") format("truetype");
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* GLOBAL SCROLLBAR STYLE */
+::-webkit-scrollbar {
+    width: 14px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--scroll-track);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--scroll-thumb);
+    border-radius: 3px;
+}

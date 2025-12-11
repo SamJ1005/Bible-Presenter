@@ -1,0 +1,6 @@
+/* presentation/style.css */
+html, body { height: 100%; margin: 0; }
+body { background: #000; color: #fff; font-family: Arial, sans-serif; display:flex; align-items:center; justify-content:center; }
+#container { width: 100%; padding: 6vh 6vw; box-sizing: border-box; text-align:center; }
+#verseText { font-size: 48px; line-height:1.2; white-space: pre-wrap; word-break:break-word; max-width:1400px; margin:0 auto; }
+#reference { margin-top: 2.5vh; font-size:32px; opacity:0.85; }
