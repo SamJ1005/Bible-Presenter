@@ -19,6 +19,8 @@
       body {
         height: 100%;
         margin: 0;
+        overflow-x: hidden;
+        overflow-y: hidden;
       }
 
       body {
@@ -28,7 +30,9 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        position: absolute;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
       }
 
       #container {
@@ -42,16 +46,25 @@
 
       /* TOP — Index/Reference (15%) */
       #referenceArea {
-        height: 15%;
+        width: 100%;
+        height: 10%;
         display: flex;
         justify-content: center;
         align-items: center;
       }
       #reference {
-        font-size: 3vw;
-        opacity: 0.85;
-        white-space: normal; /* allow line wrap */
-        word-break: break-word;
+        min-width: 60%;
+        max-width: 90%;
+        text-decoration: underline;
+        font-weight: 700;
+        font-size: 4.8vw;
+        line-height: 1.1;
+        opacity: 0.9;
+        padding-top: 5%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: clip;
+        text-align: center;
       }
 
       /* MIDDLE — Tamil Verse (55%) */
@@ -60,12 +73,21 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 0 6vw;
+        padding: 0 1vw;
         text-align: center;
+        overflow: hidden;
+        position: relative;
       }
       #tamilText {
-        font-size: 4vw;
-        line-height: 1.3;
+        font-size: 4.2vw;
+        line-height: 1.28; /* slightly reduced */
+        font-weight: 900;
+        letter-spacing: -0.015em;
+
+        max-width: 100%;
+        max-height: 100%;
+
+        overflow: hidden;
         white-space: pre-wrap;
         word-break: break-word;
       }
@@ -77,15 +99,20 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 0 6vw;
+        padding: 0 1vw;
         text-align: center;
       }
       #englishText {
-        font-size: 2.8vw;
-        line-height: 1.3;
+        font-size: 3vw;
+        line-height: 1.35;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        max-width: 100%;
+        overflow-x: hidden;
         white-space: pre-wrap;
         word-break: break-word;
       }
+
       #watermark {
         position: absolute;
         bottom: 15px;
@@ -109,7 +136,8 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        max-width: 80%;
+        width: 90%;
+        max-width: 90%;
         margin: 0 auto;
         text-align: center;
         white-space: pre-wrap;
@@ -128,13 +156,14 @@
 
       .fade-in {
         opacity: 0;
-        animation: fadeIn 0.8s ease forwards;
+        animation: fadeIn 0.6s ease forwards;
+        will-change: opacity, transform;
       }
 
       @keyframes fadeIn {
         from {
           opacity: 0;
-          transform: translateY(10px);
+          transform: translateY(6px);
         }
         to {
           opacity: 1;
@@ -179,13 +208,25 @@
         let fontSize = maxFont;
         element.style.fontSize = fontSize + "px";
 
-        // Reduce font until it fits
         while (
-          element.scrollHeight > parent.clientHeight &&
+          (element.scrollHeight > parent.clientHeight ||
+            element.scrollWidth > parent.clientWidth) &&
           fontSize > minFont
         ) {
           fontSize -= 2;
           element.style.fontSize = fontSize + "px";
+        }
+      }
+
+      function fitReferenceText(el, maxVW = 4.8, minVW = 2.8) {
+        if (!el) return;
+
+        let size = maxVW;
+        el.style.fontSize = size + "vw";
+
+        while (el.scrollWidth > el.clientWidth && size > minVW) {
+          size -= 0.1;
+          el.style.fontSize = size + "vw";
         }
       }
 
@@ -212,7 +253,9 @@
           el.classList.add("fade-in");
         };
 
-        setFade(document.getElementById("reference"), data.index || "");
+        const refEl = document.getElementById("reference");
+        setFade(refEl, data.index || "");
+        fitReferenceText(refEl);
         function fillAndFit(el, text, maxSize) {
           el.classList.remove("fade-in");
           el.innerText = text || "";
@@ -235,7 +278,7 @@
 
         setFade(
           document.getElementById("watermark"),
-          data.watermark || "Bible Presenter"
+          data.watermark || "Bethel AG Elim"
         );
       });
 
