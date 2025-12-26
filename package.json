@@ -1,5 +1,6 @@
 {
-  "name": "bible-presenter",
+  "name": "scripture-screen",
+  "productName": "Scripture Screen",
   "version": "1.0.0",
   "main": "electron/main.js",
   "scripts": {

@@ -1,41 +1,36 @@
 // electron/main.js
 const { app, BrowserWindow, ipcMain, screen } = require("electron");
 const path = require("path");
+const iconPath = path.join(__dirname, "assets/news.ico");
 
 let mainWin = null;
 let presentationWin = null;
 let currentPresentationPayload = null;
 
-/* ------------ Display Logger ------------ */
-function logDisplays() {
-  const displays = screen.getAllDisplays();
-
-  console.log("========== DISPLAY INFO ==========");
-  displays.forEach((d, i) => {
-    console.log(`Display ${i}`);
-    console.log("  ID:", d.id);
-    console.log("  Bounds:", d.bounds);
-    console.log("  WorkArea:", d.workArea);
-    console.log("  Size:", d.size);
-    console.log("  ScaleFactor:", d.scaleFactor);
-    console.log("---------------------------------");
-  });
-  console.log("=================================");
-}
-
 /* ------------ Main Window ------------ */
+app.setAppUserModelId("com.samjack.biblepresenter");
 function createMainWindow() {
   if (mainWin) return;
 
   mainWin = new BrowserWindow({
-    width: 1100,
+    width: 1200,
     height: 800,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
     },
   });
+  const fs = require("fs");
+
+  if (fs.existsSync(iconPath)) {
+    try {
+      mainWin.setIcon(iconPath);
+    } catch (err) {
+      console.error("Icon load failed:", err);
+    }
+  } else {
+    console.error("Icon file not found:", iconPath);
+  }
 
   if (!app.isPackaged) {
     mainWin.loadURL("http://localhost:5173");
@@ -61,13 +56,14 @@ function createPresentationWindow() {
   console.log("Display count:", displays.length);
 
   // Pick non-primary display (projector / second screen)
-  const targetDisplay =
-    displays.find(d => d.id !== primary.id) || primary;
+  const targetDisplay = displays.find((d) => d.id !== primary.id) || primary;
 
   console.log("Using display:", targetDisplay.id);
   console.log("Bounds:", targetDisplay.bounds);
 
   presentationWin = new BrowserWindow({
+    title: "Holy Bible Presenter",
+    icon: iconPath,
     x: targetDisplay.bounds.x,
     y: targetDisplay.bounds.y,
     width: targetDisplay.bounds.width,
@@ -83,9 +79,7 @@ function createPresentationWindow() {
     },
   });
 
-  presentationWin.loadFile(
-    path.join(__dirname, "presentation.html")
-  );
+  presentationWin.loadFile(path.join(__dirname, "presentation.html"));
 
   presentationWin.once("ready-to-show", () => {
     presentationWin.show();
