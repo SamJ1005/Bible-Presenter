@@ -15,7 +15,7 @@ export default function useBible() {
 
   const loadInitialKJV = useCallback(async () => {
     try {
-      const res = await fetch("/bible/kjv.json");
+      const res = await fetch("./bible/kjv.json");
       if (!res.ok) throw new Error("Failed to fetch KJV");
       const data = await res.json();
       setKjvData((prev) => prev || data);
@@ -43,7 +43,7 @@ export default function useBible() {
     setVersesError("");
     const filename = encodeURIComponent(bookName) + ".json";
     try {
-      const r = await fetch(`/bible/tamil/${filename}`);
+      const r = await fetch(`./bible/tamil/${filename}`);
       if (!r.ok) throw new Error("Tamil file not found");
       const d = await r.json();
       setTamilBookData(d);

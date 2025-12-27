@@ -1,11 +1,27 @@
 {
   "name": "scripture-screen",
   "productName": "Scripture Screen",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "electron/main.js",
+  "build": {
+    "appId": "com.scripturescreen.app",
+    "productName": "Scripture Screen",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "win": {
+      "target": "portable",
+      "signAndEditExecutable": false
+    }
+  },
   "scripts": {
     "dev": "concurrently -k \"vite\" \"cross-env NODE_ENV=development electron .\"",
-    "build": "vite build",
+    "build": "vite build && electron-builder",
     "start": "electron ."
   },
   "dependencies": {
@@ -18,6 +34,7 @@
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "^29.4.6",
+    "electron-builder": "^26.0.12",
     "vite": "^5.0.0"
   }
 }

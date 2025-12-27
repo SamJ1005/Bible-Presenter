@@ -1,7 +1,7 @@
 // electron/main.js
 const { app, BrowserWindow, ipcMain, screen } = require("electron");
 const path = require("path");
-const iconPath = path.join(__dirname, "assets/news.ico");
+const iconPath = path.join(__dirname, "assets/favicon.ico");
 
 let mainWin = null;
 let presentationWin = null;
@@ -133,21 +133,21 @@ ipcMain.on("presentation-prev-verse", () => {
   mainWin?.webContents.send("navigate-prev-verse");
 });
 
-/* ------------ App Lifecycle ------------ */
+/* ------------ App Lifecycle ----------------- */
 app.whenReady().then(() => {
   createMainWindow();
 
   // Safe screen usage
-  logDisplays();
+  /*----- logDisplays(); -----*/
 
   screen.on("display-added", (_, display) => {
     console.log("Display added:", display.id);
-    logDisplays();
+    /*----- logDisplays(); -----*/
   });
 
   screen.on("display-removed", (_, display) => {
     console.log("Display removed:", display.id);
-    logDisplays();
+    /*----- logDisplays(); -----*/
   });
 });
 
