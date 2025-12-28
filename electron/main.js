@@ -1,49 +1,60 @@
 // electron/main.js
 const { app, BrowserWindow, ipcMain, screen } = require("electron");
 const path = require("path");
-const iconPath = path.join(__dirname, "assets/favicon.ico");
+const fs = require("fs");
+const bibleKJV = require("./assets/bible/kjv.json"); 
+const iconPath = path.join(__dirname, "assets", "icon.ico");
 
 let mainWin = null;
 let presentationWin = null;
 let currentPresentationPayload = null;
 
-/* ------------ Main Window ------------ */
+/* ------------ App ID (Windows icon fix) ------------ */
 app.setAppUserModelId("com.samjack.biblepresenter");
+/* ---- Performance switches (Windows / Projector safe) ---- */
+app.commandLine.appendSwitch("disable-gpu-vsync");
+app.commandLine.appendSwitch(
+  "disable-features",
+  "CalculateNativeWinOcclusion"
+);
+/* ------------ Main Window ------------ */
 function createMainWindow() {
   if (mainWin) return;
 
   mainWin = new BrowserWindow({
     width: 1200,
     height: 800,
+    show: false, // IMPORTANT: show only when ready
     icon: iconPath,
+    backgroundColor: "#ffffff",
+    backgroundThrottling: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      sandbox: false,
     },
-  });
-  const fs = require("fs");
+  }); 
 
   if (fs.existsSync(iconPath)) {
-    try {
-      mainWin.setIcon(iconPath);
-    } catch (err) {
-      console.error("Icon load failed:", err);
-    }
-  } else {
-    console.error("Icon file not found:", iconPath);
+    mainWin.setIcon(iconPath);
   }
 
-  if (!app.isPackaged) {
-    mainWin.loadURL("http://localhost:5173");
-  } else {
+  if (app.isPackaged) {
     mainWin.loadFile(path.join(__dirname, "../dist/index.html"));
+  } else {
+    mainWin.loadURL("http://localhost:5173");
   }
+
+  mainWin.once("ready-to-show", () => {
+    mainWin.show();
+  });
 
   mainWin.on("closed", () => {
     mainWin = null;
   });
 }
 
-/* ------------ Presentation Window ------------ */
+/* ------------ Presentation Window (KIOSK MODE) ------------ */
 function createPresentationWindow() {
   if (presentationWin && !presentationWin.isDestroyed()) {
     presentationWin.focus();
@@ -52,14 +63,8 @@ function createPresentationWindow() {
 
   const displays = screen.getAllDisplays();
   const primary = screen.getPrimaryDisplay();
-
-  console.log("Display count:", displays.length);
-
-  // Pick non-primary display (projector / second screen)
-  const targetDisplay = displays.find((d) => d.id !== primary.id) || primary;
-
-  console.log("Using display:", targetDisplay.id);
-  console.log("Bounds:", targetDisplay.bounds);
+  const targetDisplay =
+    displays.find((d) => d.id !== primary.id) || primary;
 
   presentationWin = new BrowserWindow({
     title: "Holy Bible Presenter",
@@ -68,24 +73,29 @@ function createPresentationWindow() {
     y: targetDisplay.bounds.y,
     width: targetDisplay.bounds.width,
     height: targetDisplay.bounds.height,
-    fullscreen: true,
+    kiosk: true,              // ✅ KEY CHANGE
     frame: false,
     show: false,
+    backgroundThrottling: false,
     backgroundColor: "#000000",
     webPreferences: {
       preload: path.join(__dirname, "presentation-preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
     },
   });
 
-  presentationWin.loadFile(path.join(__dirname, "presentation.html"));
+  presentationWin.setIcon(iconPath);
+
+  presentationWin.loadFile(
+    path.join(__dirname, "presentation.html")
+  );
 
   presentationWin.once("ready-to-show", () => {
     presentationWin.show();
     presentationWin.focus();
 
-    // Re-send last verse if exists
     if (currentPresentationPayload) {
       presentationWin.webContents.send(
         "display-verse",
@@ -115,14 +125,8 @@ ipcMain.on("send-presentation", (_, payload) => {
   }
 });
 
-ipcMain.handle("get-presentation-status", () => {
-  return !!(presentationWin && !presentationWin.isDestroyed());
-});
-
 ipcMain.on("close-presentation", () => {
-  if (presentationWin && !presentationWin.isDestroyed()) {
-    presentationWin.close();
-  }
+  presentationWin?.close();
 });
 
 ipcMain.on("presentation-next-verse", () => {
@@ -132,23 +136,22 @@ ipcMain.on("presentation-next-verse", () => {
 ipcMain.on("presentation-prev-verse", () => {
   mainWin?.webContents.send("navigate-prev-verse");
 });
+ipcMain.handle("get-verse", (_, ref) => {
+  try {
+    return (
+      bibleKJV?.[ref.book]?.[ref.chapter]?.[ref.verse] || null
+    );
+  } catch {
+    return null;
+  }
+});
 
-/* ------------ App Lifecycle ----------------- */
+/* ------------ App Lifecycle ------------ */
 app.whenReady().then(() => {
   createMainWindow();
 
-  // Safe screen usage
-  /*----- logDisplays(); -----*/
-
-  screen.on("display-added", (_, display) => {
-    console.log("Display added:", display.id);
-    /*----- logDisplays(); -----*/
-  });
-
-  screen.on("display-removed", (_, display) => {
-    console.log("Display removed:", display.id);
-    /*----- logDisplays(); -----*/
-  });
+  screen.on("display-added", () => {});
+  screen.on("display-removed", () => {});
 });
 
 app.on("window-all-closed", () => {
