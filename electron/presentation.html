@@ -154,9 +154,9 @@ function fitVerseBox(tamilEl, engEl, box, type) {
 
 /* ---------- REF FIT ---------- */
 function fitReference(el) {
-  let vw = 4.8;
+  let vw = 4.2;  // Reduced from 4.8 to 4.2 for slightly smaller reference text
   el.style.fontSize = vw + "vw";
-  while (el.scrollWidth > el.clientWidth && vw > 2.8) {
+  while (el.scrollWidth > el.clientWidth && vw > 2.5) {  // Reduced minimum from 2.8 to 2.5
     vw -= 0.1;
     el.style.fontSize = vw + "vw";
   }
