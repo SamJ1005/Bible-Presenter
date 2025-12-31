@@ -4,9 +4,6 @@ import { saveMemory, loadMemory } from "./hooks/useLocalMemory";
 import "./index.css";
 import Settings from "./components/Settings"; // existing
 import Header from "./components/Header"; // if you have Header.jsx under components
-import Footer from "./components/Footer";
-import SearchBar from "./components/SearchBar";
-import Sidebar from "./components/Sidebar";
 
 import useTheme from "./hooks/useTheme";
 import useBible from "./hooks/useBible";
@@ -94,6 +91,8 @@ export default function App() {
     setSelectedChapter,
     setSelectedVerse,
     sendToPresentation,
+    loadTamilForBook,
+    selectedBook,
   });
 
   // Refs used for scroll-to-selected behavior (kept same names)
@@ -144,13 +143,21 @@ export default function App() {
   useEffect(() => {
     if (!verseTableRef.current) return;
 
-    const row = verseTableRef.current.querySelector(
-      `tr[data-vn="${selectedVerse}"]`
-    );
+    // verseTableRef is on the scrollable container div, find the table inside it
+    const table = verseTableRef.current.querySelector('table');
+    if (!table) return;
+
+    const row = table.querySelector(`tr[data-vn="${selectedVerse}"]`);
     if (!row) return;
 
-    verseTableRef.current.scrollTo({
-      top: row.offsetTop - verseTableRef.current.clientHeight / 3,
+    // Calculate scroll position relative to the container
+    const container = verseTableRef.current;
+    const rowTop = row.offsetTop;
+    const containerHeight = container.clientHeight;
+    const scrollPosition = rowTop - containerHeight / 3;
+
+    container.scrollTo({
+      top: Math.max(0, scrollPosition),
       behavior: "smooth",
     });
   }, [selectedBook, selectedChapter, selectedVerse]);
@@ -164,6 +171,7 @@ export default function App() {
         selectedBook,
         selectedChapter,
         selectedVerse: next,
+        settings,
       });
     };
 
@@ -176,17 +184,26 @@ export default function App() {
         selectedBook,
         selectedChapter,
         selectedVerse: prev,
+        settings,
       });
     };
 
     // register handlers from preload-exposed api
-    window.api?.onNavigateNext?.(onNext);
-    window.api?.onNavigatePrev?.(onPrev);
+    const cleanupNext = window.api?.onNavigateNext?.(onNext);
+    const cleanupPrev = window.api?.onNavigatePrev?.(onPrev);
+
+    // cleanup function to remove listeners
+    return () => {
+      cleanupNext?.();
+      cleanupPrev?.();
+    };
   }, [
     selectedBook,
     selectedChapter,
     selectedVerse,
     verseCountForSelectedChapter,
+    sendToPresentation,
+    settings,
   ]);
   return (
     <div
@@ -210,7 +227,13 @@ export default function App() {
       {/* MAIN CONTENT */}
       {activeTab === "bible" && (
         <div
-          style={{ display: "flex", gap: "20px", width: "100%", flexShrink: 0 }}
+          style={{
+            display: "flex",
+            gap: "20px",
+            width: "100%",
+            flex: 1,
+            minHeight: 0,
+          }}
         >
           {/* MAIN LAYOUT: Sidebar + content */}
           <div
@@ -218,17 +241,23 @@ export default function App() {
               display: "flex",
               gap: "20px",
               width: "100%",
-              flexShrink: 0,
+              flex: 1,
+              minHeight: 0,
             }}
           >
             {/* Left Sidebar */}
             <div
               style={{
-                width: "360px",
+                width: "22%",
+                minWidth: "280px",
+                maxWidth: "420px",
                 background: theme === "dark" ? "#0f0e0eff" : "#fff",
                 color: theme === "dark" ? "white" : "black",
-                padding: "20px",
-                overflowY: "auto",
+                padding: "16px",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+                overflow: "hidden",
                 boxSizing: "border-box",
                 borderRight:
                   theme === "dark" ? "1px solid #555" : "1px solid #999",
@@ -311,7 +340,9 @@ export default function App() {
               </div>
 
               {/* Books / Chapters / Verses lists */}
-              <div style={{ display: "flex", gap: "20px", marginTop: 12 }}>
+              <div
+                style={{ display: "flex", gap: "10px", flex: 1, minHeight: 0 }}
+              >
                 <BookList
                   booksList={booksList}
                   selectedBook={selectedBook}
@@ -340,13 +371,19 @@ export default function App() {
                   selectedVerse={selectedVerse}
                   setSelectedVerse={(v) => {
                     setSelectedVerse(v);
-                    sendToPresentation();
+                    sendToPresentation({
+                      selectedBook,
+                      selectedChapter,
+                      selectedVerse: v,
+                      settings,
+                    });
                   }}
                   verseScrollRef={verseScrollRef}
                   theme={theme}
                   selectedBook={selectedBook}
                   selectedChapter={selectedChapter}
                   sendToPresentation={sendToPresentation}
+                  settings={settings}
                 />
               </div>
 
@@ -355,14 +392,22 @@ export default function App() {
                 <RecentList
                   recent={[]}
                   onSelect={(ref) => {
-                    // logic: parse ref and set selection
                     const parsed = parseReference(ref);
                     if (!parsed) return;
                     const bookName = findBookName(parsed.book);
                     if (!bookName) return;
+
+                    // 1. Update Local State
                     setSelectedBook(bookName);
                     setSelectedChapter(parsed.chapter);
                     setSelectedVerse(parsed.verse);
+
+                    sendToPresentation({
+                      selectedBook: bookName, // Pass the new variable directly
+                      selectedChapter: parsed.chapter, // Pass the new variable directly
+                      selectedVerse: parsed.verse, // Pass the new variable directly
+                      settings,
+                    });
                   }}
                   recentScrollRef={recentScrollRef}
                   theme={theme}
@@ -391,6 +436,7 @@ export default function App() {
                   theme={theme}
                   sendToPresentation={sendToPresentation}
                   verseTableRef={verseTableRef}
+                  settings={settings}
                 />
               </div>
             </div>

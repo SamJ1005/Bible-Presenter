@@ -8,7 +8,7 @@ export default function useNavigation({
   setSelectedVerse,
   getBibleSource,
 }) {
-  // --------- LOCAL KEYBOARD HANDLING ----------
+  // --------- LOCAL KEYBOARD HANDLING (Keep this) ----------
   useEffect(() => {
     function handleArrowKeys(e) {
       if (e.key === "ArrowLeft") goPrev();
@@ -23,8 +23,7 @@ export default function useNavigation({
       if (!book) return;
 
       const chIndex = book.chapters.findIndex((c) => +c.chapter === +selectedChapter);
-      const chObj = book.chapters[chIndex];
-
+      
       let v = selectedVerse - 1;
 
       if (v < 1) {
@@ -65,25 +64,6 @@ export default function useNavigation({
     return () => window.removeEventListener("keydown", handleArrowKeys);
   }, [selectedBook, selectedChapter, selectedVerse]);
 
-
-  // ---------- ELECTRON PRESENTATION NAVIGATION ----------
-  useEffect(() => {
-    if (!window.api) return;
-
-    // use correct API
-    const removeNext = window.api.onNavigateNext(() => {
-      const evt = new KeyboardEvent("keydown", { key: "ArrowRight" });
-      window.dispatchEvent(evt);
-    });
-
-    const removePrev = window.api.onNavigatePrev(() => {
-      const evt = new KeyboardEvent("keydown", { key: "ArrowLeft" });
-      window.dispatchEvent(evt);
-    });
-
-    return () => {
-      removeNext?.();
-      removePrev?.();
-    };
-  }, []); // <-- RUN ONLY ONCE
+  // DELETE the entire "ELECTRON PRESENTATION NAVIGATION" useEffect block here.
+  // It is redundant and causes the double-fire bug.
 }

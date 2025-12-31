@@ -18,7 +18,7 @@ export default function Header({
       style={{
         background: bg,
         color: text,
-        padding: "12px",
+        padding: "0 12px",
         fontSize: "20px",
         borderBottom: `1px solid ${border}`,
         display: "flex",
@@ -26,6 +26,8 @@ export default function Header({
         justifyContent: "space-between",
         position: "relative",
         height: "60px",
+        minHeight: "55px",
+        flexShrink: 0,
       }}
     >
       {/* LEFT SIDE */}
@@ -114,7 +116,7 @@ export default function Header({
           color: theme === "dark" ? "#00ff99" : "#003399",
         }}
       >
-        Bible Presenter
+        Scripture Screen
       </div>
 
       {/* RIGHT THEME TOGGLE */}

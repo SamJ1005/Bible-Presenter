@@ -31,7 +31,7 @@ export const bibleBooks = [
 
   { english: "Isaiah", tamil: "எசாயா" },
   { english: "Jeremiah", tamil: "எரேமியா" },
-  { english: "Lamentations", tamil: "இரத்தல்" },
+  { english: "Lamentations", tamil: "புலம்பல்" },
 
   { english: "Ezekiel", tamil: "எசேக்கியேல்" },
   { english: "Daniel", tamil: "தானியேல்" },
@@ -43,9 +43,9 @@ export const bibleBooks = [
   { english: "Jonah", tamil: "யோனா" },
   { english: "Micah", tamil: "மீக்கா" },
   { english: "Nahum", tamil: "நாகூம்" },
-  { english: "Habakkuk", tamil: "ஆமோஸ்" },
+  { english: "Habakkuk", tamil: "ஆபகூக்" },
   { english: "Zephaniah", tamil: "செப்பனியா" },
-  { english: "Haggai", tamil: "ஆக்கோ" },
+  { english: "Haggai", tamil: "ஆகாய்" },
   { english: "Zechariah", tamil: "சகரியா" },
   { english: "Malachi", tamil: "மல்கியா" },
 
@@ -63,10 +63,10 @@ export const bibleBooks = [
   { english: "Galatians", tamil: "கலாத்தியர்" },
   { english: "Ephesians", tamil: "எபேசியர்" },
   { english: "Philippians", tamil: "பிலிப்பியர்" },
-  { english: "Colossians", tamil: "கொலோத்தியர்" },
+  { english: "Colossians", tamil: "கொலோசெயர்" },
 
-  { english: "1 Thessalonians", tamil: "1 தெசலோனிக்கியர்" },
-  { english: "2 Thessalonians", tamil: "2 தெசலோனிக்கியர்" },
+  { english: "1 Thessalonians", tamil: "1 தெசலோனிக்கேயர்" },
+  { english: "2 Thessalonians", tamil: "2 தெசலோனிக்கேயர்" },
 
   { english: "1 Timothy", tamil: "1 தீமொத்தேயு" },
   { english: "2 Timothy", tamil: "2 தீமொத்தேயு" },

@@ -11,6 +11,7 @@ export default function ChapterTable({
   theme,
   sendToPresentation,
   verseTableRef,
+  settings,
 }) {
   // english verses for chapter
   const englishVerses =
@@ -37,6 +38,7 @@ export default function ChapterTable({
       selectedBook,
       selectedChapter,
       selectedVerse: Number(vn),
+      settings,
     });
   }
 

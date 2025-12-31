@@ -47,6 +47,7 @@ export default function useBible() {
       if (!r.ok) throw new Error("Tamil file not found");
       const d = await r.json();
       setTamilBookData(d);
+      return d;
     } catch (err) {
       console.warn(err);
       setTamilBookData(null);
@@ -73,18 +74,19 @@ export default function useBible() {
     return vd ? vd.text : "";
   }
 
-  function getTamilVerse(chapterNum, verseNum) {
-    if (!tamilBookData) return "";
-    if (Array.isArray(tamilBookData.chapters)) {
-      const ch = tamilBookData.chapters.find(
+  function getTamilVerse(chapterNum, verseNum, dataOverride = null) {
+    const data = dataOverride || tamilBookData;
+    if (!data) return "";
+    if (Array.isArray(data.chapters)) {
+      const ch = data.chapters.find(
         (c) => Number(c.chapter) === Number(chapterNum)
       );
       if (!ch) return "";
       const v = (ch.verses || []).find((vv) => Number(vv.verse) === Number(verseNum));
       return v ? v.text : "";
     }
-    if (tamilBookData[chapterNum] && Array.isArray(tamilBookData[chapterNum].verses)) {
-      const v = tamilBookData[chapterNum].verses.find((vv) => Number(vv.verse) === Number(verseNum));
+    if (data[chapterNum] && Array.isArray(data[chapterNum].verses)) {
+      const v = data[chapterNum].verses.find((vv) => Number(vv.verse) === Number(verseNum));
       return v ? v.text : "";
     }
     return "";

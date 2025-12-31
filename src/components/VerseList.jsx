@@ -1,16 +1,17 @@
 // VerseList.jsx
 import React from "react";
 
-export default function VerseList({ count = 0, selectedVerse, setSelectedVerse, verseScrollRef, theme, selectedBook, selectedChapter, sendToPresentation }) {
+export default function VerseList({ count = 0, selectedVerse, setSelectedVerse, verseScrollRef, theme, selectedBook, selectedChapter, sendToPresentation, settings }) {
   const sbWidth = 14;
   return (
-    <div style={{ width: 90, display: "flex", flexDirection: "column" }}>
-      <h3 style={{ marginBottom: "10px" }}>Verse</h3>
-      <div style={{ position: "relative", height: "300px", border: "1px solid #aaa", borderRadius: "6px", overflow: "hidden", display: "flex" }}>
-        <div ref={verseScrollRef} style={{ flex: 1, overflowY: "scroll", background: theme === "dark" ? "#0f0e0eff" : "#eee" }}>
+    <div style={{ width: "25%", display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <h3 style={{ marginBottom: "10px", opacity: 0.7, fontSize: "1.1rem" }}>Verse</h3>
+      <div style={{ position: "relative", flex: 1, minHeight: 0, border: "1px solid #aaa", borderRadius: "6px", overflow: "hidden", display: "flex" }}>
+        <div ref={verseScrollRef} style={{ flex: 1, minHeight: 0, overflowY: "auto", background: theme === "dark" ? "#0f0e0eff" : "#eee" }}>
           {Array.from({ length: count }, (_, i) => i + 1).map((v) => (
             <div
               key={v}
+              className={`verse-item ${Number(v) === Number(selectedVerse) ? "selected" : ""}`}
               onClick={() => {
                 setSelectedVerse(v);
                 // Also send to presentation (Option A)
@@ -18,10 +19,11 @@ export default function VerseList({ count = 0, selectedVerse, setSelectedVerse, 
                   selectedBook,
                   selectedChapter,
                   selectedVerse: v,
+                  settings,
                 });
               }}
               style={{
-                padding: 6,
+                padding: 4,
                 cursor: "pointer",
                 borderRadius: 4,
                 background: Number(v) === Number(selectedVerse) ? (theme === "dark" ? "#00ff9933" : "#c0d5ffff") : "transparent",

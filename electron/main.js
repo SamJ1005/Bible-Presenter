@@ -3,14 +3,15 @@ const { app, BrowserWindow, ipcMain, screen } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const bibleKJV = require("./assets/bible/kjv.json"); 
-const iconPath = path.join(__dirname, "assets", "icon.ico");
+const iconPath = app.isPackaged
+  ? path.join(process.resourcesPath, "icon.ico")
+  : path.join(__dirname, "assets", "icon.ico");
+app.setAppUserModelId("com.scripturescreen.app");
 
 let mainWin = null;
 let presentationWin = null;
 let currentPresentationPayload = null;
 
-/* ------------ App ID (Windows icon fix) ------------ */
-app.setAppUserModelId("com.samjack.biblepresenter");
 /* ---- Performance switches (Windows / Projector safe) ---- */
 app.commandLine.appendSwitch("disable-gpu-vsync");
 app.commandLine.appendSwitch(
@@ -67,7 +68,7 @@ function createPresentationWindow() {
     displays.find((d) => d.id !== primary.id) || primary;
 
   presentationWin = new BrowserWindow({
-    title: "Holy Bible Presenter",
+    title: "Scripture Screen",
     icon: iconPath,
     x: targetDisplay.bounds.x,
     y: targetDisplay.bounds.y,
@@ -92,16 +93,22 @@ function createPresentationWindow() {
     path.join(__dirname, "presentation.html")
   );
 
+  // Wait for DOM to be ready before sending messages
+  presentationWin.webContents.once("dom-ready", () => {
+    if (currentPresentationPayload) {
+      // Small delay to ensure event listeners are set up
+      setTimeout(() => {
+        presentationWin.webContents.send(
+          "display-verse",
+          currentPresentationPayload
+        );
+      }, 100);
+    }
+  });
+
   presentationWin.once("ready-to-show", () => {
     presentationWin.show();
     presentationWin.focus();
-
-    if (currentPresentationPayload) {
-      presentationWin.webContents.send(
-        "display-verse",
-        currentPresentationPayload
-      );
-    }
   });
 
   presentationWin.on("closed", () => {
@@ -121,7 +128,18 @@ ipcMain.on("send-presentation", (_, payload) => {
   if (!presentationWin || presentationWin.isDestroyed()) {
     createPresentationWindow();
   } else {
-    presentationWin.webContents.send("display-verse", payload);
+    // Check if window is ready before sending
+    if (presentationWin.webContents.isLoading()) {
+      // Wait for DOM to be ready
+      presentationWin.webContents.once("dom-ready", () => {
+        setTimeout(() => {
+          presentationWin.webContents.send("display-verse", payload);
+        }, 100);
+      });
+    } else {
+      // Window is already loaded, send immediately
+      presentationWin.webContents.send("display-verse", payload);
+    }
   }
 });
 
