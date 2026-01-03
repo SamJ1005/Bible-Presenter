@@ -61,6 +61,33 @@ footer {
     outline-offset: 1px;
     box-shadow: 0 0 4px var(--focus-color);
 }
+/* Base search container style (Light Mode default) */
+.search-container {
+  border: 1px solid #999;
+}
+
+.search-container:focus-within {
+  border-color: #003399;
+  box-shadow: 0 0 0 2px rgba(0, 51, 153, 0.2);
+}
+
+/* Dark Mode overrides */
+html.dark .search-container {
+  border-color: #555;
+}
+
+html.dark .search-container:focus-within {
+  border-color: #00ff99;
+  box-shadow: 0 0 0 2px rgba(0, 255, 153, 0.2);
+}
+
+/* Force separate input to have no outline/shadow */
+.search-input:focus,
+.search-input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
 
 @font-face {
     font-family: "TamilBibleFont";

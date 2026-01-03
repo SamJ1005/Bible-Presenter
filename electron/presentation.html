@@ -163,12 +163,21 @@ function fitReference(el) {
 }
 
 /* ---------- UPDATE ---------- */
+
 function updateVerse(data) {
   const ref = document.getElementById("reference");
   const tamil = document.getElementById("tamilText");
   const eng = document.getElementById("englishText");
   const box = document.getElementById("verseBox");
   const verseArea = document.getElementById("verseArea");
+
+  // Handle blank presentation (null data)
+  if (!data) {
+    ref.innerText = "";
+    tamil.innerText = "";
+    eng.innerText = "";
+    return;
+  }
 
   ref.innerText = data.index || "";
   tamil.innerText = data.tamilText || "";

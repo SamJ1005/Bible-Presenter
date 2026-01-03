@@ -3,24 +3,31 @@ const { app, BrowserWindow, ipcMain, screen } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const bibleKJV = require("./assets/bible/kjv.json"); 
-const iconPath = app.isPackaged
-  ? path.join(process.resourcesPath, "icon.ico")
-  : path.join(__dirname, "assets", "icon.ico");
-app.setAppUserModelId("com.scripturescreen.app");
+
+// Helper function to get icon path (call after app is ready)
+function getIconPath() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "icon.ico")
+    : path.join(process.cwd(), "public", "icon.ico");
+}
 
 let mainWin = null;
 let presentationWin = null;
 let currentPresentationPayload = null;
 
-/* ---- Performance switches (Windows / Projector safe) ---- */
+/* ---- App configuration (must be before app.whenReady) ----  */
+app.setAppUserModelId("com.scripturescreen.app");
 app.commandLine.appendSwitch("disable-gpu-vsync");
 app.commandLine.appendSwitch(
   "disable-features",
   "CalculateNativeWinOcclusion"
 );
+
 /* ------------ Main Window ------------ */
 function createMainWindow() {
   if (mainWin) return;
+
+  const iconPath = getIconPath();
 
   mainWin = new BrowserWindow({
     width: 1200,
@@ -66,6 +73,8 @@ function createPresentationWindow() {
   const primary = screen.getPrimaryDisplay();
   const targetDisplay =
     displays.find((d) => d.id !== primary.id) || primary;
+
+  const iconPath = getIconPath();
 
   presentationWin = new BrowserWindow({
     title: "Scripture Screen",
@@ -118,7 +127,18 @@ function createPresentationWindow() {
 
 /* ------------ IPC ------------ */
 ipcMain.handle("open-blank-presentation", () => {
-  createPresentationWindow();
+  // Always allow opening blank presentation, even if window exists
+  if (presentationWin && !presentationWin.isDestroyed()) {
+    presentationWin.focus();
+    // Clear current payload to show blank
+    currentPresentationPayload = null;
+    // Send blank/null payload to actually clear the screen
+    presentationWin.webContents.send("display-verse", null);
+  } else {
+    // Clear the payload so the new window opens blank
+    currentPresentationPayload = null;
+    createPresentationWindow();
+  }
   return true;
 });
 

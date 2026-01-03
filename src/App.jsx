@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import { Toaster } from "react-hot-toast";
 import { saveMemory, loadMemory } from "./hooks/useLocalMemory";
 import "./index.css";
@@ -37,6 +37,17 @@ export default function App() {
   // ---- theme + UI state
   const { theme, toggleTheme, applyThemeGlobals, scrollbarStyle } = useTheme();
   const [activeTab, setActiveTab] = useState("bible");
+  const [isBlankMode, setIsBlankMode] = useState(false); // Track if presentation is in blank mode
+  const [recent, setRecent] = useState([]); // Session-only recent list
+
+  const addToRecent = useCallback((book, chapter, verse) => {
+    setRecent((prev) => {
+      const ref = `${book} ${chapter}:${verse}`;
+      // Remove existing duplication (move to top)
+      const filtered = prev.filter((r) => r !== ref);
+      return [ref, ...filtered].slice(0, 20);
+    });
+  }, []);
 
   // ---- bible data + selection state + loaders
   const {
@@ -83,7 +94,7 @@ export default function App() {
     setSearch,
     handleSearch,
     parseReference,
-    findBookName,
+    findBook, // from useSearch
     showInputError,
   } = useSearch({
     getBibleSource: () => kjvData || englishBible,
@@ -93,6 +104,7 @@ export default function App() {
     sendToPresentation,
     loadTamilForBook,
     selectedBook,
+    addToRecent, // pass callback
   });
 
   // Refs used for scroll-to-selected behavior (kept same names)
@@ -101,6 +113,7 @@ export default function App() {
   const verseScrollRef = useRef(null);
   const recentScrollRef = useRef(null);
   const verseTableRef = useRef(null);
+  const searchInputRef = useRef(null); // Ref for search input to maintain focus
 
   // load initial data on mount (same behaviour)
   useEffect(() => {
@@ -161,43 +174,42 @@ export default function App() {
       behavior: "smooth",
     });
   }, [selectedBook, selectedChapter, selectedVerse]);
-  useEffect(() => {
-    const onNext = () => {
-      const versesInChapter = verseCountForSelectedChapter();
-      let next = Number(selectedVerse) + 1;
-      if (next > versesInChapter) next = 1;
-      setSelectedVerse(next);
-      sendToPresentation({
-        selectedBook,
-        selectedChapter,
-        selectedVerse: next,
-        settings,
-      });
-    };
 
-    const onPrev = () => {
-      const versesInChapter = verseCountForSelectedChapter();
-      let prev = Number(selectedVerse) - 1;
-      if (prev < 1) prev = versesInChapter || 1;
-      setSelectedVerse(prev);
-      sendToPresentation({
-        selectedBook,
-        selectedChapter,
-        selectedVerse: prev,
-        settings,
-      });
-    };
+  // Handle blank presentation toggle
+  const handleBlankPresentation = useCallback(async () => {
+    setIsBlankMode(true);
+    // Open presentation window first
+    if (window.api.openPresentation) {
+      await window.api.openPresentation();
+    }
+    // Send null payload after a short delay to ensure the window is ready
+    setTimeout(() => {
+      window.electron.sendPresentation?.(null);
+    }, 150);
+  }, []);
 
-    // register handlers from preload-exposed api
-    const cleanupNext = window.api?.onNavigateNext?.(onNext);
-    const cleanupPrev = window.api?.onNavigatePrev?.(onPrev);
+  const handleClosePresentation = useCallback(() => {
+    setIsBlankMode(false);
+    window.api.closePresentation?.();
+  }, []);
 
-    // cleanup function to remove listeners
-    return () => {
-      cleanupNext?.();
-      cleanupPrev?.();
-    };
+  // Navigation handlers as callbacks so they can be reused by buttons and IPC
+  const handleNext = useCallback(() => {
+    // Don't navigate if in blank mode
+    if (isBlankMode) return;
+
+    const versesInChapter = verseCountForSelectedChapter();
+    let next = Number(selectedVerse) + 1;
+    if (next > versesInChapter) next = 1;
+    setSelectedVerse(next);
+    sendToPresentation({
+      selectedBook,
+      selectedChapter,
+      selectedVerse: next,
+      settings,
+    });
   }, [
+    isBlankMode,
     selectedBook,
     selectedChapter,
     selectedVerse,
@@ -205,6 +217,51 @@ export default function App() {
     sendToPresentation,
     settings,
   ]);
+
+  const handlePrev = useCallback(() => {
+    // Don't navigate if in blank mode
+    if (isBlankMode) return;
+
+    const versesInChapter = verseCountForSelectedChapter();
+    let prev = Number(selectedVerse) - 1;
+    if (prev < 1) prev = versesInChapter || 1;
+    setSelectedVerse(prev);
+    sendToPresentation({
+      selectedBook,
+      selectedChapter,
+      selectedVerse: prev,
+      settings,
+    });
+  }, [
+    isBlankMode,
+    selectedBook,
+    selectedChapter,
+    selectedVerse,
+    verseCountForSelectedChapter,
+    sendToPresentation,
+    settings,
+  ]);
+
+  // Wrapped handleSearch to maintain focus
+  const handleSearchWithFocus = useCallback(() => {
+    handleSearch();
+    setIsBlankMode(false); // Exit blank mode when searching
+    // Keep focus on search input after search
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 100);
+  }, [handleSearch]);
+
+  // Register IPC listeners for keyboard shortcuts
+  useEffect(() => {
+    const cleanupNext = window.api?.onNavigateNext?.(handleNext);
+    const cleanupPrev = window.api?.onNavigatePrev?.(handlePrev);
+
+    return () => {
+      cleanupNext?.();
+      cleanupPrev?.();
+    };
+  }, [handleNext, handlePrev]);
   return (
     <div
       style={{
@@ -221,7 +278,8 @@ export default function App() {
         toggleTheme={toggleTheme}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        openBlankPresentation={openBlankPresentation}
+        openBlankPresentation={handleBlankPresentation}
+        closePresentation={handleClosePresentation}
       />
 
       {/* MAIN CONTENT */}
@@ -248,7 +306,7 @@ export default function App() {
             {/* Left Sidebar */}
             <div
               style={{
-                width: "22%",
+                width: "24%",
                 minWidth: "280px",
                 maxWidth: "420px",
                 background: theme === "dark" ? "#0f0e0eff" : "#fff",
@@ -272,49 +330,115 @@ export default function App() {
                   width: "100%",
                 }}
               >
-                <input
-                  placeholder="Reference 1 Sam 3:16"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (
-                      [
-                        "ArrowUp",
-                        "ArrowDown",
-                        "ArrowLeft",
-                        "ArrowRight",
-                      ].includes(e.key)
-                    ) {
-                      e.stopPropagation();
-                    }
-                    if (e.key === "Enter") handleSearch();
-                  }}
+                {/* Search bar with icon */}
+                {/* Search bar container with focus styling */}
+                <div
                   style={{
-                    width: "70%",
-                    padding: "10px",
+                    width: "65%",
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "10px 12px",
                     borderRadius: "6px",
                     transition:
-                      "background 0.25s ease-in-out, color 0.25s ease-in-out, border-color 0.25s ease-in-out",
+                      "background 0.25s ease-in-out, color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out",
                     background: theme === "dark" ? "#0f0e0eff" : "#fff",
-                    color: theme === "dark" ? "white" : "#000",
-                    border:
-                      theme === "dark" ? "1px solid #555" : "1px solid #999",
+                    cursor: "text",
                   }}
-                />
-                {/* Prev / Next buttons kept same */}
+                  className="search-container"
+                >
+                  <input
+                    ref={searchInputRef}
+                    className="search-input"
+                    placeholder="Reference 1Chr 3 2"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    // Remove default outline to avoid double focus visual
+                    onKeyDown={(e) => {
+                      if (
+                        [
+                          "ArrowUp",
+                          "ArrowDown",
+                          "ArrowLeft",
+                          "ArrowRight",
+                        ].includes(e.key)
+                      ) {
+                        e.stopPropagation();
+                      }
+                      if (e.key === "Enter") handleSearchWithFocus();
+                    }}
+                    style={{
+                      flex: 1,
+                      border: "none",
+                      outline: "none",
+                      background: "transparent",
+                      color: theme === "dark" ? "white" : "#000",
+                      fontSize: "14px",
+                      fontFamily: "inherit",
+                    }}
+                  />
+                  {/* Search Icon Button */}
+                  <span title="Search Verse" style={{ display: "flex", alignItems: "center" }}>
+                    <svg
+                      onClick={handleSearchWithFocus}
+                      width="17"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke={theme === "dark" ? "#888" : "#666"}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{
+                        flexShrink: 0,
+                        marginLeft: "1px",
+                        cursor: "pointer",
+                        transition: "stroke 0.2s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.stroke =
+                          theme === "dark" ? "#00ff99" : "#003399";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.stroke =
+                          theme === "dark" ? "#888" : "#666";
+                      }}
+                    >
+                      <circle cx="11" cy="11" r="8" />
+                      <path d="m21 21-4.35-4.35" />
+                    </svg>
+                  </span>
+                </div>
+
+                {/* Prev / Next buttons */}
                 <button
                   title="Previous Verse"
-                  onClick={() => window.electron.prev?.()}
+                  onClick={handlePrev}
                   style={{
-                    width: "30px",
-                    height: "30px",
+                    width: "20px",
+                    height: "20px",
+                    minWidth: "35px",
+                    minHeight: "35px",
+                    padding: "0",
                     borderRadius: "50%",
-                    fontSize: "14px",
+                    fontSize: "15px",
                     background: theme === "dark" ? "#0f0e0eff" : "#eee",
                     color: theme === "dark" ? "white" : "black",
                     border:
                       theme === "dark" ? "1px solid #555" : "1px solid #999",
                     cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxSizing: "border-box",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      theme === "dark" ? "#1a1a1a" : "#d3d3d3";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      theme === "dark" ? "#0f0e0eff" : "#eee";
                   }}
                 >
                   🡨
@@ -322,17 +446,33 @@ export default function App() {
 
                 <button
                   title="Next Verse"
-                  onClick={() => window.electron.next?.()}
+                  onClick={handleNext}
                   style={{
-                    width: "30px",
-                    height: "30px",
+                    width: "35px",
+                    height: "35px",
+                    minWidth: "35px",
+                    minHeight: "35px",
+                    padding: "0",
                     borderRadius: "50%",
-                    fontSize: "14px",
+                    fontSize: "15px",
                     background: theme === "dark" ? "#0f0e0eff" : "#eee",
                     color: theme === "dark" ? "white" : "black",
                     border:
                       theme === "dark" ? "1px solid #555" : "1px solid #999",
                     cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxSizing: "border-box",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      theme === "dark" ? "#1a1a1a" : "#d3d3d3";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      theme === "dark" ? "#0f0e0eff" : "#eee";
                   }}
                 >
                   🡪
@@ -347,6 +487,7 @@ export default function App() {
                   booksList={booksList}
                   selectedBook={selectedBook}
                   setSelectedBook={(b) => {
+                    setIsBlankMode(false); // Exit blank mode
                     setSelectedBook(b);
                     setSelectedChapter(1);
                     setSelectedVerse(1);
@@ -359,6 +500,7 @@ export default function App() {
                   count={chapterCountForSelectedBook()}
                   selectedChapter={selectedChapter}
                   setSelectedChapter={(c) => {
+                    setIsBlankMode(false); // Exit blank mode
                     setSelectedChapter(c);
                     setSelectedVerse(1);
                   }}
@@ -370,13 +512,9 @@ export default function App() {
                   count={verseCountForSelectedChapter()}
                   selectedVerse={selectedVerse}
                   setSelectedVerse={(v) => {
+                    setIsBlankMode(false); // Exit blank mode when selecting a verse
                     setSelectedVerse(v);
-                    sendToPresentation({
-                      selectedBook,
-                      selectedChapter,
-                      selectedVerse: v,
-                      settings,
-                    });
+                    addToRecent(selectedBook, selectedChapter, v);
                   }}
                   verseScrollRef={verseScrollRef}
                   theme={theme}
@@ -390,24 +528,19 @@ export default function App() {
               {/* Recent list */}
               <div style={{ marginTop: 20 }}>
                 <RecentList
-                  recent={[]}
+                  recent={recent}
                   onSelect={(ref) => {
+                    setIsBlankMode(false); // Exit blank mode
                     const parsed = parseReference(ref);
                     if (!parsed) return;
-                    const bookName = findBookName(parsed.book);
+                    const bookName = findBook(parsed.rawBook || parsed.book); // Try both
                     if (!bookName) return;
 
-                    // 1. Update Local State
+                    // 1. Update Local State (Scroll to verify) but DO NOT SEND to presentation
                     setSelectedBook(bookName);
                     setSelectedChapter(parsed.chapter);
                     setSelectedVerse(parsed.verse);
-
-                    sendToPresentation({
-                      selectedBook: bookName, // Pass the new variable directly
-                      selectedChapter: parsed.chapter, // Pass the new variable directly
-                      selectedVerse: parsed.verse, // Pass the new variable directly
-                      settings,
-                    });
+                    // No sendToPresentation()
                   }}
                   recentScrollRef={recentScrollRef}
                   theme={theme}
@@ -432,7 +565,11 @@ export default function App() {
                   selectedBook={selectedBook}
                   selectedChapter={selectedChapter}
                   selectedVerse={selectedVerse}
-                  setSelectedVerse={setSelectedVerse}
+                  setSelectedVerse={(v) => {
+                    setIsBlankMode(false); // Exit blank mode
+                    setSelectedVerse(v);
+                    addToRecent(selectedBook, selectedChapter, v);
+                  }}
                   theme={theme}
                   sendToPresentation={sendToPresentation}
                   verseTableRef={verseTableRef}

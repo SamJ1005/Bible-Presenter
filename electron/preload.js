@@ -8,8 +8,12 @@ contextBridge.exposeInMainWorld("electron", {
 });
 
 contextBridge.exposeInMainWorld("api", {
-  // convenience: send a payload directly (same as electron.sendPresentation)
-  openPresentation: (payload) => ipcRenderer.send("send-presentation", payload),
+  // Open blank presentation (no payload needed)
+  openPresentation: () => ipcRenderer.invoke("open-blank-presentation"),
+  // Send presentation with payload
+  sendPresentation: (payload) => ipcRenderer.send("send-presentation", payload),
+  // Close presentation window
+  closePresentation: () => ipcRenderer.send("close-presentation"),
 
   // React can listen for navigation requests coming from presentation window (arrow keys)
   onNavigateNext: (cb) => {

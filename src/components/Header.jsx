@@ -4,6 +4,7 @@ export default function Header({
   activeTab,
   setActiveTab,
   openBlankPresentation,
+  closePresentation,
 }) {
   // ----- Colors for theme -----
   const bg = theme === "dark" ? "#0f0e0eff" : "#ffffff";
@@ -41,7 +42,7 @@ export default function Header({
       >
         {/* Blank + Close buttons */}
         <button
-          onClick={() => window.api.openPresentation()}
+          onClick={openBlankPresentation}
           title="Blank Presentation"
           style={buttonStyle(theme)}
           onMouseEnter={(e) => {
@@ -57,7 +58,7 @@ export default function Header({
         </button>
 
         <button
-          onClick={() => window.api.closePresentation()}
+          onClick={closePresentation}
           title="Close Presentation"
           style={buttonStyle(theme)}
           onMouseEnter={(e) => {

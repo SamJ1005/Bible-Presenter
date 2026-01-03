@@ -11,6 +11,7 @@ export default function useSearch({
   sendToPresentation: sendVerse,
   loadTamilForBook, // New prop
   selectedBook,     // New prop
+  addToRecent,      // New prop: callback to add to recent list
 }) {
   const [search, setSearch] = useState("");
 
@@ -268,6 +269,11 @@ export default function useSearch({
       selectedVerse: parsed.verse,
       tamilDataOverride,
     });
+
+    // Add to recent list on success
+    if (addToRecent) {
+      addToRecent(bookName, parsed.chapter, parsed.verse);
+    }
   }
 
   return {

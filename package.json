@@ -1,7 +1,7 @@
 {
   "name": "scripture-screen",
   "productName": "Scripture Screen",
-  "version": "1.3.1",
+  "version": "1.4.1",
   "main": "electron/main.js",
   "build": {
     "appId": "com.scripturescreen.app",
