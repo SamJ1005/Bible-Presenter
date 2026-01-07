@@ -215,7 +215,7 @@ export default function useSearch({
   }
 
   // ---------- main handler ----------
-  async function handleSearch() {
+  async function handleSearch(customSuccessAction = null) {
     const parsed = parseReference(search);
     if (!parsed)
       return error("Invalid format — try: Genesis 1:1 or Gen3 16 or 1sam3 4");
@@ -248,6 +248,13 @@ export default function useSearch({
     const maxVs = Math.max(...(chObj.verses || []).map((v) => Number(v.verse)));
     if (parsed.verse < 1 || parsed.verse > maxVs)
       return error("Invalid verse number.");
+
+    // If a custom action is provided (e.g. adding to queue), run it and skip default navigation
+    if (typeof customSuccessAction === "function") {
+      customSuccessAction(bookName, parsed.chapter, parsed.verse);
+      setSearch(""); // Explicitly clear search on queue add unique behavior
+      return;
+    }
 
     setSelectedBook(bookName);
     setSelectedChapter(parsed.chapter);

@@ -22,13 +22,13 @@ export default function Header({
         padding: "0 12px",
         fontSize: "20px",
         borderBottom: `1px solid ${border}`,
-        display: "flex",
+        display: "grid", 
+        gridTemplateColumns: "1fr auto 1fr", /* Three columns: Left, Center (Title), Right */
         alignItems: "center",
-        justifyContent: "space-between",
-        position: "relative",
         height: "60px",
         minHeight: "55px",
         flexShrink: 0,
+        minWidth: "600px" /* Prevent total crushing */
       }}
     >
       {/* LEFT SIDE */}
@@ -38,6 +38,7 @@ export default function Header({
           gap: "20px",
           alignItems: "center",
           height: "100%",
+          justifySelf: "start"
         }}
       >
         {/* Blank + Close buttons */}
@@ -95,7 +96,7 @@ export default function Header({
           )}
           {renderTab(
             "prelisted",
-            "Pre-Listed",
+            "Playlist",
             activeTab,
             setActiveTab,
             tabActiveBg,
@@ -105,58 +106,56 @@ export default function Header({
         </div>
       </div>
 
-      {/* CENTER TITLE */}
+      {/* CENTER TITLE - Now in grid flow, won't overlap */}
       <div
         style={{
-          position: "absolute",
-          left: "50%",
-          transform: "translateX(-50%)",
           fontSize: "26px",
           fontWeight: "500",
           whiteSpace: "nowrap",
           color: theme === "dark" ? "#00ff99" : "#003399",
+          textAlign: "center"
         }}
       >
         Scripture Screen
       </div>
 
       {/* RIGHT THEME TOGGLE */}
-      <div
-        title="Switch Theme"
-        onClick={toggleTheme}
-        style={{
-          width: "52px",
-          height: "28px",
-          background: theme === "dark" ? "#2b2b2b" : "#dddddd",
-          borderRadius: "50px",
-          cursor: "pointer",
-          padding: "2px",
-          display: "flex",
-          alignItems: "center",
-          position: "absolute",
-          right: "15px",
-          top: "16px",
-          transition: "background 0.3s ease",
-          boxSizing: "border-box",
-        }}
-      >
-        <div
-          style={{
-            width: "24px",
-            height: "24px",
-            borderRadius: "50%",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            fontSize: "18px",
-            transform: `translateX(${
-              theme === "dark" ? "24px" : "0px"
-            }) rotate(${theme === "dark" ? "360deg" : "0deg"})`,
-            transition: "0.35s",
-          }}
-        >
-          {theme === "dark" ? "🌛" : "🌞"}
-        </div>
+      <div style={{justifySelf: "end", display: "flex", alignItems: "center"}}>
+          <div
+            title="Switch Theme"
+            onClick={toggleTheme}
+            style={{
+              width: "52px",
+              height: "28px",
+              background: theme === "dark" ? "#2b2b2b" : "#dddddd",
+              borderRadius: "50px",
+              cursor: "pointer",
+              padding: "2px",
+              display: "flex",
+              alignItems: "center",
+              position: "relative",
+              transition: "background 0.3s ease",
+              boxSizing: "border-box",
+            }}
+          >
+            <div
+              style={{
+                width: "24px",
+                height: "24px",
+                borderRadius: "50%",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                fontSize: "18px",
+                transform: `translateX(${
+                  theme === "dark" ? "24px" : "0px"
+                }) rotate(${theme === "dark" ? "360deg" : "0deg"})`,
+                transition: "0.35s",
+              }}
+            >
+              {theme === "dark" ? "🌛" : "🌞"}
+            </div>
+          </div>
       </div>
     </header>
   );

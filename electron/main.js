@@ -29,8 +29,12 @@ function createMainWindow() {
 
   const iconPath = getIconPath();
 
+  // Calculate 50% of screen dimensions for minimum size constraint
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenW, height: screenH } = primaryDisplay.workAreaSize;
+
   mainWin = new BrowserWindow({
-    width: 1200,
+    width: 1300,
     height: 800,
     show: false, // IMPORTANT: show only when ready
     icon: iconPath,
@@ -142,24 +146,61 @@ ipcMain.handle("open-blank-presentation", () => {
   return true;
 });
 
+// Track which file is currently loaded
+let currentPresentationFile = "presentation.html";
+
+function loadPresentationFile(filename) {
+  if (!presentationWin || presentationWin.isDestroyed()) return;
+  if (currentPresentationFile === filename) return; // Already loaded
+
+  currentPresentationFile = filename;
+  presentationWin.loadFile(path.join(__dirname, filename));
+}
+
 ipcMain.on("send-presentation", (_, payload) => {
   currentPresentationPayload = payload;
 
+  const targetFile = (payload && payload.viewMode === "prelist") 
+    ? "presentation_prelist.html" 
+    : "presentation.html";
+
   if (!presentationWin || presentationWin.isDestroyed()) {
-    createPresentationWindow();
-  } else {
-    // Check if window is ready before sending
-    if (presentationWin.webContents.isLoading()) {
-      // Wait for DOM to be ready
+    createPresentationWindow(); // Will load default "presentation.html" initially
+    // We need to override if target is prelist
+    if (targetFile !== "presentation.html") {
+        // Wait for window creation loop or just set it:
+        // Actually createPresentationWindow hardcodes loadFile.
+        // Let's modify createPresentationWindow to read a global or pass arg?
+        // Easier: Just let it load default, then swap. 
+        // But better: use the variable.
+        currentPresentationFile = "presentation.html"; // reset default
+    }
+  } 
+  
+  // Ensure window exists
+  if (!presentationWin || presentationWin.isDestroyed()) return;
+
+  // Check if we need to switch file
+  if (currentPresentationFile !== targetFile) {
+     loadPresentationFile(targetFile);
+     // loadFile is async-ish, need to wait for dom-ready again
+     presentationWin.webContents.once("dom-ready", () => {
+        setTimeout(() => {
+          presentationWin.webContents.send("display-verse", payload);
+        }, 100);
+     });
+     return;
+  }
+
+  // Same file, standard send
+  if (presentationWin.webContents.isLoading()) {
       presentationWin.webContents.once("dom-ready", () => {
         setTimeout(() => {
           presentationWin.webContents.send("display-verse", payload);
         }, 100);
       });
-    } else {
-      // Window is already loaded, send immediately
+  } else {
       presentationWin.webContents.send("display-verse", payload);
-    }
   }
 });
 

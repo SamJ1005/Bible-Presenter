@@ -2,8 +2,8 @@ import React, { useRef, useEffect, useState, useCallback } from "react";
 import { Toaster } from "react-hot-toast";
 import { saveMemory, loadMemory } from "./hooks/useLocalMemory";
 import "./index.css";
-import Settings from "./components/Settings"; // existing
-import Header from "./components/Header"; // if you have Header.jsx under components
+import Settings from "./components/Settings";
+import Header from "./components/Header";
 
 import useTheme from "./hooks/useTheme";
 import useBible from "./hooks/useBible";
@@ -16,6 +16,7 @@ import ChapterList from "./components/ChapterList";
 import VerseList from "./components/VerseList";
 import RecentList from "./components/RecentList";
 import ChapterTable from "./components/ChapterTable";
+import Prelist from "./components/Prelist";
 
 export default function App() {
   const [settings, setSettings] = useState(() =>
@@ -39,6 +40,22 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("bible");
   const [isBlankMode, setIsBlankMode] = useState(false); // Track if presentation is in blank mode
   const [recent, setRecent] = useState([]); // Session-only recent list
+  
+  /* ITEM STATE */
+  const [prelistedItems, setPrelistedItems] = useState(() => {
+     const loaded = loadMemory("prelistedItems", []);
+     // Filter out stale blob URLs (they expire on reload)
+     return loaded.filter(item => {
+        if(item.type === 'file' && item.url && item.url.startsWith('blob:')) {
+            return false;
+        }
+        return true;
+     });
+  });
+
+  useEffect(() => {
+    saveMemory("prelistedItems", prelistedItems);
+  }, [prelistedItems]);
 
   const addToRecent = useCallback((book, chapter, verse) => {
     setRecent((prev) => {
@@ -252,6 +269,139 @@ export default function App() {
     }, 100);
   }, [handleSearch]);
 
+  // Handler for adding to prelist queue (passed to useSearch's handleSearch)
+  const addToQueue = useCallback(async (book, chapter, verse) => {
+    // 1. Fetch Tamil text for this verse specifically
+    let tamilText = "";
+    try {
+      const filename = encodeURIComponent(book) + ".json";
+      const res = await fetch(`./bible/tamil/${filename}`);
+      if (res.ok) {
+        const data = await res.json();
+        // data structure match useBible's getTamilVerse logic
+        if (Array.isArray(data.chapters)) {
+          const ch = data.chapters.find((c) => Number(c.chapter) === Number(chapter));
+          const v = ch?.verses?.find((vv) => Number(vv.verse) === Number(verse));
+          if (v) tamilText = v.text;
+        } else if (data[chapter] && Array.isArray(data[chapter].verses)) {
+             const v = data[chapter].verses.find((vv) => Number(vv.verse) === Number(verse));
+             if (v) tamilText = v.text;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch Tamil for queue:", err);
+    }
+
+    setPrelistedItems((prev) => [
+      ...prev,
+      { book, chapter, verse, id: Date.now() + Math.random(), tamilText },
+    ]);
+    toast.success(`Added ${book} ${chapter}:${verse} to queue`);
+  }, []);
+
+  const removeFromQueue = useCallback((id) => {
+    setPrelistedItems((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
+  const clearQueue = useCallback(() => {
+    if (window.confirm("Are you sure you want to clear the queue?")) {
+      setPrelistedItems([]);
+    }
+  }, []);
+
+  const updateQueueItem = useCallback((id, updates) => {
+    setPrelistedItems((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          return { ...item, ...updates };
+        }
+        return item;
+      })
+    );
+  }, []);
+
+  // Update reference and re-fetch Tamil
+  const updateQueueReference = useCallback(async (id, book, chapter, verse) => {
+      let tamilText = "";
+      try {
+        const filename = encodeURIComponent(book) + ".json";
+        const res = await fetch(`./bible/tamil/${filename}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.chapters)) {
+            const ch = data.chapters.find((c) => Number(c.chapter) === Number(chapter));
+            const v = ch?.verses?.find((vv) => Number(vv.verse) === Number(verse));
+            if (v) tamilText = v.text;
+          } else if (data[chapter] && Array.isArray(data[chapter].verses)) {
+               const v = data[chapter].verses.find((vv) => Number(vv.verse) === Number(verse));
+               if (v) tamilText = v.text;
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch Tamil for queue update:", err);
+      }
+      
+      setPrelistedItems((prev) =>
+        prev.map((item) => {
+          if (item.id === id) {
+            // Update ref AND Tamil, clear manual overrides if any (optional, but safer to assume ref change resets content)
+            // But we might want to keep highlighting? "Style Only" highlighting depends on content matching?
+            // If text changes, highlighting marks might be misaligned. Resetting HTML is safer.
+            return { 
+                ...item, 
+                book, chapter, verse, tamilText, 
+                tamilHtml: undefined, englishHtml: undefined 
+            };
+          }
+          return item;
+        })
+      );
+  }, []);
+
+  const moveQueueItem = useCallback((fromIndex, toIndex) => {
+    setPrelistedItems((prev) => {
+      const newItems = [...prev];
+      if (fromIndex < 0 || fromIndex >= newItems.length || toIndex < 0 || toIndex >= newItems.length) return prev;
+      
+      const [movedItem] = newItems.splice(fromIndex, 1);
+      newItems.splice(toIndex, 0, movedItem);
+      return newItems;
+    });
+  }, []);
+
+  const addFileToQueue = useCallback((fileObj) => {
+    // Limit large files for storage safety
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+        const newItem = {
+          id: Date.now() + Math.random(),
+          type: 'file',
+          name: fileObj.name,
+          fileType: fileObj.type,
+          url: e.target.result, // BASE64 DATA URL (Persistent)
+          path: fileObj.path || "" 
+        };
+        setPrelistedItems((prev) => [...prev, newItem]);
+    };
+    
+    reader.onerror = (err) => {
+        console.error("Failed to read file", err);
+    };
+
+    if (fileObj) {
+        reader.readAsDataURL(fileObj);
+    }
+  }, []);
+
+  const handlePrelistSearch = useCallback(() => {
+    handleSearch(addToQueue);
+    // Keep focus
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 100);
+  }, [handleSearch, addToQueue]);
+
   // Register IPC listeners for keyboard shortcuts
   useEffect(() => {
     const cleanupNext = window.api?.onNavigateNext?.(handleNext);
@@ -296,7 +446,7 @@ export default function App() {
           {/* MAIN LAYOUT: Sidebar + content */}
           <div
             style={{
-              display: "flex",
+              display: "flex", // Nested flex to ensure full height?
               gap: "20px",
               width: "100%",
               flex: 1,
@@ -324,20 +474,22 @@ export default function App() {
               {/* Search input + previous/next buttons */}
               <div
                 style={{
-                  display: "flex",
-                  gap: "10px",
+                  display: "flex", // Keep single row
+                  gap: "8px", // Reduced gap
                   alignItems: "center",
                   width: "100%",
+                  overflow: "hidden"
                 }}
               >
                 {/* Search bar with icon */}
                 {/* Search bar container with focus styling */}
                 <div
                   style={{
-                    width: "65%",
+                    flex: 1, 
+                    minWidth: "0", // CRITICAL: Allow container to shrink
                     display: "flex",
                     alignItems: "center",
-                    padding: "10px 12px",
+                    padding: "8px 10px", // Compact padding
                     borderRadius: "6px",
                     transition:
                       "background 0.25s ease-in-out, color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out",
@@ -349,7 +501,7 @@ export default function App() {
                   <input
                     ref={searchInputRef}
                     className="search-input"
-                    placeholder="Reference 1Chr 3 2"
+                    placeholder="Reference..." // Shortened placeholder
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     // Remove default outline to avoid double focus visual
@@ -368,6 +520,7 @@ export default function App() {
                     }}
                     style={{
                       flex: 1,
+                      minWidth: "0", // CRITICAL: Allow input to shrink
                       border: "none",
                       outline: "none",
                       background: "transparent",
@@ -414,8 +567,8 @@ export default function App() {
                   title="Previous Verse"
                   onClick={handlePrev}
                   style={{
-                    width: "20px",
-                    height: "20px",
+                    width: "35px", /* Increased touch target */
+                    height: "35px",
                     minWidth: "35px",
                     minHeight: "35px",
                     padding: "0",
@@ -448,7 +601,7 @@ export default function App() {
                   title="Next Verse"
                   onClick={handleNext}
                   style={{
-                    width: "35px",
+                    width: "35px", /* Increased touch target */
                     height: "35px",
                     minWidth: "35px",
                     minHeight: "35px",
@@ -588,15 +741,28 @@ export default function App() {
       )}
 
       {activeTab === "prelisted" && (
-        <div
-          style={{
-            padding: "20px",
-            fontSize: "22px",
-            color: theme === "dark" ? "white" : "black",
-          }}
-        >
-          Pre-Listed items coming soon…
-        </div>
+        <Prelist
+          theme={theme}
+          search={search}
+          setSearch={setSearch}
+          handleSearch={handlePrelistSearch}
+          handleNext={handleNext}
+          handlePrev={handlePrev}
+          searchInputRef={searchInputRef}
+          prelistedItems={prelistedItems}
+          bibleData={kjvData || englishBible}
+          settings={settings}
+          removeFromQueue={removeFromQueue}
+          clearQueue={clearQueue}
+          updateQueueItem={updateQueueItem}
+          updateQueueReference={updateQueueReference}
+          moveQueueItem={moveQueueItem}
+          setPrelistedItems={setPrelistedItems}
+          addFileToQueue={addFileToQueue}
+          findBook={findBook}
+          parseReference={parseReference}
+          sendToPresentation={sendToPresentation}
+        />
       )}
     </div>
   );
