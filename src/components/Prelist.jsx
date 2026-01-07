@@ -650,6 +650,7 @@ export default function Prelist({
                     <Reorder.Item
                       key={item.id}
                       value={item}
+                      onClick={() => !isEditing && handlePresent(item)}
                       dragListener={!isEditing} /* Disable drag while typing */
                       className={`queue-item ${isActive ? 'active' : ''}`}
                       style={{
@@ -838,6 +839,7 @@ export default function Prelist({
               return (
                 <div
                   key={item.id || i}
+                  onClick={() => { if(!isEditing) { handleItemClick(item.id); handlePresent(item); } }}
                   ref={el => itemRefs.current[item.id] = el}
                   style={{
                     background: theme === "dark" ? "#1e1e1e" : "#fff",
