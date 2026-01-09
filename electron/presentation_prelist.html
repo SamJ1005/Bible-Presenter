@@ -88,6 +88,28 @@ body {
   font-size: 1.2vw;
   opacity: 0.35;
 }
+/* ---------- MEDIA ---------- */
+#mediaArea {
+  flex: 1;
+  display: none; /* Hidden by default */
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 92%; /* subtract ref area height roughly */
+  overflow: hidden;
+}
+
+#mediaImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; 
+}
+
+#mediaVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 </style>
 </head>
 
@@ -103,6 +125,11 @@ body {
       <div id="tamilText"></div>
       <div id="englishText"></div>
     </div>
+  </div>
+  
+  <div id="mediaArea">
+      <img id="mediaImage" style="display:none;" />
+      <video id="mediaVideo" style="display:none;" controls autoplay loop></video>
   </div>
 
   <div id="watermark"></div>
@@ -166,18 +193,78 @@ function fitReference(el) {
 
 function updateVerse(data) {
   const ref = document.getElementById("reference");
+  const refArea = document.getElementById("referenceArea");
   const tamil = document.getElementById("tamilText");
   const eng = document.getElementById("englishText");
   const box = document.getElementById("verseBox");
   const verseArea = document.getElementById("verseArea");
+  
+  const mediaArea = document.getElementById("mediaArea");
+  const imgEl = document.getElementById("mediaImage");
+  const vidEl = document.getElementById("mediaVideo");
 
   // Handle blank presentation (null data)
   if (!data) {
     ref.innerText = "";
     tamil.innerText = "";
     eng.innerText = "";
+    mediaArea.style.display = "none";
+    verseArea.style.display = "flex";
+    refArea.style.display = "flex"; 
+    // Stop video
+    vidEl.pause(); 
+    vidEl.src = "";
     return;
   }
+  
+  // ----- FILE MODE -----
+  if (data.type === 'file') {
+      // Hide Text areas
+      verseArea.style.display = "none";
+      refArea.style.display = "none"; // Hide reference too? Or show filename? Usually fullscreen media hides all.
+      
+      // Show Media area
+      mediaArea.style.display = "flex";
+      mediaArea.style.background = data.presentationBgColor || "black"; // Optional bg support
+      
+      let isImage = data.fileType && data.fileType.startsWith("image");
+      let isVideo = data.fileType && data.fileType.startsWith("video");
+
+      // Fallback to extension check if mime type failed or is generic
+      if (!isImage && !isVideo && data.name) {
+          const lower = data.name.toLowerCase();
+          if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp') || lower.endsWith('.bmp')) {
+              isImage = true;
+          } else if (lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.ogg') || lower.endsWith('.mov')) {
+              isVideo = true;
+          }
+      }
+      
+      if (isImage) {
+          imgEl.src = data.url;
+          imgEl.style.display = "block";
+          vidEl.style.display = "none";
+          vidEl.pause();
+      } else if (isVideo) {
+          vidEl.src = data.url;
+          vidEl.style.display = "block";
+          imgEl.style.display = "none";
+          // Attempt autoplay
+          vidEl.play().catch(e => console.log("Autoplay blocked", e));
+      } else {
+          // Unsupported or just filename
+          imgEl.style.display = "none";
+          vidEl.style.display = "none";
+      }
+      return;
+  }
+
+  // ----- BIBLE MODE -----
+  // Reset visibility
+  mediaArea.style.display = "none";
+  vidEl.pause();
+  verseArea.style.display = "flex";
+  refArea.style.display = "flex";
 
   ref.innerText = data.index || "";
   // USE innerHTML for Prelist to support formatting
@@ -185,11 +272,9 @@ function updateVerse(data) {
   eng.innerHTML = data.englishText || "";
 
   fitReference(ref);
-
-  // Check Text Length for font sizing
-  // For HTML content, length might be misleading due to tags, but it's a rough proxy which is usually fine
+  // ... rest of font sizing logic ...
+  
   const type = getVerseType(data.tamilText? data.tamilText.replace(/<[^>]*>/g, '') : "", data.englishText? data.englishText.replace(/<[^>]*>/g, '') : "");
-  const refArea = document.getElementById("referenceArea");
   
   // Adjust layout for small verses - reduce spacing and center vertically
   if (type === "small") {

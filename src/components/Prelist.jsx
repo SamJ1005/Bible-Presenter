@@ -4,12 +4,10 @@ import { Reorder, useDragControls } from "framer-motion";
 import "./Prelist.css";
 import { parseReferenceIncludeRange } from "../utils/referenceParser";
 
-export default function Prelist({
+const Prelist = React.forwardRef(({
   theme,
-  search,
-  setSearch,
   handleSearch,
-  handleNext,
+  handleNext, // From parent (unused or override?)
   handlePrev,
   searchInputRef,
   prelistedItems = [],
@@ -19,12 +17,13 @@ export default function Prelist({
   clearQueue,
   updateQueueReference,
   moveQueueItem,
+  updateQueueItem,
   addFileToQueue,
   findBook,
   parseReference,
   setPrelistedItems,
-  updateQueueItem
-  }) {
+  sendToPresentation
+  }, ref) => {
   // Local state for sidebar editing (reference only)
   const [editingRefId, setEditingRefId] = useState(null);
   const [editRefValue, setEditRefValue] = useState("");
@@ -51,33 +50,64 @@ export default function Prelist({
   // Use unique ID generator to prevent key collision if user adds same verse twice?
   // Ideally ID is handled at creation. 
   
-  const handlePresent = (item) => {
+  const handlePresent = async (item) => {
+    // Block presentation if editing
+    if (editingRefId || editingTextId) return;
+
     if(!sendToPresentation) return;
 
     // Handle "File" type or other legacy types
-    if(item.type === 'file') { // Assuming future file support or legacy check
-        // ... (File logic if needed, currently not fully implemented in snippet)
+    if(item.type === 'file') { 
+        // Prefer File Path (file://) for performance/IPC, fallback to Base64
+        const mediaSrc = item.path ? `file://${item.path.replace(/\\/g, '/')}` : item.url;
+        
+        sendToPresentation({
+            viewMode: 'prelist',
+            type: 'file',
+            fileData: {
+                url: mediaSrc,
+                fileType: item.fileType,
+                name: item.name
+            },
+            settings
+        });
         return;
     }
 
     // MULTI-VERSE Logic (from Queue)
     if(item.isMulti && item.versesPayload && item.versesPayload.length > 0) {
          // >1 Verses: Show ONLY Tamil (joined)
-         const finalTamil = item.versesPayload.map(i => i.tam).filter(t=>t).join("\n");
-         // English is empty for multi-view as per requirement
-         const finalEnglish = ""; 
+         // Check for Override (Edited HTML) first
+         let finalTamil = item.tamilHtml;
          
+         if (!finalTamil) {
+             // Fallback to generated content
+             // FIX: Use <br/> instead of \n because presentation uses innerHTML
+             finalTamil = item.versesPayload.map(i => `${i.v}. ${i.tam}`).join("<br/><br/>");
+         }
+         
+         // English is empty for multi-verse as per requirement to fit screen,
+         // UNLESS Tamil is missing/failed, then show English as fallback.
+         let finalEnglish = ""; 
+         if (!finalTamil || finalTamil.trim() === "") {
+             if (item.englishHtml) {
+                 finalEnglish = item.englishHtml;
+             } else {
+                 finalEnglish = item.versesPayload.map(i => `${i.v}. ${i.eng}`).join("<br/><br/>");
+             }
+         }
+
          const indexStr = `${item.book} ${item.chapter}:${item.verse}`; // verse is "1,2" string here
 
          sendToPresentation({
              selectedBook: item.book,
              selectedChapter: item.chapter,
-             selectedVerse: item.verseNum || item.verse, // fallback
+             selectedVerse: item.verse, 
              tamilText: finalTamil,
              englishText: finalEnglish,
              settings,
              index: indexStr,
-             viewMode: 'prelist'
+             viewMode: 'prelist' 
          });
          return;
     }
@@ -93,14 +123,40 @@ export default function Prelist({
         englishText = v ? v.text : "";
     }
 
-    const tamilText = item.tamilHtml || item.tamilText || "";
+    let tamilText = item.tamilHtml || item.tamilText || "";
+
+    // FAILSAFE: If Tamil Text is missing (e.g. data corruption or legacy item), fetch it NOW
+    if (!tamilText) {
+        try {
+             // We can't use existing 'tamilBook' state as that might correspond to Bible tab
+             // We must fetch independent of everything else
+             const res = await fetch(`./bible/tamil/${encodeURIComponent(item.book)}.json`);
+             if (res.ok) {
+                 const data = await res.json();
+                 // Confirm book name again to be paranoid
+                 if (data?.book?.english?.toLowerCase() === item.book.toLowerCase()) {
+                     // Extract verse
+                     let foundVerse = null;
+                     if(Array.isArray(data.chapters)) {
+                         const ch = data.chapters.find(c => Number(c.chapter) === Number(item.chapter));
+                         foundVerse = ch?.verses?.find(v => Number(v.verse) === Number(item.verse));
+                     } else if (data[item.chapter] && data[item.chapter].verses) {
+                         foundVerse = data[item.chapter].verses.find(v => Number(v.verse) === Number(item.verse));
+                     }
+                     if (foundVerse) tamilText = foundVerse.text;
+                 }
+             }
+        } catch(e) {
+            console.error("Ad-hoc fetch failed in handlePresent", e);
+        }
+    }
 
     sendToPresentation({
          selectedBook: item.book,
          selectedChapter: item.chapter,
          selectedVerse: item.verse,
-         tamilText,
-         englishText,
+         tamilText,   // EXPLICIT PASS
+         englishText, // EXPLICIT PASS
          settings,
          index: `${item.book} ${item.chapter}:${item.verse}`,
          viewMode: 'prelist'
@@ -108,12 +164,11 @@ export default function Prelist({
   };
 
   const navigateList = (direction) => {
+    if (editingRefId || editingTextId) return;
     if (prelistedItems.length === 0) return;
     
     let nextIndex = 0;
     if (activeId === null) {
-      // If none selected, select first or last depending on direction? 
-      // Usually select first.
       nextIndex = 0;
     } else {
       const currentIndex = prelistedItems.findIndex(item => item.id === activeId);
@@ -126,14 +181,21 @@ export default function Prelist({
     }
 
     // Bounds check
-    if (nextIndex < 0) nextIndex = 0; // Clamp or wrap? Clamp usually better for lists.
+    if (nextIndex < 0) nextIndex = 0; 
     if (nextIndex >= prelistedItems.length) nextIndex = prelistedItems.length - 1;
 
     const nextItem = prelistedItems[nextIndex];
     if (nextItem) {
         handleItemClick(nextItem.id);
+        handlePresent(nextItem); // Auto-present on navigation
     }
   };
+
+  // Expose navigation to parent
+  React.useImperativeHandle(ref, () => ({
+      goNext: () => navigateList('next'),
+      goPrev: () => navigateList('prev')
+  }));
 
   // Keyboard Navigation
   useEffect(() => {
@@ -250,9 +312,11 @@ export default function Prelist({
     setEditingTextId(null);
   }
 
-  // Enhanced Search Handler for Prelist - Adds to Queue instead of Presenting
+  // Local Search State (independent of Bible Tab)
+  const [localSearch, setLocalSearch] = useState("");
+
   const handleSearchOverride = async () => {
-       const parsed = parseReferenceIncludeRange(search);
+       const parsed = parseReferenceIncludeRange(localSearch);
        
        if(!parsed) {
            return toast.error("Invalid Reference. Try 'Gen 1:1', 'Gen 1:1-3', or 'Gen 1:1,3'");
@@ -292,7 +356,18 @@ export default function Prelist({
        let tamilBook = null;
        try {
            const res = await fetch(`./bible/tamil/${encodeURIComponent(bookName)}.json`);
-           if(res.ok) tamilBook = await res.json();
+           if(res.ok) {
+               const data = await res.json();
+               // Validate data matches bookName to prevent "Genesis default" bug
+               const loadedName = data?.book?.english;
+               if(loadedName && loadedName.toLowerCase() === bookName.toLowerCase()) {
+                   tamilBook = data;
+               } else {
+                   console.warn(`Tamil content mismatch: Requested '${bookName}' but got '${loadedName}'`);
+                   // If mismatch, try fetching without encoding or exact match? 
+                   // Validating prevents showing wrong text.
+               }
+           }
        } catch(e) { console.error("Tamil fetch failed", e); }
 
        const versesPayload = [];
@@ -362,10 +437,21 @@ export default function Prelist({
        };
 
        // Add to Queue
-       setPrelistedItems(prev => [...prev, newItem]);
+       // Add to Queue (Below active item if exists)
+       setPrelistedItems(prev => {
+           if (activeId) {
+               const idx = prev.findIndex(item => item.id === activeId);
+               if (idx !== -1) {
+                   const newArr = [...prev];
+                   newArr.splice(idx + 1, 0, newItem);
+                   return newArr;
+               }
+           }
+           return [...prev, newItem];
+       });
        
        toast.success(`Added: ${bookName} ${parsed.chapter}:${newItem.verse}`);
-       setSearch(""); // Clear for next
+       setLocalSearch(""); // Clear for next
        
        // Keep focus
        setTimeout(() => {
@@ -429,8 +515,8 @@ export default function Prelist({
                 ref={searchInputRef}
                 className="search-input"
                 placeholder="Reference 1chr 33 12" // Shortened placeholder
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
                 // Remove default outline to avoid double focus visual
                 onKeyDown={(e) => {
                   if (
@@ -760,7 +846,9 @@ export default function Prelist({
                     <div
                       key={item.id || i}
                       ref={el => itemRefs.current[item.id] = el}
+                      onClick={() => handlePresent(item)}
                       style={{
+                        cursor: "pointer",
                         background: theme === "dark" ? "#1e1e1e" : "#fff",
                         padding: "10px",
                         borderRadius: "8px",
@@ -870,7 +958,7 @@ export default function Prelist({
                     {/* Edit Button or Toolbar */}
                     {!isEditing ? (
                         <button
-                          onClick={() => startEditingText(item)}
+                          onClick={(e) => { e.stopPropagation(); startEditingText(item); }}
                           title="Edit Formatting"
                           style={{
                               cursor: 'pointer',
@@ -971,4 +1059,6 @@ export default function Prelist({
         </div>
       </div>
   );
-}
+});
+
+export default Prelist;

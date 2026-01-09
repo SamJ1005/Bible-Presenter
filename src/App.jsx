@@ -131,6 +131,7 @@ export default function App() {
   const recentScrollRef = useRef(null);
   const verseTableRef = useRef(null);
   const searchInputRef = useRef(null); // Ref for search input to maintain focus
+  const prelistRef = useRef(null);
 
   // load initial data on mount (same behaviour)
   useEffect(() => {
@@ -212,9 +213,16 @@ export default function App() {
 
   // Navigation handlers as callbacks so they can be reused by buttons and IPC
   const handleNext = useCallback(() => {
-    // Don't navigate if in blank mode
-    if (isBlankMode) return;
+    // PRELIST NAVIGATION override
+    if(activeTab === 'prelisted' && prelistRef.current) {
+        prelistRef.current.goNext();
+        return;
+    }
 
+    // Don't navigate if in blank mode (Bible tab)
+    if (isBlankMode) return;
+    
+    // Standard Bible Tab Logic
     const versesInChapter = verseCountForSelectedChapter();
     let next = Number(selectedVerse) + 1;
     if (next > versesInChapter) next = 1;
@@ -226,6 +234,7 @@ export default function App() {
       settings,
     });
   }, [
+    activeTab,
     isBlankMode,
     selectedBook,
     selectedChapter,
@@ -236,9 +245,16 @@ export default function App() {
   ]);
 
   const handlePrev = useCallback(() => {
-    // Don't navigate if in blank mode
+     // PRELIST NAVIGATION override
+    if(activeTab === 'prelisted' && prelistRef.current) {
+        prelistRef.current.goPrev();
+        return;
+    }
+
+    // Don't navigate if in blank mode (Bible tab)
     if (isBlankMode) return;
 
+    // Standard Bible Tab Logic
     const versesInChapter = verseCountForSelectedChapter();
     let prev = Number(selectedVerse) - 1;
     if (prev < 1) prev = versesInChapter || 1;
@@ -250,6 +266,7 @@ export default function App() {
       settings,
     });
   }, [
+    activeTab,
     isBlankMode,
     selectedBook,
     selectedChapter,
@@ -742,9 +759,8 @@ export default function App() {
 
       {activeTab === "prelisted" && (
         <Prelist
+          ref={prelistRef}
           theme={theme}
-          search={search}
-          setSearch={setSearch}
           handleSearch={handlePrelistSearch}
           handleNext={handleNext}
           handlePrev={handlePrev}

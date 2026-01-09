@@ -180,12 +180,15 @@ function updateVerse(data) {
   }
 
   ref.innerText = data.index || "";
-  tamil.innerText = data.tamilText || "";
-  eng.innerText = data.englishText || "";
+  tamil.innerHTML = data.tamilText || "";
+  eng.innerHTML = data.englishText || "";
 
   fitReference(ref);
 
-  const type = getVerseType(data.tamilText, data.englishText);
+  const type = getVerseType(
+    data.tamilText ? data.tamilText.replace(/<[^>]*>/g, "") : "", 
+    data.englishText ? data.englishText.replace(/<[^>]*>/g, "") : ""
+  );
   const refArea = document.getElementById("referenceArea");
   
   // Adjust layout for small verses - reduce spacing and center vertically
