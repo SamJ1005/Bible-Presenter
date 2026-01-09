@@ -59,9 +59,14 @@ const Prelist = React.forwardRef(({
     // Handle "File" type or other legacy types
     if(item.type === 'file') { 
         // Prefer File Path (file://) for performance/IPC, fallback to Base64
-        const mediaSrc = item.path ? `file://${item.path.replace(/\\/g, '/')}` : item.url;
-        
-        sendToPresentation({
+        let mediaSrc = item.url;
+
+        if (item.path) {
+          const fixedPath = item.path.replace(/\\/g, "/");
+          mediaSrc = `file:///${fixedPath}`;
+        }
+
+        const payload = {
             viewMode: 'prelist',
             type: 'file',
             fileData: {
@@ -70,7 +75,9 @@ const Prelist = React.forwardRef(({
                 name: item.name
             },
             settings
-        });
+        };
+        console.log('[PRELIST.JSX] Sending file payload:', payload);
+        sendToPresentation(payload);
         return;
     }
 

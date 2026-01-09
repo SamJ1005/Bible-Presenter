@@ -98,6 +98,7 @@ function createPresentationWindow() {
       nodeIntegration: false,
       sandbox: false,
     },
+    webSecurity: false,
   });
 
   presentationWin.setIcon(iconPath);
@@ -158,6 +159,7 @@ function loadPresentationFile(filename) {
 }
 
 ipcMain.on("send-presentation", (_, payload) => {
+  console.log('[MAIN] Received presentation payload:', JSON.stringify(payload, null, 2));
   currentPresentationPayload = payload;
 
   const targetFile = (payload && payload.viewMode === "prelist") 
