@@ -13,6 +13,7 @@ dist-ssr
 *.local
 
 # Electron / Vite builds
+Version_1.4/
 dist/
 build/
 out/
@@ -20,6 +21,7 @@ release/
 *.exe
 *.dmg
 *.AppImage
+*.png
 
 # Editor directories and files
 .vscode/*
