@@ -170,11 +170,6 @@ ipcMain.on("send-presentation", (_, payload) => {
     createPresentationWindow(); // Will load default "presentation.html" initially
     // We need to override if target is prelist
     if (targetFile !== "presentation.html") {
-        // Wait for window creation loop or just set it:
-        // Actually createPresentationWindow hardcodes loadFile.
-        // Let's modify createPresentationWindow to read a global or pass arg?
-        // Easier: Just let it load default, then swap. 
-        // But better: use the variable.
         currentPresentationFile = "presentation.html"; // reset default
     }
   } 
@@ -182,7 +177,6 @@ ipcMain.on("send-presentation", (_, payload) => {
   // Ensure window exists
   if (!presentationWin || presentationWin.isDestroyed()) return;
 
-  // Check if we need to switch file
   if (currentPresentationFile !== targetFile) {
      loadPresentationFile(targetFile);
      // loadFile is async-ish, need to wait for dom-ready again

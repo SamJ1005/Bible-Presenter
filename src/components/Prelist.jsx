@@ -119,7 +119,6 @@ const Prelist = React.forwardRef(({
          return;
     }
 
-    // STANDARD SINGLE VERSE Logic
     let englishText = "";
     if (item.englishHtml) {
         englishText = item.englishHtml;
