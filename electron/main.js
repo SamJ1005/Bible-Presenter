@@ -1,5 +1,5 @@
 // electron/main.js
-const { app, BrowserWindow, ipcMain, screen } = require("electron");
+const { app, BrowserWindow, ipcMain, screen, Menu } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const bibleKJV = require("./assets/bible/kjv.json"); 
@@ -106,6 +106,10 @@ function createPresentationWindow() {
   presentationWin.loadFile(
     path.join(__dirname, "presentation.html")
   );
+  
+  // Reset file tracker since we're loading presentation.html
+  currentPresentationFile = "presentation.html";
+  console.log('[MAIN] Created presentation window, loaded:', currentPresentationFile);
 
   // Wait for DOM to be ready before sending messages
   presentationWin.webContents.once("dom-ready", () => {
@@ -127,6 +131,7 @@ function createPresentationWindow() {
 
   presentationWin.on("closed", () => {
     presentationWin = null;
+    console.log('[MAIN] Presentation window closed');
   });
 }
 
@@ -151,9 +156,16 @@ ipcMain.handle("open-blank-presentation", () => {
 let currentPresentationFile = "presentation.html";
 
 function loadPresentationFile(filename) {
-  if (!presentationWin || presentationWin.isDestroyed()) return;
-  if (currentPresentationFile === filename) return; // Already loaded
+  if (!presentationWin || presentationWin.isDestroyed()) {
+    console.log('[MAIN] Cannot load file - window destroyed');
+    return;
+  }
+  if (currentPresentationFile === filename) {
+    console.log('[MAIN] File already loaded:', filename);
+    return; // Already loaded
+  }
 
+  console.log('[MAIN] Switching from', currentPresentationFile, 'to', filename);
   currentPresentationFile = filename;
   presentationWin.loadFile(path.join(__dirname, filename));
 }
@@ -223,6 +235,50 @@ ipcMain.handle("get-verse", (_, ref) => {
 
 /* ------------ App Lifecycle ------------ */
 app.whenReady().then(() => {
+  // Create custom menu
+  const menuTemplate = [
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { 
+          role: 'zoomIn',
+          accelerator: 'CommandOrControl+='
+        },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        { type: 'separator' },
+        { role: 'close' }
+      ]
+    },
+    {
+      role: 'help',
+      submenu: [
+        {
+          label: 'Learn More',
+          click: async () => {
+            const { shell } = require('electron');
+            await shell.openExternal('https://github.com');
+          }
+        }
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(menuTemplate);
+  Menu.setApplicationMenu(menu);
+
   createMainWindow();
 
   screen.on("display-added", () => {});
