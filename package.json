@@ -13,21 +13,28 @@
     },
     "extraResources": [
       {
-        "from": "build/icon.ico",
+        "from": "public/icon.ico",
         "to": "icon.ico"
       }
     ],
     "files": [
       "dist/**",
       "electron/**",
+      "public/icon.ico",
+      "public/icon.png",
       "package.json"
     ],
     "win": {
-      "icon": "build/icon.ico",
+      "icon": "public/icon.ico",
       "target": [
-        "nsis"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
-      "signAndEditExecutable": false
+      "artifactName": "${productName} Setup ${version}.${ext}"
     }
   },
   "scripts": {
