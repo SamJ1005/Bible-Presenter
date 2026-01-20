@@ -1,0 +1,50 @@
+Bible Presenter/
+  electron/
+    main.js
+    preload.js 
+    presentation-preload.js
+    presentation.html
+    style.css
+  public/
+    fonts/(for the tamil external font is used)
+    bible/
+      kjv.json
+      tamil/
+        Genesis.json
+        Exodus.json
+        1 Corinthians.json
+        2 Corinthinas.json
+        .......
+  src/
+    App.jsx
+    main.jsx
+    App.css
+    index.css
+    hooks/
+      useBible.js
+      usePresentation.js
+      useNavigation.js
+      useTheme.js
+      useSearch.js
+    components/
+      /*Existing files*/
+      Header.jsx
+      SearchBar.jsx
+      Footer.jsx
+      Sidebar.jsx
+      VerseArea.jsx
+      Settings.jsx
+      /*Contains the name, total chapter and verses of each chapter list.*/
+      bibleBooks.js
+      bibleChapters.js
+      bibleVerses.js
+      /*New Files*/
+      ChapterList.jsx
+      VerseList.jsx
+      RecentList.jsx
+      ChapterTable.jsx
+      BookList.jsx
+  index.html
+  package.json
+  vite.config.js
+//This is just few parts of the project structure. Make sure to remember the names and locations of the file future. No change in existing files 

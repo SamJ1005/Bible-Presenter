@@ -1,0 +1,30 @@
+// electron/preload.js
+const { contextBridge, ipcRenderer } = require("electron");
+
+contextBridge.exposeInMainWorld("electron", {
+  openBlankPresentation: () => ipcRenderer.invoke("open-blank-presentation"),
+  sendPresentation: (payload) => ipcRenderer.send("send-presentation", payload),
+  getPresentationStatus: () => ipcRenderer.invoke("get-presentation-status"),
+});
+
+contextBridge.exposeInMainWorld("api", {
+  // Open blank presentation (no payload needed)
+  openPresentation: () => ipcRenderer.invoke("open-blank-presentation"),
+  // Send presentation with payload
+  sendPresentation: (payload) => ipcRenderer.send("send-presentation", payload),
+  // Close presentation window
+  closePresentation: () => ipcRenderer.send("close-presentation"),
+
+  // React can listen for navigation requests coming from presentation window (arrow keys)
+  onNavigateNext: (cb) => {
+    const listener = () => cb && cb();
+    ipcRenderer.on("navigate-next-verse", listener);
+    // return cleanup
+    return () => ipcRenderer.removeListener("navigate-next-verse", listener);
+  },
+  onNavigatePrev: (cb) => {
+    const listener = () => cb && cb();
+    ipcRenderer.on("navigate-prev-verse", listener);
+    return () => ipcRenderer.removeListener("navigate-prev-verse", listener);
+  },
+});

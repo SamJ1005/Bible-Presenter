@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Prelist Presentation</title>
+
+<meta http-equiv="Content-Security-Policy"
+  content="script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: *; media-src 'self' data: file:;" />
+
+<style>
+:root {
+  --bg: #000;
+  --text: #fff;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: Arial, sans-serif;
+}
+
+#container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- REFERENCE ---------- */
+#referenceArea {
+  height: 6%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#reference {
+  font-weight: 700;
+  text-decoration: underline;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
+/* ---------- VERSE ---------- */
+#verseArea {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 1vw;
+}
+
+#verseBox {
+  width: 100%;
+  max-height: 80%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5vh;
+  text-align: center;
+  overflow: hidden;
+}
+
+#tamilText {
+  font-weight: 900;
+  line-height: 1.28;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+#englishText {
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+/* ---------- WATERMARK ---------- */
+#watermark {
+  position: absolute;
+  bottom: 15px;
+  right: 25px;
+  font-size: 1.2vw;
+  opacity: 0.35;
+}
+/* ---------- MEDIA ---------- */
+#mediaArea {
+  flex: 1;
+  display: none; /* Hidden by default */
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+#mediaImage {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  object-fit: contain; 
+}
+
+#mediaVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+</style>
+</head>
+
+<body>
+<div id="container">
+
+  <div id="referenceArea">
+    <div id="reference"></div>
+  </div>
+
+  <div id="verseArea">
+    <div id="verseBox">
+      <div id="tamilText"></div>
+      <div id="englishText"></div>
+    </div>
+  </div>
+  
+  <div id="mediaArea">
+      <img id="mediaImage" style="display:none;" />
+      <video id="mediaVideo" style="display:none;" controls autoplay loop></video>
+  </div>
+
+  <div id="watermark"></div>
+</div>
+
+<script>
+/* ---------- VERSE TYPE ---------- */
+function getVerseType(tamil, english) {
+  const len = (tamil?.length || 0) * 1.2 + (english?.length || 0);
+  if (len < 80) return "small";
+  if (len > 250) return "large";
+  return "medium";
+}
+
+/* ---------- FONT PRESETS ---------- */
+const FONT_PRESETS = {
+  small:  { tamil: 9.2, eng: 7.0, min: 0 },  // Large for small verses
+  medium: { tamil: 5.8, eng: 4.7, min: 3.5 },
+  large:  { tamil: 4.7, eng: 3.9, min: 2.8 }
+};
+
+/* ---------- SAFE FIT ---------- */
+function fitVerseBox(tamilEl, engEl, box, type) {
+  const preset = FONT_PRESETS[type];
+
+  let tamilVW = preset.tamil;
+  let engVW   = preset.eng;
+
+  tamilEl.style.fontSize = tamilVW + "vw";
+  engEl.style.fontSize   = engVW + "vw";
+
+  if (type === "small") return; // ❗ Never shrink small verses
+
+  let safety = 0;
+  while (
+    box.scrollHeight > box.clientHeight &&
+    tamilVW > preset.min &&
+    safety < 120
+  ) {
+    tamilVW -= 0.08;
+    engVW   -= 0.06;
+
+    tamilEl.style.fontSize = tamilVW + "vw";
+    engEl.style.fontSize   = engVW + "vw";
+
+    safety++;
+  }
+}
+
+/* ---------- REF FIT ---------- */
+function fitReference(el) {
+  let vw = 4.2;  // Reduced from 4.8 to 4.2 for slightly smaller reference text
+  el.style.fontSize = vw + "vw";
+  while (el.scrollWidth > el.clientWidth && vw > 2.5) {  // Reduced minimum from 2.8 to 2.5
+    vw -= 0.1;
+    el.style.fontSize = vw + "vw";
+  }
+}
+
+/* ---------- UPDATE ---------- */
+
+function updateVerse(data) {
+  console.log('[PRELIST] updateVerse called with data:', data);
+  
+  const ref = document.getElementById("reference");
+  const refArea = document.getElementById("referenceArea");
+  const tamil = document.getElementById("tamilText");
+  const eng = document.getElementById("englishText");
+  const box = document.getElementById("verseBox");
+  const verseArea = document.getElementById("verseArea");
+  
+  const mediaArea = document.getElementById("mediaArea");
+  const imgEl = document.getElementById("mediaImage");
+  const vidEl = document.getElementById("mediaVideo");
+
+  // Handle blank presentation (null data)
+  if (!data) {
+    ref.innerText = "";
+    tamil.innerText = "";
+    eng.innerText = "";
+    mediaArea.style.display = "none";
+    verseArea.style.display = "flex";
+    refArea.style.display = "flex"; 
+    // Stop video
+    vidEl.pause(); 
+    vidEl.src = "";
+    return;
+  }
+  
+  // ----- FILE MODE -----
+  if (data.type === 'file') {
+      console.log('[PRELIST] File mode detected:', data);
+      
+      // Hide Text areas
+      verseArea.style.display = "none";
+      refArea.style.display = "none";
+      
+      // Show Media area
+      mediaArea.style.display = "flex";
+      mediaArea.style.background = data.presentationBgColor || "black";
+      console.log('[PRELIST] Media area display set to flex');
+      
+      let isImage = data.fileType && data.fileType.startsWith("image");
+      let isVideo = data.fileType && data.fileType.startsWith("video");
+      console.log('[PRELIST] Initial checks - isImage:', isImage, 'isVideo:', isVideo, 'fileType:', data.fileType);
+
+      // Fallback to extension check if mime type failed or is generic
+      if (!isImage && !isVideo && data.name) {
+          const lower = data.name.toLowerCase();
+          if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp') || lower.endsWith('.bmp')) {
+              isImage = true;
+              console.log('[PRELIST] Detected image by extension:', data.name);
+          } else if (lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.ogg') || lower.endsWith('.mov')) {
+              isVideo = true;
+              console.log('[PRELIST] Detected video by extension:', data.name);
+          }
+      }
+      
+      if (isImage) {
+          console.log('[PRELIST] Setting image src to:', data.url);
+          imgEl.onerror = function() {
+              console.error('[PRELIST] Image failed to load. URL:', data.url);
+              console.error('[PRELIST] This could be a path issue or security restriction');
+          };
+          imgEl.onload = function() {
+              console.log('[PRELIST] Image loaded successfully!');
+              console.log('[PRELIST] Image dimensions:', imgEl.naturalWidth, 'x', imgEl.naturalHeight);
+          };
+          imgEl.src = data.url;
+          imgEl.style.display = "block";
+          vidEl.style.display = "none";
+          vidEl.pause();
+          console.log('[PRELIST] Image element display set to block');
+          
+          // Final verification
+          setTimeout(() => {
+              console.log('[PRELIST] Final state check:');
+              console.log('  - mediaArea display:', mediaArea.style.display);
+              console.log('  - imgEl display:', imgEl.style.display);
+              console.log('  - imgEl src:', imgEl.src);
+              console.log('  - verseArea display:', verseArea.style.display);
+          }, 200);
+      } else if (isVideo) {
+          console.log('[PRELIST] Setting video src to:', data.url);
+          vidEl.src = data.url;
+          vidEl.style.display = "block";
+          imgEl.style.display = "none";
+          vidEl.play().catch(e => console.log("Autoplay blocked", e));
+          console.log('[PRELIST] Video element display set to block');
+      } else {
+          console.warn('[PRELIST] File type not recognized as image or video');
+          imgEl.style.display = "none";
+          vidEl.style.display = "none";
+      }
+      return;
+  }
+
+  // ----- BIBLE MODE -----
+  // Reset visibility
+  mediaArea.style.display = "none";
+  vidEl.pause();
+  verseArea.style.display = "flex";
+  refArea.style.display = "flex";
+
+  ref.innerText = data.index || "";
+  // USE innerHTML for Prelist to support formatting
+  tamil.innerHTML = data.tamilText || "";
+  eng.innerHTML = data.englishText || "";
+
+  fitReference(ref);
+  // ... rest of font sizing logic ...
+  
+  const type = getVerseType(data.tamilText? data.tamilText.replace(/<[^>]*>/g, '') : "", data.englishText? data.englishText.replace(/<[^>]*>/g, '') : "");
+  
+  // Adjust layout for small verses - reduce spacing and center vertically
+  if (type === "small") {
+    box.style.gap = "0.8vh";  // Minimal gap between Tamil and English
+    box.style.justifyContent = "center";  // Center vertically
+    verseArea.style.justifyContent = "center";  // Center in verse area
+    box.style.maxHeight = "94%";  // Use more vertical space
+    refArea.style.height = "4%";  // Minimal reference area height
+  } else {
+    box.style.gap = "1.2vh";  // Tight gap for medium/large
+    box.style.justifyContent = "flex-start";  // Top align
+    verseArea.style.justifyContent = "flex-start";  // Top align
+    box.style.maxHeight = "88%";  // More vertical space
+    refArea.style.height = "5%";  // Minimal reference area
+  }
+  
+  fitVerseBox(tamil, eng, box, type);
+}
+
+/* ---------- ELECTRON API ---------- */
+(function waitAPI() {
+  if (window.presentationAPI?.onVerse) {
+    window.presentationAPI.onVerse(updateVerse);
+  } else {
+    setTimeout(waitAPI, 50);
+  }
+})();
+
+/* ---------- KEYS ---------- */
+document.addEventListener("keydown", e => {
+  if (!window.presentationAPI) return;
+  if (e.key === "Escape") window.presentationAPI.close?.();
+  if (e.key === "ArrowRight") window.presentationAPI.nextVerse?.();
+  if (e.key === "ArrowLeft") window.presentationAPI.previousVerse?.();
+});
+</script>
+</body>
+</html>
