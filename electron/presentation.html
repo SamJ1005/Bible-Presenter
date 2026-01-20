@@ -35,7 +35,11 @@ body {
 
 /* ---------- REFERENCE ---------- */
 #referenceArea {
+<<<<<<< HEAD
   height: 5%;
+=======
+  height: 8%;
+>>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
   display: flex;
   align-items: center;
   justify-content: center;
@@ -54,16 +58,28 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+<<<<<<< HEAD
   padding: 0 1vw;
+=======
+  padding: 0 3vw;
+>>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
 }
 
 #verseBox {
   width: 100%;
+<<<<<<< HEAD
   max-height: 88%;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1.2vh;
+=======
+  max-height: 80%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.2vh;
+>>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
   text-align: center;
   overflow: hidden;
 }
@@ -72,9 +88,12 @@ body {
   font-weight: 900;
   line-height: 1.28;
   white-space: pre-wrap;
+<<<<<<< HEAD
   word-wrap: break-word;
   overflow-wrap: break-word;
   max-width: 100%;
+=======
+>>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
 }
 
 #englishText {
@@ -122,9 +141,15 @@ function getVerseType(tamil, english) {
 
 /* ---------- FONT PRESETS ---------- */
 const FONT_PRESETS = {
+<<<<<<< HEAD
   small:  { tamil: 9.2, eng: 7.0, min: 0 },  // Large for small verses
   medium: { tamil: 5.8, eng: 4.7, min: 3.5 },
   large:  { tamil: 4.7, eng: 3.9, min: 2.8 }
+=======
+  small:  { tamil: 8.5, eng: 5.8, min: 0 },  // Much larger for small verses
+  medium: { tamil: 5.2, eng: 3.6, min: 3.0 },
+  large:  { tamil: 4.0, eng: 2.8, min: 2.2 }
+>>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
 };
 
 /* ---------- SAFE FIT ---------- */
@@ -196,6 +221,7 @@ function updateVerse(data) {
   
   // Adjust layout for small verses - reduce spacing and center vertically
   if (type === "small") {
+<<<<<<< HEAD
     box.style.gap = "0.8vh";  // Minimal gap between Tamil and English
     box.style.justifyContent = "center";  // Center vertically
     verseArea.style.justifyContent = "center";  // Center in verse area
@@ -207,6 +233,19 @@ function updateVerse(data) {
     verseArea.style.justifyContent = "flex-start";  // Top align
     box.style.maxHeight = "88%";  // More vertical space
     refArea.style.height = "5%";  // Minimal reference area
+=======
+    box.style.gap = "1.2vh";  // Reduce gap between Tamil and English
+    box.style.justifyContent = "center";  // Center vertically
+    verseArea.style.justifyContent = "center";  // Center in verse area
+    box.style.maxHeight = "92%";  // Use more vertical space
+    refArea.style.height = "6%";  // Reduce reference area height
+  } else {
+    box.style.gap = "2.2vh";  // Normal gap
+    box.style.justifyContent = "flex-start";  // Top align
+    verseArea.style.justifyContent = "flex-start";  // Top align
+    box.style.maxHeight = "80%";  // Normal max height
+    refArea.style.height = "8%";  // Normal reference area height
+>>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
   }
   
   fitVerseBox(tamil, eng, box, type);

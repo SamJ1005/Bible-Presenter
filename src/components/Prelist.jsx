@@ -742,7 +742,11 @@ const Prelist = React.forwardRef(({
                     <Reorder.Item
                       key={item.id}
                       value={item}
+<<<<<<< HEAD
                       onClick={() => !isEditing && handleItemClick(item.id)}
+=======
+                      onClick={() => !isEditing && handlePresent(item)}
+>>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
                       dragListener={!isEditing} /* Disable drag while typing */
                       className={`queue-item ${isActive ? 'active' : ''}`}
                       style={{
@@ -933,7 +937,11 @@ const Prelist = React.forwardRef(({
               return (
                 <div
                   key={item.id || i}
+<<<<<<< HEAD
                   onClick={() => { if(!isEditing && !editingRefId) { handleItemClick(item.id); handlePresent(item); } }}
+=======
+                  onClick={() => { if(!isEditing) { handleItemClick(item.id); handlePresent(item); } }}
+>>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
                   ref={el => itemRefs.current[item.id] = el}
                   style={{
                     background: theme === "dark" ? "#1e1e1e" : "#fff",
@@ -1013,9 +1021,13 @@ const Prelist = React.forwardRef(({
                         outline: 'none',
                         border: isEditing ? '1px dashed #555' : 'none',
                         padding: isEditing ? '4px' : '0',
+<<<<<<< HEAD
                         cursor: isEditing ? 'text' : 'default',
                         textDecorationSkipInk: 'none',
                         WebkitTextDecorationSkipInk: 'none'
+=======
+                        cursor: isEditing ? 'text' : 'default'
+>>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
                       }}
                     />
                   )}
@@ -1038,9 +1050,13 @@ const Prelist = React.forwardRef(({
                        outline: 'none',
                        border: isEditing ? '1px dashed #555' : 'none',
                        padding: isEditing ? '4px' : '0',
+<<<<<<< HEAD
                        cursor: isEditing ? 'text' : 'default',
                        textDecorationSkipInk: 'none',
                        WebkitTextDecorationSkipInk: 'none'
+=======
+                       cursor: isEditing ? 'text' : 'default'
+>>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
                     }}
                   />
                   

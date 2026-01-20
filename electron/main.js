@@ -62,10 +62,13 @@ function createMainWindow() {
   });
 
   mainWin.on("closed", () => {
+<<<<<<< HEAD
     // Close presentation window when main window closes
     if (presentationWin && !presentationWin.isDestroyed()) {
       presentationWin.close();
     }
+=======
+>>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
     mainWin = null;
   });
 }

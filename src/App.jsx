@@ -518,7 +518,11 @@ export default function App() {
                   <input
                     ref={searchInputRef}
                     className="search-input"
+<<<<<<< HEAD
                     placeholder="Reference 2sam 21 1" // Shortened placeholder
+=======
+                    placeholder="Reference..." // Shortened placeholder
+>>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     // Remove default outline to avoid double focus visual

@@ -16,7 +16,11 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
     const finalTamil = tamilText ?? (getTamilVerse?.(selectedChapter, selectedVerse, tamilDataOverride) || "");
     const finalEnglish = englishText ?? (getEnglishVerse?.(selectedBook, selectedChapter, selectedVerse) || "");
     const tamilName = getTamilBookName(selectedBook);
+<<<<<<< HEAD
     const index = `${tamilName} ${selectedChapter}:${selectedVerse}   ${selectedBook}`;
+=======
+    const index = `${tamilName} ${selectedChapter}:${selectedVerse}  ${selectedBook}`;
+>>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
 
     return {
       viewMode,
