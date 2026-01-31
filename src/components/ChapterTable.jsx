@@ -1,9 +1,5 @@
 // ChapterTable.jsx
-<<<<<<< HEAD
 import React, { useEffect, useRef } from "react";
-=======
-import React from "react";
->>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
 
 export default function ChapterTable({
   kjvSource,
@@ -33,11 +29,7 @@ export default function ChapterTable({
     new Set([...englishVerses.map((v) => Number(v.verse)), ...tamilVerses.map((v) => Number(v.verse))])
   ).sort((a, b) => a - b);
 
-<<<<<<< HEAD
   const rowRefs = useRef({});
-
-=======
->>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
   function handleRowClick(vn) {
     // update selection in App
     setSelectedVerse(Number(vn));
@@ -51,7 +43,6 @@ export default function ChapterTable({
     });
   }
 
-<<<<<<< HEAD
   // Auto-scroll to selected verse instantly
   useEffect(() => {
     if (selectedVerse && rowRefs.current[selectedVerse]) {
@@ -65,9 +56,6 @@ export default function ChapterTable({
       }, 100);
     }
   }, [selectedVerse]);
-
-=======
->>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
   return (
     <table
       ref={verseTableRef}
@@ -85,10 +73,7 @@ export default function ChapterTable({
           return (
             <tr
               key={vn}
-<<<<<<< HEAD
               ref={el => rowRefs.current[vn] = el}
-=======
->>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
               data-vn={vn}
               onClick={() => handleRowClick(vn)}
               style={{

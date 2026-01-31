@@ -6,7 +6,7 @@
   gap: 20px;
   width: 100%;
   flex: 1;
-  min-height: 0; 
+  min-height: 0;
   /* "min-height: 0" is crucial for nested flex scrolling */
 }
 
@@ -19,19 +19,23 @@
   flex-direction: column;
   padding: 16px;
   box-sizing: border-box;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease;
 }
 
 /* Queue List Area */
 .queue-list-container {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden; /* Changed from overflow-y: auto to prevent double scrolling */
   margin-top: 10px; /* Reduced from 20px */
   display: flex;
   flex-direction: column;
   border-radius: 12px;
   position: relative;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease;
   padding: 0; /* Ensure no internal padding */
   scroll-behavior: smooth;
   scroll-padding-top: 40px;
@@ -49,6 +53,16 @@
   background: transparent;
   position: relative;
   user-select: none; /* Prevent text selection while dragging */
+  touch-action: pan-y; /* Better touch support */
+  transition: background-color 0.2s ease;
+}
+
+.queue-item:active {
+  cursor: grabbing;
+}
+
+.queue-item:last-child {
+  border-bottom: none;
 }
 
 /* Formatting Toolbar */
@@ -144,7 +158,9 @@
   align-items: center;
   justify-content: center;
   color: inherit;
-  transition: background 0.2s ease, transform 0.1s ease;
+  transition:
+    background 0.2s ease,
+    transform 0.1s ease;
 }
 
 .icon-btn:hover {
@@ -179,12 +195,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(128,128,128, 0.1);
+  border-bottom: 1px solid rgba(128, 128, 128, 0.1);
 }
 
 /* Primary "Add" / "Action" buttons */
 .action-btn {
-  border: 1px solid rgba(128,128,128,0.4);
+  border: 1px solid rgba(128, 128, 128, 0.4);
   background: transparent;
   border-radius: 6px;
   padding: 4px 10px;
@@ -212,11 +228,11 @@
 /* Dark mode specific overrides handled by JS logic mostly, 
    but here are some utility classes if we switch JS to use them. */
 .text-ellipsis {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex: 1; /* Allow it to shrink */
-    min-width: 0; /* Crucial for flex item implementation of ellipsis */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1; /* Allow it to shrink */
+  min-width: 0; /* Crucial for flex item implementation of ellipsis */
 }
 
 /* Responsive Handling */
@@ -232,10 +248,10 @@
     height: auto;
     min-height: 300px; /* Give it some space */
     border-right: none;
-    border-bottom: 1px solid rgba(128,128,128, 0.2);
+    border-bottom: 1px solid rgba(128, 128, 128, 0.2);
   }
 
   .queue-list-container {
-      max-height: 400px; /* Limit height when stacked */
+    max-height: 400px; /* Limit height when stacked */
   }
 }

@@ -63,17 +63,17 @@ footer {
 }
 /* Base search container style (Light Mode default) */
 .search-container {
-  border: 1px solid #999;
+  border: 1px solid #6b6b6b;
 }
 
 .search-container:focus-within {
   border-color: #003399;
-  box-shadow: 0 0 0 2px rgba(0, 51, 153, 0.2);
+  box-shadow: inset 0 0 0 1px #003399;
 }
 
 /* Dark Mode overrides */
 html.dark .search-container {
-  border-color: #555;
+  border-color: #555454;
 }
 
 html.dark .search-container:focus-within {

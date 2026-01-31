@@ -1,272 +1,236 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-<meta charset="UTF-8" />
-<title>Presentation</title>
+  <meta charset="UTF-8" />
+  <title>Presentation</title>
 
-<meta http-equiv="Content-Security-Policy"
-  content="script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" />
+  <meta http-equiv="Content-Security-Policy"
+    content="script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" />
 
-<style>
-:root {
-  --bg: #000;
-  --text: #fff;
-}
+  <style>
+    :root {
+      --bg: #000;
+      --text: #fff;
+    }
 
-html, body {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  overflow: hidden;
-}
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: Arial, sans-serif;
-}
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+    }
 
-#container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
+    #container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
 
-/* ---------- REFERENCE ---------- */
-#referenceArea {
-<<<<<<< HEAD
-  height: 5%;
-=======
-  height: 8%;
->>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+    /* ---------- REFERENCE ---------- */
+    #referenceArea {
+      height: 5%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-#reference {
-  font-weight: 700;
-  text-decoration: underline;
-  white-space: nowrap;
-  opacity: 0.9;
-}
+    #reference {
+      font-weight: 700;
+      text-decoration: underline;
+      white-space: nowrap;
+      opacity: 0.9;
+    }
 
-/* ---------- VERSE ---------- */
-#verseArea {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-<<<<<<< HEAD
-  padding: 0 1vw;
-=======
-  padding: 0 3vw;
->>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
-}
+    /* ---------- VERSE ---------- */
+    #verseArea {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0 1vw;
+    }
 
-#verseBox {
-  width: 100%;
-<<<<<<< HEAD
-  max-height: 88%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.2vh;
-=======
-  max-height: 80%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2.2vh;
->>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
-  text-align: center;
-  overflow: hidden;
-}
+    #verseBox {
+      width: 100%;
+      max-height: 88%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.2vh;
+      text-align: center;
+      overflow: hidden;
+    }
 
-#tamilText {
-  font-weight: 900;
-  line-height: 1.28;
-  white-space: pre-wrap;
-<<<<<<< HEAD
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  max-width: 100%;
-=======
->>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
-}
+    #tamilText {
+      font-weight: 900;
+      line-height: 1.28;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      max-width: 100%;
+    }
 
-#englishText {
-  font-weight: 600;
-  line-height: 1.35;
-  white-space: pre-wrap;
-}
+    #englishText {
+      font-weight: 600;
+      line-height: 1.35;
+      white-space: pre-wrap;
+    }
 
-/* ---------- WATERMARK ---------- */
-#watermark {
-  position: absolute;
-  bottom: 15px;
-  right: 25px;
-  font-size: 1.2vw;
-  opacity: 0.35;
-}
-</style>
+    /* ---------- WATERMARK ---------- */
+    #watermark {
+      position: absolute;
+      bottom: 15px;
+      right: 25px;
+      font-size: 1.2vw;
+      opacity: 0.35;
+    }
+  </style>
 </head>
 
 <body>
-<div id="container">
+  <div id="container">
 
-  <div id="referenceArea">
-    <div id="reference"></div>
-  </div>
-
-  <div id="verseArea">
-    <div id="verseBox">
-      <div id="tamilText"></div>
-      <div id="englishText"></div>
+    <div id="referenceArea">
+      <div id="reference"></div>
     </div>
+
+    <div id="verseArea">
+      <div id="verseBox">
+        <div id="tamilText"></div>
+        <div id="englishText"></div>
+      </div>
+    </div>
+
+    <div id="watermark"></div>
   </div>
 
-  <div id="watermark"></div>
-</div>
+  <script>
+    /* ---------- VERSE TYPE ---------- */
+    function getVerseType(tamil, english) {
+      const len = (tamil?.length || 0) * 1.2 + (english?.length || 0);
+      if (len < 80) return "small";
+      if (len > 250) return "large";
+      return "medium";
+    }
 
-<script>
-/* ---------- VERSE TYPE ---------- */
-function getVerseType(tamil, english) {
-  const len = (tamil?.length || 0) * 1.2 + (english?.length || 0);
-  if (len < 80) return "small";
-  if (len > 250) return "large";
-  return "medium";
-}
+    /* ---------- FONT PRESETS ---------- */
+    const FONT_PRESETS = {
+      small: { tamil: 9.2, eng: 7.0, min: 0 },  // Large for small verses
+      medium: { tamil: 5.8, eng: 4.7, min: 3.5 },
+      large: { tamil: 4.7, eng: 3.9, min: 2.8 }
+    };
 
-/* ---------- FONT PRESETS ---------- */
-const FONT_PRESETS = {
-<<<<<<< HEAD
-  small:  { tamil: 9.2, eng: 7.0, min: 0 },  // Large for small verses
-  medium: { tamil: 5.8, eng: 4.7, min: 3.5 },
-  large:  { tamil: 4.7, eng: 3.9, min: 2.8 }
-=======
-  small:  { tamil: 8.5, eng: 5.8, min: 0 },  // Much larger for small verses
-  medium: { tamil: 5.2, eng: 3.6, min: 3.0 },
-  large:  { tamil: 4.0, eng: 2.8, min: 2.2 }
->>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
-};
+    /* ---------- SAFE FIT ---------- */
+    function fitVerseBox(tamilEl, engEl, box, type) {
+      const preset = FONT_PRESETS[type];
 
-/* ---------- SAFE FIT ---------- */
-function fitVerseBox(tamilEl, engEl, box, type) {
-  const preset = FONT_PRESETS[type];
+      let tamilVW = preset.tamil;
+      let engVW = preset.eng;
 
-  let tamilVW = preset.tamil;
-  let engVW   = preset.eng;
+      tamilEl.style.fontSize = tamilVW + "vw";
+      engEl.style.fontSize = engVW + "vw";
 
-  tamilEl.style.fontSize = tamilVW + "vw";
-  engEl.style.fontSize   = engVW + "vw";
+      if (type === "small") return; // ❗ Never shrink small verses
 
-  if (type === "small") return; // ❗ Never shrink small verses
+      let safety = 0;
+      while (
+        box.scrollHeight > box.clientHeight &&
+        tamilVW > preset.min &&
+        safety < 120
+      ) {
+        tamilVW -= 0.08;
+        engVW -= 0.06;
 
-  let safety = 0;
-  while (
-    box.scrollHeight > box.clientHeight &&
-    tamilVW > preset.min &&
-    safety < 120
-  ) {
-    tamilVW -= 0.08;
-    engVW   -= 0.06;
+        tamilEl.style.fontSize = tamilVW + "vw";
+        engEl.style.fontSize = engVW + "vw";
 
-    tamilEl.style.fontSize = tamilVW + "vw";
-    engEl.style.fontSize   = engVW + "vw";
+        safety++;
+      }
+    }
 
-    safety++;
-  }
-}
+    /* ---------- REF FIT ---------- */
+    function fitReference(el) {
+      let vw = 4.2;  // Reduced from 4.8 to 4.2 for slightly smaller reference text
+      el.style.fontSize = vw + "vw";
+      while (el.scrollWidth > el.clientWidth && vw > 2.5) {  // Reduced minimum from 2.8 to 2.5
+        vw -= 0.1;
+        el.style.fontSize = vw + "vw";
+      }
+    }
 
-/* ---------- REF FIT ---------- */
-function fitReference(el) {
-  let vw = 4.2;  // Reduced from 4.8 to 4.2 for slightly smaller reference text
-  el.style.fontSize = vw + "vw";
-  while (el.scrollWidth > el.clientWidth && vw > 2.5) {  // Reduced minimum from 2.8 to 2.5
-    vw -= 0.1;
-    el.style.fontSize = vw + "vw";
-  }
-}
+    /* ---------- UPDATE ---------- */
 
-/* ---------- UPDATE ---------- */
+    function updateVerse(data) {
+      const ref = document.getElementById("reference");
+      const tamil = document.getElementById("tamilText");
+      const eng = document.getElementById("englishText");
+      const box = document.getElementById("verseBox");
+      const verseArea = document.getElementById("verseArea");
 
-function updateVerse(data) {
-  const ref = document.getElementById("reference");
-  const tamil = document.getElementById("tamilText");
-  const eng = document.getElementById("englishText");
-  const box = document.getElementById("verseBox");
-  const verseArea = document.getElementById("verseArea");
+      // Handle blank presentation (null data)
+      if (!data) {
+        ref.innerText = "";
+        tamil.innerText = "";
+        eng.innerText = "";
+        return;
+      }
 
-  // Handle blank presentation (null data)
-  if (!data) {
-    ref.innerText = "";
-    tamil.innerText = "";
-    eng.innerText = "";
-    return;
-  }
+      ref.innerText = data.index || "";
+      tamil.innerHTML = data.tamilText || "";
+      eng.innerHTML = data.englishText || "";
 
-  ref.innerText = data.index || "";
-  tamil.innerHTML = data.tamilText || "";
-  eng.innerHTML = data.englishText || "";
+      fitReference(ref);
 
-  fitReference(ref);
+      const type = getVerseType(
+        data.tamilText ? data.tamilText.replace(/<[^>]*>/g, "") : "",
+        data.englishText ? data.englishText.replace(/<[^>]*>/g, "") : ""
+      );
+      const refArea = document.getElementById("referenceArea");
 
-  const type = getVerseType(
-    data.tamilText ? data.tamilText.replace(/<[^>]*>/g, "") : "", 
-    data.englishText ? data.englishText.replace(/<[^>]*>/g, "") : ""
-  );
-  const refArea = document.getElementById("referenceArea");
-  
-  // Adjust layout for small verses - reduce spacing and center vertically
-  if (type === "small") {
-<<<<<<< HEAD
-    box.style.gap = "0.8vh";  // Minimal gap between Tamil and English
-    box.style.justifyContent = "center";  // Center vertically
-    verseArea.style.justifyContent = "center";  // Center in verse area
-    box.style.maxHeight = "94%";  // Use more vertical space
-    refArea.style.height = "4%";  // Minimal reference area height
-  } else {
-    box.style.gap = "1.2vh";  // Tight gap for medium/large
-    box.style.justifyContent = "flex-start";  // Top align
-    verseArea.style.justifyContent = "flex-start";  // Top align
-    box.style.maxHeight = "88%";  // More vertical space
-    refArea.style.height = "5%";  // Minimal reference area
-=======
-    box.style.gap = "1.2vh";  // Reduce gap between Tamil and English
-    box.style.justifyContent = "center";  // Center vertically
-    verseArea.style.justifyContent = "center";  // Center in verse area
-    box.style.maxHeight = "92%";  // Use more vertical space
-    refArea.style.height = "6%";  // Reduce reference area height
-  } else {
-    box.style.gap = "2.2vh";  // Normal gap
-    box.style.justifyContent = "flex-start";  // Top align
-    verseArea.style.justifyContent = "flex-start";  // Top align
-    box.style.maxHeight = "80%";  // Normal max height
-    refArea.style.height = "8%";  // Normal reference area height
->>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
-  }
-  
-  fitVerseBox(tamil, eng, box, type);
-}
+      // Adjust layout for small verses - reduce spacing and center vertically
+      if (type === "small") {
+        box.style.gap = "0.8vh";  // Minimal gap between Tamil and English
+        box.style.justifyContent = "center";  // Center vertically
+        verseArea.style.justifyContent = "center";  // Center in verse area
+        box.style.maxHeight = "94%";  // Use more vertical space
+        refArea.style.height = "4%";  // Minimal reference area height
+      } else {
+        box.style.gap = "1.2vh";  // Tight gap for medium/large
+        box.style.justifyContent = "flex-start";  // Top align
+        verseArea.style.justifyContent = "flex-start";  // Top align
+        box.style.maxHeight = "88%";  // More vertical space
+        refArea.style.height = "5%";  // Minimal reference area
+      }
 
-/* ---------- ELECTRON API ---------- */
-(function waitAPI() {
-  if (window.presentationAPI?.onVerse) {
-    window.presentationAPI.onVerse(updateVerse);
-  } else {
-    setTimeout(waitAPI, 50);
-  }
-})();
+      fitVerseBox(tamil, eng, box, type);
+    }
 
-/* ---------- KEYS ---------- */
-document.addEventListener("keydown", e => {
-  if (!window.presentationAPI) return;
-  if (e.key === "Escape") window.presentationAPI.close?.();
-  if (e.key === "ArrowRight") window.presentationAPI.nextVerse?.();
-  if (e.key === "ArrowLeft") window.presentationAPI.previousVerse?.();
-});
-</script>
+    /* ---------- ELECTRON API ---------- */
+    (function waitAPI() {
+      if (window.presentationAPI?.onVerse) {
+        window.presentationAPI.onVerse(updateVerse);
+      } else {
+        setTimeout(waitAPI, 50);
+      }
+    })();
+
+    /* ---------- KEYS ---------- */
+    document.addEventListener("keydown", e => {
+      if (!window.presentationAPI) return;
+      if (e.key === "Escape") window.presentationAPI.close?.();
+      if (e.key === "ArrowRight") window.presentationAPI.nextVerse?.();
+      if (e.key === "ArrowLeft") window.presentationAPI.previousVerse?.();
+    });
+  </script>
 </body>
+
 </html>

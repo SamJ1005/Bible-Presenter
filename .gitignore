@@ -33,3 +33,5 @@ release/
 *.njsproj
 *.sln
 *.sw?
+firebase.js
+

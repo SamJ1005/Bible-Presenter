@@ -22,12 +22,9 @@ export default function useSearch({
   // small map of common short abbreviations -> canonical book name (lowercase keys)
   // Add more if you use other abbreviations
   const commonAbbr = {
-<<<<<<< HEAD
     pp: "Philippians",
     phil: "Philemon",
     jd: "Jude",
-=======
->>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
     jn: "John",
     mt: "Matthew",
     mk: "Mark",

@@ -1,11 +1,7 @@
 {
   "name": "scripture-screen",
   "productName": "Scripture Screen",
-<<<<<<< HEAD
   "version": "2.2.2",
-=======
-  "version": "2.1.1",
->>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
   "main": "electron/main.js",
   "build": {
     "appId": "com.scripturescreen.app",
@@ -47,6 +43,7 @@
     "start": "electron ."
   },
   "dependencies": {
+    "firebase": "^12.8.0",
     "framer-motion": "^12.24.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

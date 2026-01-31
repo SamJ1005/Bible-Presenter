@@ -2,7 +2,7 @@
 const { app, BrowserWindow, ipcMain, screen, Menu } = require("electron");
 const path = require("path");
 const fs = require("fs");
-const bibleKJV = require("./assets/bible/kjv.json"); 
+const bibleKJV = require("./assets/bible/kjv.json");
 
 // Helper function to get icon path (call after app is ready)
 function getIconPath() {
@@ -45,7 +45,7 @@ function createMainWindow() {
       contextIsolation: true,
       sandbox: false,
     },
-  }); 
+  });
 
   if (fs.existsSync(iconPath)) {
     mainWin.setIcon(iconPath);
@@ -62,13 +62,10 @@ function createMainWindow() {
   });
 
   mainWin.on("closed", () => {
-<<<<<<< HEAD
     // Close presentation window when main window closes
     if (presentationWin && !presentationWin.isDestroyed()) {
       presentationWin.close();
     }
-=======
->>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
     mainWin = null;
   });
 }
@@ -113,7 +110,7 @@ function createPresentationWindow() {
   presentationWin.loadFile(
     path.join(__dirname, "presentation.html")
   );
-  
+
   // Reset file tracker since we're loading presentation.html
   currentPresentationFile = "presentation.html";
   console.log('[MAIN] Created presentation window, loaded:', currentPresentationFile);
@@ -181,41 +178,41 @@ ipcMain.on("send-presentation", (_, payload) => {
   console.log('[MAIN] Received presentation payload:', JSON.stringify(payload, null, 2));
   currentPresentationPayload = payload;
 
-  const targetFile = (payload && payload.viewMode === "prelist") 
-    ? "presentation_prelist.html" 
+  const targetFile = (payload && payload.viewMode === "prelist")
+    ? "presentation_prelist.html"
     : "presentation.html";
 
   if (!presentationWin || presentationWin.isDestroyed()) {
     createPresentationWindow(); // Will load default "presentation.html" initially
     // We need to override if target is prelist
     if (targetFile !== "presentation.html") {
-        currentPresentationFile = "presentation.html"; // reset default
+      currentPresentationFile = "presentation.html"; // reset default
     }
-  } 
-  
+  }
+
   // Ensure window exists
   if (!presentationWin || presentationWin.isDestroyed()) return;
 
   if (currentPresentationFile !== targetFile) {
-     loadPresentationFile(targetFile);
-     // loadFile is async-ish, need to wait for dom-ready again
-     presentationWin.webContents.once("dom-ready", () => {
-        setTimeout(() => {
-          presentationWin.webContents.send("display-verse", payload);
-        }, 100);
-     });
-     return;
+    loadPresentationFile(targetFile);
+    // loadFile is async-ish, need to wait for dom-ready again
+    presentationWin.webContents.once("dom-ready", () => {
+      setTimeout(() => {
+        presentationWin.webContents.send("display-verse", payload);
+      }, 100);
+    });
+    return;
   }
 
   // Same file, standard send
   if (presentationWin.webContents.isLoading()) {
-      presentationWin.webContents.once("dom-ready", () => {
-        setTimeout(() => {
-          presentationWin.webContents.send("display-verse", payload);
-        }, 100);
-      });
+    presentationWin.webContents.once("dom-ready", () => {
+      setTimeout(() => {
+        presentationWin.webContents.send("display-verse", payload);
+      }, 100);
+    });
   } else {
-      presentationWin.webContents.send("display-verse", payload);
+    presentationWin.webContents.send("display-verse", payload);
   }
 });
 
@@ -251,7 +248,7 @@ app.whenReady().then(() => {
         { role: 'forceReload' },
         { type: 'separator' },
         { role: 'resetZoom' },
-        { 
+        {
           role: 'zoomIn',
           accelerator: 'CommandOrControl+='
         },
@@ -288,8 +285,8 @@ app.whenReady().then(() => {
 
   createMainWindow();
 
-  screen.on("display-added", () => {});
-  screen.on("display-removed", () => {});
+  screen.on("display-added", () => { });
+  screen.on("display-removed", () => { });
 });
 
 app.on("window-all-closed", () => {

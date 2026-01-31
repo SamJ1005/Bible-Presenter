@@ -40,17 +40,17 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("bible");
   const [isBlankMode, setIsBlankMode] = useState(false); // Track if presentation is in blank mode
   const [recent, setRecent] = useState([]); // Session-only recent list
-  
+
   /* ITEM STATE */
   const [prelistedItems, setPrelistedItems] = useState(() => {
-     const loaded = loadMemory("prelistedItems", []);
-     // Filter out stale blob URLs (they expire on reload)
-     return loaded.filter(item => {
-        if(item.type === 'file' && item.url && item.url.startsWith('blob:')) {
-            return false;
-        }
-        return true;
-     });
+    const loaded = loadMemory("prelistedItems", []);
+    // Filter out stale blob URLs (they expire on reload)
+    return loaded.filter(item => {
+      if (item.type === 'file' && item.url && item.url.startsWith('blob:')) {
+        return false;
+      }
+      return true;
+    });
   });
 
   useEffect(() => {
@@ -214,14 +214,14 @@ export default function App() {
   // Navigation handlers as callbacks so they can be reused by buttons and IPC
   const handleNext = useCallback(() => {
     // PRELIST NAVIGATION override
-    if(activeTab === 'prelisted' && prelistRef.current) {
-        prelistRef.current.goNext();
-        return;
+    if (activeTab === 'prelisted' && prelistRef.current) {
+      prelistRef.current.goNext();
+      return;
     }
 
     // Don't navigate if in blank mode (Bible tab)
     if (isBlankMode) return;
-    
+
     // Standard Bible Tab Logic
     const versesInChapter = verseCountForSelectedChapter();
     let next = Number(selectedVerse) + 1;
@@ -245,10 +245,10 @@ export default function App() {
   ]);
 
   const handlePrev = useCallback(() => {
-     // PRELIST NAVIGATION override
-    if(activeTab === 'prelisted' && prelistRef.current) {
-        prelistRef.current.goPrev();
-        return;
+    // PRELIST NAVIGATION override
+    if (activeTab === 'prelisted' && prelistRef.current) {
+      prelistRef.current.goPrev();
+      return;
     }
 
     // Don't navigate if in blank mode (Bible tab)
@@ -301,8 +301,8 @@ export default function App() {
           const v = ch?.verses?.find((vv) => Number(vv.verse) === Number(verse));
           if (v) tamilText = v.text;
         } else if (data[chapter] && Array.isArray(data[chapter].verses)) {
-             const v = data[chapter].verses.find((vv) => Number(vv.verse) === Number(verse));
-             if (v) tamilText = v.text;
+          const v = data[chapter].verses.find((vv) => Number(vv.verse) === Number(verse));
+          if (v) tamilText = v.text;
         }
       }
     } catch (err) {
@@ -339,47 +339,47 @@ export default function App() {
 
   // Update reference and re-fetch Tamil
   const updateQueueReference = useCallback(async (id, book, chapter, verse) => {
-      let tamilText = "";
-      try {
-        const filename = encodeURIComponent(book) + ".json";
-        const res = await fetch(`./bible/tamil/${filename}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.chapters)) {
-            const ch = data.chapters.find((c) => Number(c.chapter) === Number(chapter));
-            const v = ch?.verses?.find((vv) => Number(vv.verse) === Number(verse));
-            if (v) tamilText = v.text;
-          } else if (data[chapter] && Array.isArray(data[chapter].verses)) {
-               const v = data[chapter].verses.find((vv) => Number(vv.verse) === Number(verse));
-               if (v) tamilText = v.text;
-          }
+    let tamilText = "";
+    try {
+      const filename = encodeURIComponent(book) + ".json";
+      const res = await fetch(`./bible/tamil/${filename}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.chapters)) {
+          const ch = data.chapters.find((c) => Number(c.chapter) === Number(chapter));
+          const v = ch?.verses?.find((vv) => Number(vv.verse) === Number(verse));
+          if (v) tamilText = v.text;
+        } else if (data[chapter] && Array.isArray(data[chapter].verses)) {
+          const v = data[chapter].verses.find((vv) => Number(vv.verse) === Number(verse));
+          if (v) tamilText = v.text;
         }
-      } catch (err) {
-        console.error("Failed to fetch Tamil for queue update:", err);
       }
-      
-      setPrelistedItems((prev) =>
-        prev.map((item) => {
-          if (item.id === id) {
-            // Update ref AND Tamil, clear manual overrides if any (optional, but safer to assume ref change resets content)
-            // But we might want to keep highlighting? "Style Only" highlighting depends on content matching?
-            // If text changes, highlighting marks might be misaligned. Resetting HTML is safer.
-            return { 
-                ...item, 
-                book, chapter, verse, tamilText, 
-                tamilHtml: undefined, englishHtml: undefined 
-            };
-          }
-          return item;
-        })
-      );
+    } catch (err) {
+      console.error("Failed to fetch Tamil for queue update:", err);
+    }
+
+    setPrelistedItems((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          // Update ref AND Tamil, clear manual overrides if any (optional, but safer to assume ref change resets content)
+          // But we might want to keep highlighting? "Style Only" highlighting depends on content matching?
+          // If text changes, highlighting marks might be misaligned. Resetting HTML is safer.
+          return {
+            ...item,
+            book, chapter, verse, tamilText,
+            tamilHtml: undefined, englishHtml: undefined
+          };
+        }
+        return item;
+      })
+    );
   }, []);
 
   const moveQueueItem = useCallback((fromIndex, toIndex) => {
     setPrelistedItems((prev) => {
       const newItems = [...prev];
       if (fromIndex < 0 || fromIndex >= newItems.length || toIndex < 0 || toIndex >= newItems.length) return prev;
-      
+
       const [movedItem] = newItems.splice(fromIndex, 1);
       newItems.splice(toIndex, 0, movedItem);
       return newItems;
@@ -389,25 +389,25 @@ export default function App() {
   const addFileToQueue = useCallback((fileObj) => {
     // Limit large files for storage safety
     const reader = new FileReader();
-    
+
     reader.onload = (e) => {
-        const newItem = {
-          id: Date.now() + Math.random(),
-          type: 'file',
-          name: fileObj.name,
-          fileType: fileObj.type,
-          url: e.target.result, // BASE64 DATA URL (Persistent)
-          path: fileObj.path || "" 
-        };
-        setPrelistedItems((prev) => [...prev, newItem]);
+      const newItem = {
+        id: Date.now() + Math.random(),
+        type: 'file',
+        name: fileObj.name,
+        fileType: fileObj.type,
+        url: e.target.result, // BASE64 DATA URL (Persistent)
+        path: fileObj.path || ""
+      };
+      setPrelistedItems((prev) => [...prev, newItem]);
     };
-    
+
     reader.onerror = (err) => {
-        console.error("Failed to read file", err);
+      console.error("Failed to read file", err);
     };
 
     if (fileObj) {
-        reader.readAsDataURL(fileObj);
+      reader.readAsDataURL(fileObj);
     }
   }, []);
 
@@ -419,6 +419,8 @@ export default function App() {
     }, 100);
   }, [handleSearch, addToQueue]);
 
+  const [prelistActiveId, setPrelistActiveId] = useState(null); // Persist selection
+
   // Register IPC listeners for keyboard shortcuts
   useEffect(() => {
     const cleanupNext = window.api?.onNavigateNext?.(handleNext);
@@ -429,6 +431,7 @@ export default function App() {
       cleanupPrev?.();
     };
   }, [handleNext, handlePrev]);
+
   return (
     <div
       style={{
@@ -502,7 +505,7 @@ export default function App() {
                 {/* Search bar container with focus styling */}
                 <div
                   style={{
-                    flex: 1, 
+                    flex: 1,
                     minWidth: "0", // CRITICAL: Allow container to shrink
                     display: "flex",
                     alignItems: "center",
@@ -518,11 +521,7 @@ export default function App() {
                   <input
                     ref={searchInputRef}
                     className="search-input"
-<<<<<<< HEAD
                     placeholder="Reference 2sam 21 1" // Shortened placeholder
-=======
-                    placeholder="Reference..." // Shortened placeholder
->>>>>>> df6ff92576ed2d760c32421564f8a0b07e8e9d22
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     // Remove default outline to avoid double focus visual
@@ -782,6 +781,8 @@ export default function App() {
           findBook={findBook}
           parseReference={parseReference}
           sendToPresentation={sendToPresentation}
+          activeId={prelistActiveId}
+          setActiveId={setPrelistActiveId}
         />
       )}
     </div>
