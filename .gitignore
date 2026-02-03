@@ -18,6 +18,7 @@ dist/
 build/
 out/
 release/
+Theme codes/
 *.exe
 *.dmg
 *.AppImage

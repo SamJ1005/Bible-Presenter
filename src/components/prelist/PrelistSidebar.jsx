@@ -32,112 +32,91 @@ const PrelistSidebar = ({
   scrollContainerRef,
   sidebarItemRefs
 }) => {
-  // Auto-scroll during drag
+  // Auto-scroll logic using Refs to avoid re-renders
+  const isDraggingRef = React.useRef(false);
+  const animationFrameRef = React.useRef(null);
+  const mouseCoordsRef = React.useRef({ x: 0, y: 0 });
+
+  const handleDragStart = () => {
+    isDraggingRef.current = true;
+  };
+
+  const handleDragEnd = () => {
+    isDraggingRef.current = false;
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+  };
+
   React.useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer || !isManageMode) return;
-
-    let animationFrameId = null;
-    let isDragging = false;
-    let currentMouseY = 0;
-    let containerRect = null;
-
-    const handleDragStart = () => {
-      isDragging = true;
-      containerRect = scrollContainer.getBoundingClientRect();
-    };
-
-    const handleDragEnd = () => {
-      isDragging = false;
-      containerRect = null;
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-        animationFrameId = null;
-      }
-    };
+    if (!scrollContainer) return;
 
     const handleMouseMove = (e) => {
-      if (!isDragging) return;
+      mouseCoordsRef.current = { x: e.clientX, y: e.clientY };
       
-      currentMouseY = e.clientY;
-      
-      // Update container rect
-      containerRect = scrollContainer.getBoundingClientRect();
-      
-      // Check limits
-      const isWithinHorizontalBounds = e.clientX >= containerRect.left && e.clientX <= containerRect.right;
-      const maxDistanceFromContainer = 100;
-      const isWithinVerticalRange = 
-        e.clientY >= (containerRect.top - maxDistanceFromContainer) &&
-        e.clientY <= (containerRect.bottom + maxDistanceFromContainer);
-      
-      if (!isWithinHorizontalBounds || !isWithinVerticalRange) {
-        if (animationFrameId) {
-          cancelAnimationFrame(animationFrameId);
-          animationFrameId = null;
-        }
-        return;
+      // If dragging and loop NOT running, start it
+      if (isDraggingRef.current && !animationFrameRef.current) {
+        startScrollLoop();
       }
+    };
 
-      const scrollZone = 60;
-      const maxScrollSpeed = 6;
-
-      const distanceFromTop = currentMouseY - containerRect.top;
-      const distanceFromBottom = containerRect.bottom - currentMouseY;
-
+    const startScrollLoop = () => {
       const scroll = () => {
-        if (!isDragging || !containerRect) {
-          if (animationFrameId) {
-            cancelAnimationFrame(animationFrameId);
-            animationFrameId = null;
-          }
+        const scrollContainer = scrollContainerRef.current;
+        if (!isDraggingRef.current || !scrollContainer) {
+          animationFrameRef.current = null;
           return;
         }
 
-        containerRect = scrollContainer.getBoundingClientRect();
-        const currentDistanceFromTop = currentMouseY - containerRect.top;
-        const currentDistanceFromBottom = containerRect.bottom - currentMouseY;
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const currentMouseY = mouseCoordsRef.current.y;
+        
+        const scrollZone = 60;
+        const maxScrollSpeed = 12; // Adjusted speed
+
+        const distanceFromTop = currentMouseY - containerRect.top;
+        const distanceFromBottom = containerRect.bottom - currentMouseY;
 
         let shouldContinue = false;
 
-        if (currentDistanceFromTop < scrollZone && currentDistanceFromTop > 0) {
-          const speedFactor = Math.pow(1 - (currentDistanceFromTop / scrollZone), 2);
+        // Scroll Up
+        if (currentDistanceFromTop < scrollZone) {
+          // Allow scrolling even if slightly outside to catch fast drags
+          const speedFactor = Math.pow(1 - (Math.max(-50, currentDistanceFromTop) / scrollZone), 2);
           const speed = maxScrollSpeed * speedFactor;
           scrollContainer.scrollTop -= speed;
           shouldContinue = true;
-        } else if (currentDistanceFromBottom < scrollZone && currentDistanceFromBottom > 0) {
-          const speedFactor = Math.pow(1 - (currentDistanceFromBottom / scrollZone), 2);
+        } 
+        // Scroll Down
+        else if (currentDistanceFromBottom < scrollZone) {
+          const speedFactor = Math.pow(1 - (Math.max(-50, currentDistanceFromBottom) / scrollZone), 2);
           const speed = maxScrollSpeed * speedFactor;
           scrollContainer.scrollTop += speed;
           shouldContinue = true;
         }
 
         if (shouldContinue) {
-          animationFrameId = requestAnimationFrame(scroll);
+          animationFrameRef.current = requestAnimationFrame(scroll);
         } else {
-          animationFrameId = null;
+          animationFrameRef.current = null;
         }
       };
 
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
       scroll();
     };
 
-    scrollContainer.addEventListener('pointerdown', handleDragStart);
-    window.addEventListener('pointerup', handleDragEnd);
     window.addEventListener('pointermove', handleMouseMove);
+    // Note: 'pointerup' is handled globally to stop drag state
 
     return () => {
-      scrollContainer.removeEventListener('pointerdown', handleDragStart);
-      window.removeEventListener('pointerup', handleDragEnd);
       window.removeEventListener('pointermove', handleMouseMove);
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isManageMode, scrollContainerRef]);
+  }, []); // Empty dependency array to attach once (refs don't need re-attach)
 
   return (
     <div className="playlist-sidebar" style={{
@@ -159,14 +138,54 @@ const PrelistSidebar = ({
       />
 
       {/* Reorderable Queue List */}
+      {/* Reorderable Queue ListContainer */}
       <div
         className="queue-list-container"
+        ref={scrollContainerRef} // Attach logic ref here
         style={{
           background: theme === "dark" ? "#161616" : "#f9f9f9",
           border: theme === "dark" ? "1px solid #333" : "1px solid #ddd",
+          flex: 1, // Ensure it takes space
+          overflowY: 'auto', // It handles the scroll
+          overflowX: 'hidden',
+          position: 'relative',
+          padding: 0
         }}
       >
-        {/* Header / Actions */}
+        {/* Header / Actions - WAIT, Header should be sticky or outside? */}
+        {/* The Header was INSIDE the container in previous code? No. 
+            Let's check lines 162-249. Header was inside `queue-list-container`. 
+            If I make `queue-list-container` scrollable, Header will scroll away.
+            User probably wants Header fixed?
+            
+            Previous Code:
+            <div className="queue-list-container" ...>
+               <div className="playlist-header" ...> ... </div>
+               <Reorder.Group ... style={{ overflowY: 'auto' }} />
+            </div>
+
+            So `queue-list-container` was the wrapper. `Reorder.Group` was the scrollable part.
+            Header was fixed at top of `queue-list-container`?
+            
+            Let's look at Step 482 snippet.
+            Lines 162-314.
+            queue-list-container wraps Header AND Reorder.Group.
+            Header has normal position.
+            Reorder.Group (lines 271-312) has `flex: 1`, `overflowY: 'auto'`.
+            So Header stays at top, List scrolls. THIS IS CORRECT LAYOUT.
+            
+            ISSUE: Reorder.Group is the scroller.
+            
+            FIX:
+            We need an INTERMEDIATE div for scrolling.
+            Header (Fixed)
+            ScrollDiv (Scrolls)
+              Reorder.Group (Visible)
+
+            So I need to change the structure inside `queue-list-container`.
+        */}
+        
+        {/* Keep Header as is */}
         <div
           className="playlist-header"
           style={{
@@ -174,11 +193,14 @@ const PrelistSidebar = ({
             borderBottom:
               theme === "dark" ? "1px solid #333" : "1px solid #eee",
             display: 'flex',
-            height: '1.5%',
+            height: '40px', // Fixed height instead of %
+            minHeight: '40px',
             alignItems: 'center',
-            justifyContent: 'flex-start'
+            justifyContent: 'flex-start',
+            padding: '0 10px'
           }}
         >
+          {/* ... Header Content ... */}
           {isManageMode && prelistedItems.length > 0 && (
             <button
               className="action-btn"
@@ -190,7 +212,6 @@ const PrelistSidebar = ({
           )}
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginLeft: 'auto' }}>
-            {/* ADD FILE */}
             <button
               style={{ color: theme === 'dark' ? 'white' : 'black' }}
               className="action-btn"
@@ -206,7 +227,6 @@ const PrelistSidebar = ({
               onChange={onFileSelect}
             />
 
-            {/* EDIT MODE BUTTONS */}
             {!isManageMode ? (
               <button
                 style={{ color: theme === 'dark' ? 'white' : 'black' }}
@@ -248,69 +268,79 @@ const PrelistSidebar = ({
           </div>
         </div>
 
-        {prelistedItems.length === 0 ? (
-          <div
-            style={{
-              padding: "20px 10px",
-              textAlign: "center",
-              color: "#888",
-              fontSize: "15px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "10px",
-              alignItems: "center",
-              justifyContent: 'center',
-              height: '100%',
-            }}
-          >
-            <div style={{ fontSize: '24px', opacity: 0.5 }}>🗋</div>
-            <span><strong>Your Playlist is Empty</strong></span>
-            <span style={{ fontSize: '13px' }}>Search verses or add files.</span>
-          </div>
-        ) : (
-          <Reorder.Group
-            axis="y"
-            values={prelistedItems}
-            onReorder={setPrelistedItems}
-            ref={scrollContainerRef}
-            layoutScroll
-            style={{ 
-              listStyle: 'none', 
-              padding: 0, 
-              margin: 0, 
-              flex: 1, 
-              overflowY: 'auto',
-              overflowX: 'hidden',
-              scrollBehavior: isManageMode ? 'auto' : 'smooth',
-              position: 'relative',
-              willChange: isManageMode ? 'scroll-position' : 'auto'
-            }}
-          >
-            {prelistedItems.map((item) => {
-              const isActive = activeId === item.id;
-              const isEditing = editingRefId === item.id;
+        {/* Scrollable Area */}
+        <div 
+           className="sidebar-scroll-area"
+           ref={scrollContainerRef}
+           style={{
+             flex: 1,
+             overflowY: 'auto',
+             overflowX: 'hidden',
+             position: 'relative' // Needed for Reorder context?
+           }}
+        >
+          {prelistedItems.length === 0 ? (
+            <div
+              style={{
+                padding: "20px 10px",
+                textAlign: "center",
+                color: "#888",
+                fontSize: "15px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                alignItems: "center",
+                justifyContent: 'center',
+                height: '100%',
+              }}
+            >
+              <div style={{ fontSize: '24px', opacity: 0.5 }}>🗋</div>
+              <span><strong>Your Playlist is Empty</strong></span>
+              <span style={{ fontSize: '13px' }}>Search verses or add files.</span>
+            </div>
+          ) : (
+            <Reorder.Group
+              axis="y"
+              values={prelistedItems}
+              onReorder={setPrelistedItems}
+              // ref={scrollContainerRef}  <-- MOVED ref to parent div
+              layoutScroll
+              style={{ 
+                listStyle: 'none', 
+                padding: 0, 
+                margin: 0, 
+                // overflowY: 'auto', <-- REMOVE scroll from here
+                // flex: 1,          <-- REMOVE flex from here
+              }}
+            >
+              {prelistedItems.map((item) => {
+                const isActive = activeId === item.id;
+                const isEditing = editingRefId === item.id;
 
-              return (
-                <PrelistQueueItem
-                  key={item.id}
-                  item={item}
-                  theme={theme}
-                  isActive={isActive}
-                  isEditing={isEditing}
-                  isManageMode={isManageMode}
-                  editRefValue={editRefValue}
-                  setEditRefValue={setEditRefValue}
-                  startEditingRef={startEditingRef}
-                  saveRefEdit={saveRefEdit}
-                  cancelRefEdit={cancelRefEdit}
-                  removeFromQueue={removeFromQueue}
-                  handleItemClick={handleItemClick}
-                  sidebarItemRefs={sidebarItemRefs}
-                />
-              );
-            })}
-          </Reorder.Group>
-        )}
+                return (
+                  <PrelistQueueItem
+                    key={item.id}
+                    item={item}
+                    theme={theme}
+                    isActive={isActive}
+                    isEditing={isEditing}
+                    isManageMode={isManageMode}
+                    editRefValue={editRefValue}
+                    setEditRefValue={setEditRefValue}
+                    startEditingRef={startEditingRef}
+                    saveRefEdit={saveRefEdit}
+                    cancelRefEdit={cancelRefEdit}
+                    removeFromQueue={removeFromQueue}
+                    handleItemClick={handleItemClick}
+                    sidebarItemRefs={sidebarItemRefs}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                  />
+                );
+              })}
+            </Reorder.Group>
+          )}
+        </div>
       </div>
     </div>
   );

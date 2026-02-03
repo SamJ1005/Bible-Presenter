@@ -8,14 +8,12 @@ const PrelistQueueItem = ({
   isActive, 
   isEditing,
   isManageMode,
-  editRefValue,
-  setEditRefValue,
   startEditingRef,
-  saveRefEdit,
-  cancelRefEdit,
   removeFromQueue,
   handleItemClick,
-  sidebarItemRefs
+  sidebarItemRefs,
+  onDragStart,
+  onDragEnd
 }) => {
   const dragControls = useDragControls();
   return (
@@ -28,6 +26,8 @@ const PrelistQueueItem = ({
       dragControls={dragControls}
       dragElastic={0}
       dragTransition={{ power: 0, timeConstant: 0 }}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       whileDrag={{
         opacity: 0.8,
         cursor: "grabbing",
@@ -45,7 +45,7 @@ const PrelistQueueItem = ({
           : isEditing 
             ? `4px solid ${theme === 'dark' ? '#ffaa00' : '#ffcc00'}` // Orange/Yellow indicator for editing
             : "4px solid transparent",
-        cursor: isManageMode && !isEditing ? "grab" : "pointer"
+        cursor: "default" // Default cursor for the item itself
       }}
     >
       <div 
@@ -54,12 +54,23 @@ const PrelistQueueItem = ({
             sidebarItemRefs.current[item.id] = el;
           }
         }}
-        style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', flex: 1 }}
+        style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', flex: 1, cursor: !isManageMode && !isEditing ? "pointer" : "default" }}
       >
         {/* Drag Handle Icon - subtle hint, only in manage mode */}
         {isManageMode && (
-          <div className="drag-handle" onPointerDown={(e) => dragControls.start(e)}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <div 
+            className="drag-handle" 
+            onPointerDown={(e) => {
+              if (onDragStart) onDragStart(); // Manually trigger scroll start
+              dragControls.start(e);
+            }}
+            style={{ 
+              cursor: "grab", 
+              padding: "4px", // Increasing hit area
+              display: "flex", alignItems: "center", justifyContent: "center"
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{opacity: 0.5}}>
               <line x1="3" y1="12" x2="21" y2="12"></line>
               <line x1="3" y1="6" x2="21" y2="6"></line>
               <line x1="3" y1="18" x2="21" y2="18"></line>

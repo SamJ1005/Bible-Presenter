@@ -91,6 +91,7 @@ const PrelistVerseCard = ({
           }}
           dangerouslySetInnerHTML={{ __html: displayTamil }}
           style={{
+            fontFamily: "TamilBibleFont, Arial, sans-serif",
             fontSize: "20px",
             marginBottom: "10px",
             color: theme === "dark" ? "#ddd" : "#333",
