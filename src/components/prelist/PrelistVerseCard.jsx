@@ -62,7 +62,7 @@ const PrelistVerseCard = ({
 
     // Use relative sizing: 120% to increase, 80% to decrease
     // This compounds with repeated clicks and works in both playlist and presentation
-    const scale = increase ? '120%' : '80%';
+    const scale = increase ? '105%' : '95%';
     const selectedHtml = getSelectionHtml();
     if (!selectedHtml) return false;
 

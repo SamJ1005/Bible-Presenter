@@ -29,10 +29,9 @@
         font-family: Arial, sans-serif;
       }
 
-      /* Tamil Font */
       @font-face {
         font-family: "TamilBibleFont";
-        src: url("../public/fonts/static/NotoSansTamil-SemiBold.ttf")
+        src: url("fonts/NotoSansTamil-SemiBold.ttf")
           format("truetype");
         font-weight: normal;
         font-style: normal;
@@ -100,7 +99,8 @@
         font-weight: 900;
         line-height: 1.28;
         white-space: pre-wrap;
-        /* removed break-word */
+        overflow-wrap: break-word; /* Prevent overflow */
+        word-break: break-word;   /* Ensure long words break */
         max-width: 100%;
       }
 
@@ -108,6 +108,8 @@
         font-weight: 600;
         line-height: 1.35;
         white-space: pre-wrap;
+        overflow-wrap: break-word; /* Prevent overflow */
+        word-break: break-word;   /* Ensure long words break */
       }
 
       /* ---------- WATERMARK ---------- */

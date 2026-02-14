@@ -186,7 +186,7 @@ const Prelist = React.forwardRef((
         // FIX: Use <br/> instead of \n because presentation uses innerHTML
         finalTamil = item.versesPayload
           .map((i) => `${i.v}. ${i.tam}`)
-          .join("<br/><br/>");
+          .join("<br/>");
       }
 
       // English is empty for multi-verse as per requirement to fit screen,
@@ -198,7 +198,7 @@ const Prelist = React.forwardRef((
         } else {
           finalEnglish = item.versesPayload
             .map((i) => `${i.v}. ${i.eng}`)
-            .join("<br/><br/>");
+            .join("<br/>");
         }
       }
 
@@ -555,7 +555,7 @@ const Prelist = React.forwardRef((
     let finalEnglish = '';
 
     if (item.isMulti && item.versesPayload && item.versesPayload.length > 0) {
-      finalTamil = tamilContentRef.current?.innerHTML || item.tamilHtml || item.versesPayload.map(i => `${i.v}. ${i.tam}`).join('<br/><br/>');
+      finalTamil = tamilContentRef.current?.innerHTML || item.tamilHtml || item.versesPayload.map(i => `${i.v}. ${i.tam}`).join('<br/>');
       finalEnglish = '';
     } else {
       finalTamil = tamilContentRef.current?.innerHTML || item.tamilHtml || item.tamilText || '';
