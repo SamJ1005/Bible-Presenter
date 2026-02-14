@@ -1,7 +1,7 @@
 // usePresentation.js
 import { getTamilBookName } from "../utils/bibleBooks";
 export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilBookDataRef }) {
-  function buildPayload({ selectedBook, selectedChapter, selectedVerse, settings = {}, tamilDataOverride = null, englishText = null, tamilText = null, viewMode = "bible", type = "bible", fileData = null }) {
+  function buildPayload({ selectedBook, selectedChapter, selectedVerse, settings = {}, tamilDataOverride = null, englishText = null, tamilText = null, viewMode = "bible", type = "bible", fileData = null, fontSizeOffset = 0, index = null }) {
     if (type === "file" && fileData) {
       return {
         viewMode,
@@ -9,21 +9,29 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
         url: fileData.url,
         fileType: fileData.fileType,
         name: fileData.name,
-        presentationBgColor: settings.presentationBgColor ?? "black", // Keep BG settings available
+        presentationBgColor: settings.presentationBgColor ?? "black",
+        presentationTextColor: settings.presentationTextColor ?? "white",
+        enableTransition: settings.enableTransition ?? false,
+        customWatermark: settings.customWatermark ?? "",
       };
     }
 
     const finalTamil = tamilText ?? (getTamilVerse?.(selectedChapter, selectedVerse, tamilDataOverride) || "");
     const finalEnglish = englishText ?? (getEnglishVerse?.(selectedBook, selectedChapter, selectedVerse) || "");
-    const tamilName = getTamilBookName(selectedBook);
-    const index = `${tamilName} ${selectedChapter}:${selectedVerse}   ${selectedBook}`;
+    
+    // Use pre-built index if provided (e.g. from Prelist), otherwise generate
+    const finalIndex = index || (() => {
+      const tamilName = getTamilBookName(selectedBook);
+      return `${tamilName} ${selectedChapter}:${selectedVerse}   ${selectedBook}`;
+    })();
 
     return {
       viewMode,
       type: "bible",
       tamilText: finalTamil,
       englishText: finalEnglish,
-      index,
+      index: finalIndex,
+      fontSizeOffset: fontSizeOffset || 0,
       tamilFontSize: settings.tamilFontSize ?? 60,
       englishFontSize: settings.englishFontSize ?? 60,
       tamilEnabled: settings.isTamilEnabled ?? true,
@@ -31,11 +39,14 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
       presentationBgType: settings.presentationBgType ?? "color",
       presentationBgImage: settings.presentationBgImage ?? "",
       presentationBgColor: settings.presentationBgColor ?? "black",
+      presentationTextColor: settings.presentationTextColor ?? "white",
+      enableTransition: settings.enableTransition ?? false,
+      customWatermark: settings.customWatermark ?? "",
     };
   }
 
   // Opens (if needed) and sends the payload
-  async function sendToPresentation({ selectedBook, selectedChapter, selectedVerse, settings = {}, tamilDataOverride = null, englishText = null, tamilText = null, viewMode = "bible", type = "bible", fileData = null }) {
+  async function sendToPresentation({ selectedBook, selectedChapter, selectedVerse, settings = {}, tamilDataOverride = null, englishText = null, tamilText = null, viewMode = "bible", type = "bible", fileData = null, fontSizeOffset = 0, index = null }) {
     // Validation
     if (type === "bible") {
       if (!selectedBook || !selectedChapter || !selectedVerse) {
@@ -44,7 +55,7 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
       }
     }
 
-    const payload = buildPayload({ selectedBook, selectedChapter, selectedVerse, settings, tamilDataOverride, englishText, tamilText, viewMode, type, fileData });
+    const payload = buildPayload({ selectedBook, selectedChapter, selectedVerse, settings, tamilDataOverride, englishText, tamilText, viewMode, type, fileData, fontSizeOffset, index });
 
     try {
       // Ensure presentation window exists (Option A behavior: clicking a verse opens it)

@@ -1,43 +1,57 @@
 import React from "react";
 
-const PrelistEditToolbar = ({ applyStyle, saveTextEdit, cancelTextEdit, itemId }) => {
+const PrelistEditToolbar = ({
+  applyStyle,
+  saveTextEdit,
+  cancelTextEdit,
+  itemId,
+}) => {
   return (
-    <div className="formatting-toolbar">
+    <div className="formatting-toolbar" style={{ marginLeft: '4px' }}>
       {/* Formatting Toolbar */}
-      <button 
-        className="format-btn" 
-        onMouseDown={(e) => { e.preventDefault(); applyStyle('bold'); }} 
+      <button
+        className="format-btn"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          applyStyle("bold");
+        }}
         title="Bold"
       >
-        <span style={{ fontWeight: 'bold' }}>B</span>
+        <span style={{ fontWeight: "bold" }}>B</span>
       </button>
-      <button 
-        className="format-btn" 
-        onMouseDown={(e) => { e.preventDefault(); applyStyle('italic'); }} 
+      <button
+        className="format-btn"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          applyStyle("italic");
+        }}
         title="Italic"
       >
-        <span style={{ fontStyle: 'italic' }}>I</span>
+        <span style={{ fontStyle: "italic" }}>I</span>
       </button>
-      <button 
-        className="format-btn" 
-        onMouseDown={(e) => { e.preventDefault(); applyStyle('underline'); }} 
+      <button
+        className="format-btn"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          applyStyle("underline");
+        }}
         title="Underline"
       >
-        <span style={{ textDecoration: 'underline' }}>U</span>
+        <span style={{ textDecoration: "underline" }}>U</span>
       </button>
 
       <div className="separator"></div>
 
-      <button 
-        onClick={(e) => { e.stopPropagation(); saveTextEdit(itemId); }} 
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          saveTextEdit(itemId);
+        }}
         className="save-btn"
       >
         ✓ Save
       </button>
-      <button 
-        onClick={cancelTextEdit} 
-        className="cancel-btn"
-      >
+      <button onClick={cancelTextEdit} className="cancel-btn">
         ✕ Cancel
       </button>
     </div>

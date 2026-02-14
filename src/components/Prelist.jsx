@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import toast from "react-hot-toast";
 import "./prelist/Prelist.css";
 import { parseReferenceIncludeRange } from "../utils/referenceParser";
+import { getTamilBookName } from "../utils/bibleBooks";
 import PrelistSidebar from "./prelist/PrelistSidebar";
 import PrelistMainView from "./prelist/PrelistMainView";
 
@@ -37,6 +38,8 @@ const Prelist = React.forwardRef((
 
   // Local state for verse text editing (HTML)
   const [editingTextId, setEditingTextId] = useState(null);
+  // Track pending font size offset during editing (before save)
+  const [pendingFontOffset, setPendingFontOffset] = useState(null);
 
   // Auto-scroll Refs
   const itemRefs = useRef({}); // Map of main content refs (Main View)
@@ -167,7 +170,7 @@ const Prelist = React.forwardRef((
         },
         settings,
       };
-      console.log("[PRELIST.JSX] Sending file payload:", payload);
+      // console.log("[PRELIST.JSX] Sending file payload:", payload);
       sendToPresentation(payload);
       return;
     }
@@ -199,7 +202,8 @@ const Prelist = React.forwardRef((
         }
       }
 
-      const indexStr = `${item.book} ${item.chapter}:${item.verse}`; // verse is "1,2" string here
+      const tamilName = getTamilBookName(item.book);
+      const indexStr = `${tamilName} ${item.chapter}:${item.verse}   ${item.book}`;
 
       sendToPresentation({
         selectedBook: item.book,
@@ -210,6 +214,7 @@ const Prelist = React.forwardRef((
         settings,
         index: indexStr,
         viewMode: "prelist",
+        fontSizeOffset: item.fontSizeOffset || 0,
       });
       return;
     }
@@ -271,8 +276,9 @@ const Prelist = React.forwardRef((
       tamilText, // EXPLICIT PASS
       englishText, // EXPLICIT PASS
       settings,
-      index: `${item.book} ${item.chapter}:${item.verse}`,
+      index: `${getTamilBookName(item.book)} ${item.chapter}:${item.verse}   ${item.book}`,
       viewMode: "prelist",
+      fontSizeOffset: item.fontSizeOffset || 0,
     });
   };
 
@@ -336,7 +342,7 @@ const Prelist = React.forwardRef((
 
   const onFileSelect = (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      addFileToQueue(e.target.files[0]);
+      addFileToQueue(e.target.files[0], activeId);
     }
     // Clear input so same file can be selected again if needed
     e.target.value = "";
@@ -495,6 +501,7 @@ const Prelist = React.forwardRef((
 
   const startEditingText = (item) => {
     setEditingTextId(item.id);
+    setPendingFontOffset(item.fontSizeOffset || 0);
   };
 
   const saveTextEdit = (id) => {
@@ -508,17 +515,85 @@ const Prelist = React.forwardRef((
       updates.englishHtml = englishContentRef.current.innerHTML;
     }
 
+    // Save font size offset
+    if (pendingFontOffset !== null) {
+      updates.fontSizeOffset = pendingFontOffset;
+    }
+
     if (Object.keys(updates).length > 0) {
       updateQueueItem(id, updates);
       toast.success("Text saved successfully");
     }
 
     setEditingTextId(null);
+    setPendingFontOffset(null);
   };
 
   const cancelTextEdit = (e) => {
     if (e) e.stopPropagation();
     setEditingTextId(null);
+    setPendingFontOffset(null);
+  };
+
+  // Font size change handler - saves immediately to queue item
+  const handleFontSizeChange = (itemId, newOffset) => {
+    setPendingFontOffset(newOffset);
+    // Also save immediately to the queue item so it persists without needing Save
+    updateQueueItem(itemId, { fontSizeOffset: newOffset });
+    // Send live update to presentation if this item is currently active
+    const item = prelistedItems.find(i => i.id === itemId);
+    if (item && activeId === itemId) {
+      handleLivePreviewUpdate({ ...item, fontSizeOffset: newOffset }, newOffset);
+    }
+  };
+
+  // Live preview update - sends to presentation window in real-time
+  const handleLivePreviewUpdate = (item, fontOffset) => {
+    if (!sendToPresentation) return;
+    // Build and send a live preview payload (same as handlePresent but with the current offset)
+    let finalTamil = '';
+    let finalEnglish = '';
+
+    if (item.isMulti && item.versesPayload && item.versesPayload.length > 0) {
+      finalTamil = tamilContentRef.current?.innerHTML || item.tamilHtml || item.versesPayload.map(i => `${i.v}. ${i.tam}`).join('<br/><br/>');
+      finalEnglish = '';
+    } else {
+      finalTamil = tamilContentRef.current?.innerHTML || item.tamilHtml || item.tamilText || '';
+      finalEnglish = englishContentRef.current?.innerHTML || item.englishHtml || '';
+      if (!finalEnglish) {
+        const b = bibleData?.books?.find(b => b.name === item.book);
+        const c = b?.chapters?.find(c => Number(c.chapter) === Number(item.chapter));
+        const v = c?.verses?.find(v => Number(v.verse) === Number(item.verse));
+        finalEnglish = v ? v.text : '';
+      }
+    }
+
+    const tamilName = getTamilBookName(item.book);
+    const indexStr = `${tamilName} ${item.chapter}:${item.verse}   ${item.book}`;
+
+    // Send directly to presentation (fire-and-forget for live update)
+    try {
+      window.electron?.sendPresentation?.({
+        viewMode: 'prelist',
+        type: 'bible',
+        tamilText: finalTamil,
+        englishText: finalEnglish,
+        index: indexStr,
+        fontSizeOffset: fontOffset,
+        tamilFontSize: settings?.tamilFontSize ?? 60,
+        englishFontSize: settings?.englishFontSize ?? 60,
+        tamilEnabled: settings?.isTamilEnabled ?? true,
+        englishEnabled: settings?.isEnglishEnabled ?? true,
+        presentationBgType: settings?.presentationBgType ?? 'color',
+        presentationBgImage: settings?.presentationBgImage ?? '',
+        presentationBgColor: settings?.presentationBgColor ?? 'black',
+        presentationTextColor: settings?.presentationTextColor ?? 'white',
+        enableTransition: settings?.enableTransition ?? false,
+        customWatermark: settings?.customWatermark ?? '',
+      });
+    } catch (e) {
+      console.error('Live preview update failed', e);
+    }
   };
 
   // Local Search State (independent of Bible Tab)
@@ -746,6 +821,8 @@ const Prelist = React.forwardRef((
         handleItemClick={handleItemClick}
         handlePresent={handlePresent}
         itemRefs={itemRefs}
+        onFontSizeChange={handleFontSizeChange}
+        onLivePreviewUpdate={handleLivePreviewUpdate}
       />
     </div>
   );

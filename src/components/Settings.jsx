@@ -108,6 +108,45 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme })
               </div>
             )}
         </div>
+
+        {/* Custom Color */}
+        <div style={{ marginTop: "8px" }}>
+          <label>
+            <input
+              type="radio"
+              name="bg"
+              checked={settings.presentationBgType === "custom"}
+              onChange={() =>
+                setSettings((prev) => ({
+                  ...prev,
+                  presentationBgType: "custom",
+                  presentationBgImage: null,
+                  presentationBgColor: prev.presentationBgColor || "#1a1a2e",
+                }))
+              }
+            />
+            <span style={{ marginLeft: "8px" }}>Custom Color</span>
+          </label>
+
+          {settings.presentationBgType === "custom" && (
+            <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <input
+                type="color"
+                value={settings.presentationBgColor || "#1a1a2e"}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    presentationBgColor: e.target.value,
+                  }))
+                }
+                style={{ width: "50px", height: "35px", border: "none", cursor: "pointer" }}
+              />
+              <span style={{ fontSize: "13px", opacity: 0.7 }}>
+                {settings.presentationBgColor || "#1a1a2e"}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* FONT COLOR OPTIONS */}
@@ -148,6 +187,44 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme })
             />
             <span style={{ marginLeft: "8px" }}>Black Text</span>
           </label>
+        </div>
+
+        <div style={{ marginTop: "8px" }}>
+          <label>
+            <input
+              type="radio"
+              name="fontColor"
+              checked={settings.presentationTextColor !== "white" && settings.presentationTextColor !== "black"}
+              onChange={() =>
+                setSettings((prev) => ({
+                  ...prev,
+                  presentationTextColor: prev.presentationTextColor && prev.presentationTextColor !== "white" && prev.presentationTextColor !== "black"
+                    ? prev.presentationTextColor
+                    : "#ffdd57",
+                }))
+              }
+            />
+            <span style={{ marginLeft: "8px" }}>Custom Color</span>
+          </label>
+
+          {settings.presentationTextColor !== "white" && settings.presentationTextColor !== "black" && (
+            <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <input
+                type="color"
+                value={settings.presentationTextColor || "#ffdd57"}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    presentationTextColor: e.target.value,
+                  }))
+                }
+                style={{ width: "50px", height: "35px", border: "none", cursor: "pointer" }}
+              />
+              <span style={{ fontSize: "13px", opacity: 0.7 }}>
+                {settings.presentationTextColor}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

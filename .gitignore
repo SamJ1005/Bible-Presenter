@@ -13,9 +13,9 @@ dist-ssr
 *.local
 
 # Electron / Vite builds
-Version_1.4/
 dist/
 build/
+versions/
 out/
 release/
 Theme codes/

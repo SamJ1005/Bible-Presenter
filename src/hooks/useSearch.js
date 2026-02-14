@@ -12,6 +12,7 @@ export default function useSearch({
   loadTamilForBook, // New prop
   selectedBook,     // New prop
   addToRecent,      // New prop: callback to add to recent list
+  settings,         // New prop: app settings for presentation
 }) {
   const [search, setSearch] = useState("");
 
@@ -278,6 +279,7 @@ export default function useSearch({
       selectedChapter: parsed.chapter,
       selectedVerse: parsed.verse,
       tamilDataOverride,
+      settings,
     });
 
     // Add to recent list on success

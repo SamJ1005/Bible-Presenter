@@ -52,7 +52,7 @@ export default function Header({
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background =
-              theme === "dark" ? "#0f0e0eff" : "#ffffff";
+              theme === "dark" ? "rgb(49, 49, 49)" : "#ffffff";
           }}
         >
           ☐

@@ -122,6 +122,7 @@ export default function App() {
     loadTamilForBook,
     selectedBook,
     addToRecent, // pass callback
+    settings,
   });
 
   // Refs used for scroll-to-selected behavior (kept same names)
@@ -386,7 +387,7 @@ export default function App() {
     });
   }, []);
 
-  const addFileToQueue = useCallback((fileObj) => {
+  const addFileToQueue = useCallback((fileObj, insertAfterId = null) => {
     // Limit large files for storage safety
     const reader = new FileReader();
 
@@ -399,7 +400,19 @@ export default function App() {
         url: e.target.result, // BASE64 DATA URL (Persistent)
         path: fileObj.path || ""
       };
-      setPrelistedItems((prev) => [...prev, newItem]);
+      setPrelistedItems((prev) => {
+        // Insert below active item if provided
+        if (insertAfterId) {
+          const idx = prev.findIndex((item) => item.id === insertAfterId);
+          if (idx !== -1) {
+            const newArr = [...prev];
+            newArr.splice(idx + 1, 0, newItem);
+            return newArr;
+          }
+        }
+        // Fallback: append to end
+        return [...prev, newItem];
+      });
     };
 
     reader.onerror = (err) => {
