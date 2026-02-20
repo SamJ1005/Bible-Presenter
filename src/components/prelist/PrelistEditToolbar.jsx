@@ -7,12 +7,13 @@ const PrelistEditToolbar = ({
   itemId,
 }) => {
   return (
-    <div className="formatting-toolbar" style={{ marginLeft: '4px' }}>
+    <div className="formatting-toolbar" style={{ marginLeft: '4px' }} onClick={(e) => e.stopPropagation()}>
       {/* Formatting Toolbar */}
       <button
         className="format-btn"
         onMouseDown={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           applyStyle("bold");
         }}
         title="Bold"
@@ -23,6 +24,7 @@ const PrelistEditToolbar = ({
         className="format-btn"
         onMouseDown={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           applyStyle("italic");
         }}
         title="Italic"
@@ -33,6 +35,7 @@ const PrelistEditToolbar = ({
         className="format-btn"
         onMouseDown={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           applyStyle("underline");
         }}
         title="Underline"
@@ -51,7 +54,13 @@ const PrelistEditToolbar = ({
       >
         ✓ Save
       </button>
-      <button onClick={cancelTextEdit} className="cancel-btn">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          cancelTextEdit();
+        }}
+        className="cancel-btn"
+      >
         ✕ Cancel
       </button>
     </div>

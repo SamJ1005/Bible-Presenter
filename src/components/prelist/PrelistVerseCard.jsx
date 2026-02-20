@@ -91,6 +91,10 @@ const PrelistVerseCard = ({
     if (onFontSizeChange) {
       onFontSizeChange(item.id, next);
     }
+
+    // Also trigger presentation (select + present)
+    handleItemClick(item.id);
+    handlePresent(item);
   };
 
   // Reset all font sizes to default
@@ -134,13 +138,26 @@ const PrelistVerseCard = ({
     }
   };
 
+  // Handle specific presentation clicks (Reference or Verse Text)
+  const handlePresentationClick = (e) => {
+    // BLOCK presentation if ANY editing is happening in this card or reference editing
+    if (!isEditing && !editingRefId) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation(); // Prevent container click (which only selects)
+      }
+      handleItemClick(item.id); // Ensure it is selected
+      handlePresent(item); // Present it
+    }
+  };
+
   return (
     <div
       key={item.id}
-      onClick={() => { if (!isEditing && !editingRefId) { handleItemClick(item.id); handlePresent(item); } }}
+      onClick={() => { if (!isEditing && !editingRefId) { handleItemClick(item.id); } }} // Only select on container click
       ref={el => itemRefs.current[item.id] = el}
       style={{
-        background: theme === "dark" ? "#1e1e1e" : "#fff",
+        background: theme === "dark" ? "#1e1e1e" : "#fafafaff",
         padding: "10px",
         cursor: "pointer",
         borderRadius: "8px",
@@ -162,7 +179,11 @@ const PrelistVerseCard = ({
           alignItems: "flex-start",
         }}
       >
-        <span>
+        <span 
+          onClick={handlePresentationClick}
+          title="Click to Present"
+          style={{ cursor: 'pointer' }}
+        >
           {item.book} {item.chapter}:{item.verse}
           {/* Show font offset badge */}
           {(localFontOffset != null && localFontOffset !== 0) && (
@@ -178,19 +199,21 @@ const PrelistVerseCard = ({
           )}
         </span>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {/* Font size buttons - ALWAYS visible */}
           <button
+            type="button"
             className="format-btn font-size-btn"
             onClick={(e) => handleFontSizeClick(-1, e)}
+            onMouseDown={(e) => e.stopPropagation()}
             title="Decrease Font Size (or shrink selected text)"
             style={{
               cursor: 'pointer',
               background: 'transparent',
-              border: `1px solid ${theme === 'dark' ? '#555' : '#ccc'}`,
+              border: `1px solid ${theme === 'dark' ? '#555' : '#999'}`,
               borderRadius: '4px',
               padding: '2px 5px',
-              color: theme === 'dark' ? '#bbb' : '#555',
+              color: theme === 'dark' ? '#bbb' : '#333',
               fontSize: '11px',
               fontWeight: 'bold',
               lineHeight: 1,
@@ -199,16 +222,18 @@ const PrelistVerseCard = ({
             a-
           </button>
           <button
+            type="button"
             className="format-btn font-size-btn"
             onClick={(e) => handleFontReset(e)}
+            onMouseDown={(e) => e.stopPropagation()}
             title="Reset all font sizes to default"
             style={{
               cursor: 'pointer',
               background: localFontOffset !== 0 ? (theme === 'dark' ? '#333' : '#eee') : 'transparent',
-              border: `1px solid ${theme === 'dark' ? '#555' : '#ccc'}`,
+              border: `1px solid ${theme === 'dark' ? '#555' : '#999'}`,
               borderRadius: '4px',
               padding: '2px 4px',
-              color: localFontOffset !== 0 ? '#ff9800' : (theme === 'dark' ? '#666' : '#999'),
+              color: localFontOffset !== 0 ? '#ff9800' : (theme === 'dark' ? '#666' : '#888'),
               fontSize: '11px',
               fontWeight: 'bold',
               lineHeight: 1,
@@ -217,16 +242,18 @@ const PrelistVerseCard = ({
             ↺
           </button>
           <button
+            type="button"
             className="format-btn font-size-btn"
             onClick={(e) => handleFontSizeClick(1, e)}
+            onMouseDown={(e) => e.stopPropagation()}
             title="Increase Font Size (or enlarge selected text)"
             style={{
               cursor: 'pointer',
               background: 'transparent',
-              border: `1px solid ${theme === 'dark' ? '#555' : '#ccc'}`,
+              border: `1px solid ${theme === 'dark' ? '#555' : '#999'}`,
               borderRadius: '4px',
               padding: '2px 5px',
-              color: theme === 'dark' ? '#bbb' : '#555',
+              color: theme === 'dark' ? '#bbb' : '#333',
               fontSize: '13px',
               fontWeight: 'bold',
               lineHeight: 1,
@@ -238,17 +265,28 @@ const PrelistVerseCard = ({
           {/* Edit button / Toolbar */}
           {!isEditing ? (
             <button
-              onClick={(e) => { e.stopPropagation(); startEditingText(item); }}
+              type="button"
+              onClick={(e) => { 
+                e.preventDefault();
+                e.stopPropagation(); 
+                startEditingText(item); 
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onMouseUp={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
               title="Edit Formatting"
               style={{
                 cursor: 'pointer',
                 background: 'transparent',
                 border: 'none',
-                padding: '2px',
+                padding: '6px', // Balanced padding
                 marginLeft: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={theme === 'dark' ? '#888' : '#666'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={theme === 'dark' ? '#888' : '#444'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
               </svg>
@@ -271,6 +309,7 @@ const PrelistVerseCard = ({
           ref={isEditing ? tamilContentRef : null}
           contentEditable={isEditing}
           suppressContentEditableWarning={true}
+          onClick={!isEditing ? handlePresentationClick : undefined}
           onKeyDown={(e) => {
             if (!isEditing) return;
             e.stopPropagation();
@@ -284,7 +323,7 @@ const PrelistVerseCard = ({
             outline: 'none',
             border: isEditing ? '1px dashed #555' : 'none',
             padding: isEditing ? '4px' : '0',
-            cursor: isEditing ? 'text' : 'default',
+            cursor: isEditing ? 'text' : 'pointer',
             textDecorationSkipInk: 'none',
             WebkitTextDecorationSkipInk: 'none'
           }}
@@ -297,6 +336,7 @@ const PrelistVerseCard = ({
         ref={isEditing ? englishContentRef : null}
         contentEditable={isEditing}
         suppressContentEditableWarning={true}
+        onClick={!isEditing ? handlePresentationClick : undefined}
         onKeyDown={(e) => {
           if (!isEditing) return;
           e.stopPropagation();
@@ -309,7 +349,7 @@ const PrelistVerseCard = ({
           outline: 'none',
           border: isEditing ? '1px dashed #555' : 'none',
           padding: isEditing ? '4px' : '0',
-          cursor: isEditing ? 'text' : 'default',
+          cursor: isEditing ? 'text' : 'pointer',
           textDecorationSkipInk: 'none',
           WebkitTextDecorationSkipInk: 'none'
         }}

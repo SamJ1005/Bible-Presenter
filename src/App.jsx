@@ -1,6 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { Toaster } from "react-hot-toast";
+import { Toaster, toast } from "react-hot-toast";
 import { saveMemory, loadMemory } from "./hooks/useLocalMemory";
+import { auth, db } from "./firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, onSnapshot, setDoc, deleteDoc, collection, getDocs, getDoc } from "firebase/firestore";
 import "./index.css";
 import Settings from "./components/Settings";
 import Header from "./components/Header";
@@ -28,6 +31,7 @@ export default function App() {
       englishFontSize: 60,
       isTamilEnabled: true,
       isEnglishEnabled: true,
+      indexFontSize: 24,
     })
   );
 
@@ -35,15 +39,57 @@ export default function App() {
     saveMemory("settings", settings);
   }, [settings]);
 
+  // Utility to get user-specific memory keys for isolation
+  const getMemKey = useCallback((key) => {
+    const uid = auth.currentUser?.uid || 'guest';
+    return `user_${uid}_${key}`;
+  }, []);
+
+  // ---- Queue Manager State ----
+  const [queueMeta, setQueueMeta] = useState(() => {
+    const key = auth.currentUser ? `user_${auth.currentUser.uid}_queueMeta` : `user_guest_queueMeta`;
+    const saved = loadMemory(key, null);
+    if (saved && saved.queues && saved.queues.length > 0) return saved;
+    // Migration: create default queue
+    return {
+      activeId: "default",
+      queues: [{ id: "default", name: "Default Queue", syncEnabled: false }]
+    };
+  });
+
+  useEffect(() => {
+    saveMemory(getMemKey("queueMeta"), queueMeta);
+  }, [queueMeta, getMemKey]);
+
+  const activeQueueInfo = queueMeta.queues.find(q => q.id === queueMeta.activeId) || queueMeta.queues[0];
+
+  // Cloud playlists state: { [queueId]: { name, lastModified, itemCount } }
+  const [cloudPlaylists, setCloudPlaylists] = useState({});
+  const [cloudLoading, setCloudLoading] = useState(false);
+  // Sync status map: { [queueId]: 'synced' | 'local' | 'unsynced' | 'cloud-only' }
+  const [syncStatus, setSyncStatus] = useState({});
+
   // ---- theme + UI state
   const { theme, toggleTheme, applyThemeGlobals, scrollbarStyle } = useTheme();
   const [activeTab, setActiveTab] = useState("bible");
   const [isBlankMode, setIsBlankMode] = useState(false); // Track if presentation is in blank mode
   const [recent, setRecent] = useState([]); // Session-only recent list
 
-  /* ITEM STATE */
+  /* ITEM STATE — loaded per active queue */
   const [prelistedItems, setPrelistedItems] = useState(() => {
-    const loaded = loadMemory("prelistedItems", []);
+    const key = auth.currentUser ? `user_${auth.currentUser.uid}_queueMeta` : `user_guest_queueMeta`;
+    const tempMeta = loadMemory(key, { activeId: 'default' });
+    const qKey = auth.currentUser 
+      ? `user_${auth.currentUser.uid}_queue_items_${tempMeta.activeId}`
+      : `user_guest_queue_items_${tempMeta.activeId}`;
+    
+    // Try queue-specific key first
+    let loaded = loadMemory(qKey, null);
+    // Migration: if no queue-specific items but old "prelistedItems" exists
+    if (!loaded && tempMeta.activeId === "default") {
+      loaded = loadMemory("prelistedItems", []);
+    }
+    if (!loaded) loaded = [];
     // Filter out stale blob URLs (they expire on reload)
     return loaded.filter(item => {
       if (item.type === 'file' && item.url && item.url.startsWith('blob:')) {
@@ -53,9 +99,399 @@ export default function App() {
     });
   });
 
+  const [prelistActiveId, setPrelistActiveId] = useState(null); // Active item selection
+
+  // Auth & User State
+  const [user, setUser] = useState(null);
+  const isRemoteUpdate = useRef(false);
+
+  // Listen for auth state
   useEffect(() => {
-    saveMemory("prelistedItems", prelistedItems);
-  }, [prelistedItems]);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      const previousUser = user;
+      setUser(currentUser);
+
+      if (currentUser) {
+        console.log('[AUTH] User logged in:', { uid: currentUser.uid, email: currentUser.email });
+        
+        // If switching from a different user (or from guest), reset local state
+        if (!previousUser || previousUser.uid !== currentUser.uid) {
+          // Load this specific user's meta from storage, or use default
+          const userMeta = loadMemory(`user_${currentUser.uid}_queueMeta`, {
+            activeId: "default",
+            queues: [{ id: "default", name: "Default Queue", syncEnabled: true }]
+          });
+          
+          setQueueMeta(userMeta);
+
+          // Load items for the active queue of this user
+          const loadedItems = loadMemory(`user_${currentUser.uid}_queue_items_${userMeta.activeId}`, []);
+          setPrelistedItems(loadedItems);
+          setPrelistActiveId(null);
+          setSyncStatus({});
+        }
+        
+        // Fetch this user's playlists from Firestore
+        fetchCloudPlaylists(currentUser.uid);
+      } else {
+        console.log('[AUTH] Logged out / Guest mode');
+        // Clear all cloud data
+        setCloudPlaylists({});
+        setSyncStatus({});
+        
+        // Reset to a fresh default queue (no leftover data from previous user)
+        if (previousUser) {
+          const freshMeta = {
+            activeId: "default",
+            queues: [{ id: "default", name: "Default Queue", syncEnabled: false }]
+          };
+          setQueueMeta(freshMeta);
+          setPrelistedItems([]);
+          setPrelistActiveId(null);
+          // Clear the cached cloud data
+          saveMemory(getMemKey('cloudPlaylistsCache'), {});
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Helper: Strip large data from items before syncing to cloud
+  // Firestore has a 1 MB document size limit. File items with base64 data URLs
+  // are too large — we strip them and keep files local-only.
+  const sanitizeItemsForCloud = (items) => {
+    return items.map(item => {
+      if (item.type === 'file') {
+        // Strip the large base64 URL — keep metadata only
+        const { url, ...rest } = item;
+        return { ...rest, url: '[local-file]', localOnly: true };
+      }
+      // For verse items, strip any very large custom text (safety net)
+      const sanitized = { ...item };
+      if (sanitized.customTamil && sanitized.customTamil.length > 5000) {
+        sanitized.customTamil = sanitized.customTamil.substring(0, 5000);
+      }
+      if (sanitized.customEnglish && sanitized.customEnglish.length > 5000) {
+        sanitized.customEnglish = sanitized.customEnglish.substring(0, 5000);
+      }
+      return sanitized;
+    });
+  };
+
+  // Fetch all cloud playlists for the user (with offline cache)
+  const fetchCloudPlaylists = useCallback(async (uid) => {
+    if (!uid) return;
+    setCloudLoading(true);
+    try {
+      const queuesRef = collection(db, "users", uid, "queues");
+      const snapshot = await getDocs(queuesRef);
+      const playlists = {};
+      const newSyncStatus = {};
+
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        playlists[docSnap.id] = {
+          name: data.name || 'Untitled',
+          lastModified: data.lastModified || null,
+          itemCount: data.items ? data.items.length : 0,
+        };
+        // Cache the full playlist items locally for offline access
+        saveMemory(getMemKey(`queue_items_${docSnap.id}`), data.items || []);
+        if (data.lastModified) {
+          saveMemory(getMemKey(`queue_modified_${docSnap.id}`), data.lastModified);
+        }
+      });
+
+      // Cache the cloud playlists metadata for offline use
+      saveMemory(getMemKey('cloudPlaylistsCache'), playlists);
+
+      setCloudPlaylists(playlists);
+
+      // Auto-import cloud playlists as local queues if not already present
+      // This ensures they are available in the queue selector even offline
+      let metaUpdated = false;
+      const newQueues = [...queueMeta.queues];
+      Object.entries(playlists).forEach(([cloudId, info]) => {
+        if (!newQueues.find((q) => q.id === cloudId)) {
+          newQueues.push({ id: cloudId, name: info.name, syncEnabled: true });
+          metaUpdated = true;
+        }
+      });
+      if (metaUpdated) {
+        setQueueMeta((prev) => ({ ...prev, queues: newQueues }));
+      }
+
+      // Calculate sync status for each local queue
+      queueMeta.queues.forEach((q) => {
+        if (!q.syncEnabled) {
+          newSyncStatus[q.id] = 'local'; // Not synced by choice
+        } else if (playlists[q.id]) {
+          // Compare timestamps
+          const localModified = loadMemory(getMemKey(`queue_modified_${q.id}`), null);
+          const cloudModified = playlists[q.id].lastModified;
+          if (localModified && cloudModified && localModified === cloudModified) {
+            newSyncStatus[q.id] = 'synced';
+          } else {
+            newSyncStatus[q.id] = 'unsynced';
+          }
+        } else {
+          newSyncStatus[q.id] = 'local'; // Only on this device
+        }
+      });
+
+      // Mark cloud-only playlists (ones not yet in local queues — shouldn't happen after auto-import above)
+      Object.keys(playlists).forEach((cloudId) => {
+        if (!newQueues.find((q) => q.id === cloudId)) {
+          newSyncStatus[cloudId] = 'cloud-only';
+        }
+      });
+
+      setSyncStatus(newSyncStatus);
+    } catch (err) {
+      console.error('Failed to fetch cloud playlists:', err);
+      // OFFLINE FALLBACK: Load cached cloud playlists metadata
+      const cached = loadMemory(getMemKey('cloudPlaylistsCache'), null);
+      if (cached && Object.keys(cached).length > 0) {
+        setCloudPlaylists(cached);
+        // All cached playlists items are already in localStorage (queue_items_<id>)
+        // so they are accessible even offline
+        const offlineStatus = {};
+        Object.keys(cached).forEach((id) => {
+          offlineStatus[id] = 'local'; // Show as local when offline
+        });
+        queueMeta.queues.forEach((q) => {
+          if (!offlineStatus[q.id]) {
+            offlineStatus[q.id] = 'local';
+          }
+        });
+        setSyncStatus(offlineStatus);
+      }
+    } finally {
+      setCloudLoading(false);
+    }
+  }, [queueMeta.queues, getMemKey]);
+
+  // Load a cloud playlist into local queue
+  const loadCloudPlaylist = useCallback(async (cloudQueueId) => {
+    if (!user) return;
+    try {
+      const queueRef = doc(db, "users", user.uid, "queues", cloudQueueId);
+      const docSnap = await getDoc(queueRef);
+      if (!docSnap.exists()) {
+        toast.error('Playlist not found in cloud');
+        return;
+      }
+      const data = docSnap.data();
+      const items = data.items || [];
+      const name = data.name || 'Cloud Playlist';
+      const lastModified = data.lastModified || new Date().toISOString();
+
+      // Check if this queue already exists locally
+      const existingQueue = queueMeta.queues.find((q) => q.id === cloudQueueId);
+      if (existingQueue) {
+        // Replace items in existing queue
+        if (cloudQueueId === queueMeta.activeId) {
+          isRemoteUpdate.current = true;
+          setPrelistedItems(items);
+        } else {
+          saveMemory(getMemKey(`queue_items_${cloudQueueId}`), items);
+        }
+        saveMemory(getMemKey(`queue_modified_${cloudQueueId}`), lastModified);
+        // Update sync status
+        setSyncStatus((prev) => ({ ...prev, [cloudQueueId]: 'synced' }));
+        toast.success(`Loaded "${name}" from cloud`);
+      } else {
+        // Create new local queue from cloud
+        saveMemory(getMemKey(`queue_items_${cloudQueueId}`), items);
+        saveMemory(getMemKey(`queue_modified_${cloudQueueId}`), lastModified);
+        // Save current items before switching
+        saveMemory(getMemKey(`queue_items_${queueMeta.activeId}`), prelistedItems);
+        setQueueMeta((prev) => ({
+          activeId: cloudQueueId,
+          queues: [...prev.queues, { id: cloudQueueId, name, syncEnabled: true }],
+        }));
+        setPrelistedItems(items);
+        setPrelistActiveId(null);
+        setSyncStatus((prev) => ({ ...prev, [cloudQueueId]: 'synced' }));
+        toast.success(`Imported "${name}" from cloud`);
+      }
+    } catch (err) {
+      console.error('Failed to load cloud playlist:', err);
+      toast.error('Failed to load playlist from cloud');
+    }
+  }, [user, queueMeta, prelistedItems, getMemKey]);
+
+  // Force sync current queue to cloud
+  const syncQueueNow = useCallback(async () => {
+    if (!user || !activeQueueInfo) return;
+    try {
+      const queueRef = doc(db, "users", user.uid, "queues", queueMeta.activeId);
+      const now = new Date().toISOString();
+      const cloudItems = sanitizeItemsForCloud(prelistedItems);
+      await setDoc(queueRef, {
+        name: activeQueueInfo.name,
+        items: cloudItems,
+        lastModified: now,
+      }, { merge: true });
+      saveMemory(getMemKey(`queue_modified_${queueMeta.activeId}`), now);
+      setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'synced' }));
+      toast.success('☁ Playlist synced to cloud');
+      console.log('[SYNC] Manual sync success:', activeQueueInfo.name, `(${cloudItems.length} items)`);
+      // Refresh cloud list
+      fetchCloudPlaylists(user.uid);
+    } catch (err) {
+      console.error('[SYNC] Manual sync failed:', err);
+      if (err.message && err.message.includes('maximum allowed size')) {
+        toast.error('Playlist too large for cloud. Try removing some file items.');
+      } else {
+        toast.error('Sync failed: ' + (err.message || 'Unknown error'));
+      }
+    }
+  }, [user, activeQueueInfo, queueMeta.activeId, prelistedItems, fetchCloudPlaylists, getMemKey]);
+
+  // Sync Queue with Firestore (auto-sync when user is logged in)
+  useEffect(() => {
+    if (user && settings.cloudSyncEnabled !== false) {
+      // Subscribe to Firestore subcollection for this queue
+      const queueRef = doc(db, "users", user.uid, "queues", queueMeta.activeId);
+      const unsubscribeSnapshot = onSnapshot(queueRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data && data.items) {
+            // Merge cloud items with local items to preserve file URLs
+            // Cloud items may have '[local-file]' for file items since base64 is too large for Firestore
+            const localItems = loadMemory(getMemKey(`queue_items_${queueMeta.activeId}`), []);
+            const mergedItems = data.items.map(cloudItem => {
+              // For ALL file items from cloud, restore the local base64 URL
+              if (cloudItem.type === 'file') {
+                const localMatch = localItems.find(li => li.id === cloudItem.id);
+                if (localMatch && localMatch.url && localMatch.url !== '[local-file]') {
+                  return { ...cloudItem, url: localMatch.url };
+                }
+              }
+              return cloudItem;
+            });
+
+            isRemoteUpdate.current = true;
+            setPrelistedItems(mergedItems);
+            // Update local timestamp
+            if (data.lastModified) {
+              saveMemory(getMemKey(`queue_modified_${queueMeta.activeId}`), data.lastModified);
+              setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'synced' }));
+            }
+          }
+        }
+      });
+      return () => unsubscribeSnapshot();
+    }
+  }, [user, queueMeta.activeId, getMemKey]);
+
+  // Persistence Effect — always save locally, auto-sync to Firestore
+  useEffect(() => {
+    if (isRemoteUpdate.current) {
+      isRemoteUpdate.current = false;
+      return;
+    }
+
+    // Always save to localStorage (backup + offline)
+    saveMemory(getMemKey(`queue_items_${queueMeta.activeId}`), prelistedItems);
+
+    // Auto-sync to Firestore when user is logged in and cloud sync is enabled
+    if (user && settings.cloudSyncEnabled !== false) {
+      const now = new Date().toISOString();
+      const queueRef = doc(db, "users", user.uid, "queues", queueMeta.activeId);
+      const cloudItems = sanitizeItemsForCloud(prelistedItems);
+      setDoc(queueRef, {
+        name: activeQueueInfo?.name || 'Untitled',
+        items: cloudItems,
+        lastModified: now,
+      }, { merge: true })
+        .then(() => {
+          saveMemory(getMemKey(`queue_modified_${queueMeta.activeId}`), now);
+          setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'synced' }));
+          console.log('[SYNC] Auto-synced:', activeQueueInfo?.name, `(${cloudItems.length} items)`);
+        })
+        .catch((err) => {
+          console.error('[SYNC] Auto-sync failed:', err);
+          setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'unsynced' }));
+          if (err.message && err.message.includes('maximum allowed size')) {
+            toast.error('☁ Playlist too large to sync. Remove some file items.', { id: 'sync-size-error' });
+          }
+        });
+    } else {
+      // Not logged in or sync disabled, mark as local
+      setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'local' }));
+    }
+  }, [prelistedItems, user, queueMeta.activeId, getMemKey]);
+
+  // ---- Queue Management Functions ----
+  const createQueue = useCallback((name, syncEnabled = false) => {
+    const newId = `q_${Date.now()}`;
+    // Save current items before switching
+    saveMemory(getMemKey(`queue_items_${queueMeta.activeId}`), prelistedItems);
+    // Auto-enable sync when user is logged in
+    const shouldSync = user ? true : syncEnabled;
+    // Update meta
+    setQueueMeta(prev => ({
+      activeId: newId,
+      queues: [...prev.queues, { id: newId, name: name || 'New Queue', syncEnabled: shouldSync }]
+    }));
+    // Load empty queue
+    setPrelistedItems([]);
+    setPrelistActiveId(null);
+  }, [queueMeta.activeId, prelistedItems, user, getMemKey]);
+
+  const switchQueue = useCallback((id) => {
+    if (id === queueMeta.activeId) return;
+    // Save current items
+    saveMemory(getMemKey(`queue_items_${queueMeta.activeId}`), prelistedItems);
+    // Load target queue items
+    const loaded = loadMemory(getMemKey(`queue_items_${id}`), []).filter(item => {
+      if (item.type === 'file' && item.url && item.url.startsWith('blob:')) return false;
+      return true;
+    });
+    setPrelistedItems(loaded);
+    setQueueMeta(prev => ({ ...prev, activeId: id }));
+    setPrelistActiveId(null);
+  }, [queueMeta.activeId, prelistedItems, getMemKey]);
+
+  const deleteQueue = useCallback((id) => {
+    if (queueMeta.queues.length <= 1) return; // Can't delete last queue
+    const remaining = queueMeta.queues.filter(q => q.id !== id);
+    const newActiveId = id === queueMeta.activeId ? remaining[0].id : queueMeta.activeId;
+
+    // If deleting active queue, load the new active queue's items
+    if (id === queueMeta.activeId) {
+      const loaded = loadMemory(getMemKey(`queue_items_${newActiveId}`), []);
+      setPrelistedItems(loaded);
+      setPrelistActiveId(null);
+    }
+
+    // Remove from localStorage
+    try { localStorage.removeItem(getMemKey(`queue_items_${id}`)); } catch(e) {}
+
+    // Remove from Firestore if user is logged in
+    if (user) {
+      const queueRef = doc(db, "users", user.uid, "queues", id);
+      deleteDoc(queueRef).catch(() => {});
+    }
+
+    setQueueMeta({ activeId: newActiveId, queues: remaining });
+  }, [queueMeta, prelistedItems, user, getMemKey]);
+
+  const renameQueue = useCallback((id, newName) => {
+    setQueueMeta(prev => ({
+      ...prev,
+      queues: prev.queues.map(q => q.id === id ? { ...q, name: newName } : q)
+    }));
+  }, []);
+
+  const toggleQueueSync = useCallback((id) => {
+    setQueueMeta(prev => ({
+      ...prev,
+      queues: prev.queues.map(q => q.id === id ? { ...q, syncEnabled: !q.syncEnabled } : q)
+    }));
+  }, []);
 
   const addToRecent = useCallback((book, chapter, verse) => {
     setRecent((prev) => {
@@ -173,26 +609,17 @@ export default function App() {
   }, [selectedVerse]);
 
   useEffect(() => {
-    if (!verseTableRef.current) return;
-
-    // verseTableRef is on the scrollable container div, find the table inside it
-    const table = verseTableRef.current.querySelector('table');
-    if (!table) return;
-
-    const row = table.querySelector(`tr[data-vn="${selectedVerse}"]`);
-    if (!row) return;
-
-    // Calculate scroll position relative to the container
-    const container = verseTableRef.current;
-    const rowTop = row.offsetTop;
-    const containerHeight = container.clientHeight;
-    const scrollPosition = rowTop - containerHeight / 3;
-
-    container.scrollTo({
-      top: Math.max(0, scrollPosition),
-      behavior: "smooth",
-    });
+    smoothScrollToSelected(verseTableRef, `tr[data-vn="${selectedVerse}"]`);
   }, [selectedBook, selectedChapter, selectedVerse]);
+
+  // Focus search input when switching to bible tab
+  useEffect(() => {
+    if (activeTab === 'bible') {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+    }
+  }, [activeTab]);
 
   // Handle blank presentation toggle
   const handleBlankPresentation = useCallback(async () => {
@@ -432,7 +859,6 @@ export default function App() {
     }, 100);
   }, [handleSearch, addToQueue]);
 
-  const [prelistActiveId, setPrelistActiveId] = useState(null); // Persist selection
 
   // Register IPC listeners for keyboard shortcuts
   useEffect(() => {
@@ -528,8 +954,10 @@ export default function App() {
                       "background 0.25s ease-in-out, color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out",
                     background: theme === "dark" ? "#0f0e0eff" : "#fff",
                     cursor: "text",
+                    border: theme === "dark" ? "1px solid #333" : "1px solid #ddd",
                   }}
                   className="search-container"
+                  onClick={() => searchInputRef.current?.focus()}
                 >
                   <input
                     ref={searchInputRef}
@@ -767,9 +1195,9 @@ export default function App() {
         </div>
       )}
 
-      {activeTab === "settings" && (
+{activeTab === "settings" && (
         <div style={{ background: theme === "dark" ? "#0f0e0eff" : "#fff" }}>
-          <Settings settings={settings} setSettings={setSettings} />
+          <Settings settings={settings} setSettings={setSettings} user={user} />
         </div>
       )}
 
@@ -796,6 +1224,20 @@ export default function App() {
           sendToPresentation={sendToPresentation}
           activeId={prelistActiveId}
           setActiveId={setPrelistActiveId}
+          queueMeta={queueMeta}
+          activeQueueInfo={activeQueueInfo}
+          user={user}
+          createQueue={createQueue}
+          switchQueue={switchQueue}
+          deleteQueue={deleteQueue}
+          renameQueue={renameQueue}
+          toggleQueueSync={toggleQueueSync}
+          cloudPlaylists={cloudPlaylists}
+          cloudLoading={cloudLoading}
+          syncStatus={syncStatus}
+          loadCloudPlaylist={loadCloudPlaylist}
+          fetchCloudPlaylists={() => user && fetchCloudPlaylists(user.uid)}
+          syncQueueNow={syncQueueNow}
         />
       )}
     </div>

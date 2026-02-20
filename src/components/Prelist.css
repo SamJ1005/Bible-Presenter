@@ -11,6 +11,16 @@
 }
 
 /* Sidebar Styles */
+:root {
+  --save-clr: #00ff99;
+  --cancel-clr: #ff5555;
+}
+
+html.light {
+  --save-clr: #008037; /* Darker vibrant green */
+  --cancel-clr: #b30000; /* Darker vibrant red */
+}
+
 .playlist-sidebar {
   width: 24%;
   min-width: 280px;
@@ -77,6 +87,14 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* Light theme: format buttons */
+html.light .format-btn {
+  color: #333;
+}
+html.light .format-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
 .separator {
   width: 1px;
   background: #555;
@@ -85,7 +103,7 @@
 }
 
 .save-btn {
-  color: #00ff99;
+  color: var(--save-clr) !important;
   background: none;
   border: none;
   cursor: pointer;
@@ -99,8 +117,13 @@
   background: rgba(0, 255, 153, 0.1);
 }
 
+/* Light theme hover overrides */
+html.light .save-btn:hover {
+  background: rgba(0, 128, 55, 0.1);
+}
+
 .cancel-btn {
-  color: #ff5555;
+  color: var(--cancel-clr) !important;
   background: none;
   border: none;
   cursor: pointer;
@@ -113,12 +136,10 @@
   background: rgba(255, 85, 85, 0.1);
 }
 
-/* Themes handling via parent class or global tokens would be better, 
-   but we'll hook into the .dark / .light classes or inline styles 
-   where dynamic, or use variables if they existed. 
-   For now, we define base classes and let the JS styling logic 
-   controlling the specific colors remain or override carefully. 
-*/
+/* Light theme hover overrides */
+html.light .cancel-btn:hover {
+  background: rgba(179, 0, 0, 0.1);
+}
 
 .queue-item:last-child {
   border-bottom: none;
@@ -159,6 +180,19 @@
 .icon-btn.delete:hover {
   background: rgba(255, 85, 85, 0.15);
   color: #ff5555;
+}
+
+/* Light theme: icon buttons */
+html.light .icon-btn {
+  color: #444;
+}
+html.light .icon-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #222;
+}
+html.light .icon-btn.delete:hover {
+  background: rgba(204, 34, 34, 0.1);
+  color: #cc2222;
 }
 
 /* Drag Handle */
@@ -206,7 +240,18 @@
 .action-btn.active {
   background: var(--focus-color, #007bff);
   border-color: var(--focus-color, #007bff);
-  color: white; /* Assuming dark text on light bg usually, but this forces contrast */
+  color: white;
+}
+
+/* Light theme: action buttons */
+html.light .action-btn {
+  border-color: #999;
+  color: #333;
+}
+html.light .action-btn:hover {
+  border-color: #003399;
+  color: #003399;
+  background: rgba(0, 51, 153, 0.06);
 }
 
 /* Dark mode specific overrides handled by JS logic mostly, 

@@ -30,7 +30,7 @@ export default function useSearch({
     mt: "Matthew",
     mk: "Mark",
     lk: "Luke",
-    ps: "Psalms",
+    ps: "Psalm",
     "1cor": "1 Corinthians",
     "2cor": "2 Corinthians",
     "1chr": "1 Chronicles",

@@ -19,7 +19,8 @@ const PrelistMainView = ({
   handlePresent,
   itemRefs,
   onFontSizeChange,
-  onLivePreviewUpdate
+  onLivePreviewUpdate,
+  activeQueueName
 }) => {
   // Helper to lookup verse text
   const getVerseText = (bookName, chapter, verse) => {
@@ -38,6 +39,7 @@ const PrelistMainView = ({
         style={{
           height: "calc(100vh - 100px)",
           overflowY: "auto",
+          background: theme === "dark" ? "#161616" : "#ffffff",
           borderTop: "1px solid rgba(255,255,255,0.06)",
           paddingTop: "12px",
           display: "flex",
@@ -45,6 +47,38 @@ const PrelistMainView = ({
           gap: "20px",
         }}
       >
+        {/* Active Queue Heading */}
+        {activeQueueName && (
+          <div
+            style={{
+              padding: '8px 16px 4px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+            }}
+          >
+            <h2 style={{
+              margin: 0,
+              fontSize: '20px',
+              fontWeight: 700,
+              color: theme === 'dark' ? '#00ff99' : '#003399',
+              letterSpacing: '0.3px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}>
+              <span style={{ opacity: 0.6, fontSize: '16px' }}>📋</span>
+              {activeQueueName}
+            </h2>
+            <span style={{
+              fontSize: '12px',
+              color: theme === 'dark' ? '#666' : '#aaa',
+              fontWeight: 500,
+            }}>
+              {prelistedItems.length} {prelistedItems.length === 1 ? 'item' : 'items'}
+            </span>
+          </div>
+        )}
         {prelistedItems.map((item, i) => {
           // --- FILE RENDERING ---
           if (item.type === 'file') {

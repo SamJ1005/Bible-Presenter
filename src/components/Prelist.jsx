@@ -25,7 +25,23 @@ const Prelist = React.forwardRef((
     setPrelistedItems,
     sendToPresentation,
     activeId,      // Lifted State
-    setActiveId    // Lifted State
+    setActiveId,   // Lifted State
+    // Queue Management
+    queueMeta,
+    activeQueueInfo,
+    user,
+    createQueue,
+    switchQueue,
+    deleteQueue,
+    renameQueue,
+    toggleQueueSync,
+    // Cloud Playlist Management
+    cloudPlaylists,
+    cloudLoading,
+    syncStatus,
+    loadCloudPlaylist,
+    fetchCloudPlaylists,
+    syncQueueNow
   },
   ref
 ) => {
@@ -502,6 +518,9 @@ const Prelist = React.forwardRef((
   const startEditingText = (item) => {
     setEditingTextId(item.id);
     setPendingFontOffset(item.fontSizeOffset || 0);
+    // Close the presentation window when entering edit mode
+    // to prevent live edits from being shown on the projected screen
+    window.api?.closePresentation?.();
   };
 
   const saveTextEdit = (id) => {
@@ -595,6 +614,115 @@ const Prelist = React.forwardRef((
       console.error('Live preview update failed', e);
     }
   };
+
+  // --- Backfill missing Tamil text for legacy/loaded items ---
+  useEffect(() => {
+    // Find single-verse items missing Tamil text
+    const singleMissing = prelistedItems.filter(
+      (item) =>
+        item.type !== 'file' &&
+        !item.isMulti &&
+        !item.tamilText &&
+        !item.tamilHtml &&
+        item.book &&
+        item.chapter &&
+        item.verse
+    );
+
+    // Find multi-verse items where versesPayload entries have empty Tamil
+    const multiMissing = prelistedItems.filter(
+      (item) =>
+        item.type !== 'file' &&
+        item.isMulti &&
+        item.versesPayload &&
+        !item.tamilHtml &&
+        item.versesPayload.some((vp) => !vp.tam)
+    );
+
+    if (singleMissing.length === 0 && multiMissing.length === 0) return;
+
+    // Group all items needing Tamil by book
+    const bookGroups = {};
+    for (const item of [...singleMissing, ...multiMissing]) {
+      if (!bookGroups[item.book]) bookGroups[item.book] = [];
+      bookGroups[item.book].push(item);
+    }
+
+    // Fetch Tamil data for each unique book and backfill
+    (async () => {
+      const singleUpdates = []; // { id, tamilText }
+      const multiUpdates = [];  // { id, versesPayload }
+
+      for (const [bookName, items] of Object.entries(bookGroups)) {
+        try {
+          const res = await fetch(
+            `./bible/tamil/${encodeURIComponent(bookName)}.json`
+          );
+          if (!res.ok) continue;
+          const data = await res.json();
+
+          // Helper to find Tamil verse text
+          const findTamilVerse = (chapter, verse) => {
+            if (Array.isArray(data.chapters)) {
+              const ch = data.chapters.find(
+                (c) => Number(c.chapter) === Number(chapter)
+              );
+              const v = ch?.verses?.find(
+                (vv) => Number(vv.verse) === Number(verse)
+              );
+              return v ? v.text : "";
+            } else if (data[chapter]?.verses) {
+              const v = data[chapter].verses.find(
+                (vv) => Number(vv.verse) === Number(verse)
+              );
+              return v ? v.text : "";
+            }
+            return "";
+          };
+
+          for (const item of items) {
+            if (item.isMulti && item.versesPayload) {
+              // Multi-verse: fill in missing tam fields
+              const updatedPayload = item.versesPayload.map((vp) => {
+                if (!vp.tam) {
+                  const tamText = findTamilVerse(item.chapter, vp.v);
+                  return { ...vp, tam: tamText };
+                }
+                return vp;
+              });
+              // Also update tamilText (first verse)
+              const firstTam = updatedPayload[0]?.tam || "";
+              multiUpdates.push({ id: item.id, versesPayload: updatedPayload, tamilText: firstTam });
+            } else {
+              // Single verse
+              const tamilText = findTamilVerse(item.chapter, item.verse);
+              if (tamilText) {
+                singleUpdates.push({ id: item.id, tamilText });
+              }
+            }
+          }
+        } catch (e) {
+          console.error(`Tamil backfill fetch failed for ${bookName}:`, e);
+        }
+      }
+
+      // Apply all updates at once
+      const allUpdates = [...singleUpdates, ...multiUpdates];
+      if (allUpdates.length > 0) {
+        setPrelistedItems((prev) =>
+          prev.map((item) => {
+            const update = allUpdates.find((u) => u.id === item.id);
+            if (update) {
+              return { ...item, ...update };
+            }
+            return item;
+          })
+        );
+      }
+    })();
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Local Search State (independent of Bible Tab)
   const [localSearch, setLocalSearch] = useState("");
@@ -802,6 +930,20 @@ const Prelist = React.forwardRef((
         handleItemClick={handleItemClick}
         scrollContainerRef={scrollContainerRef}
         sidebarItemRefs={sidebarItemRefs}
+        queueMeta={queueMeta}
+        activeQueueInfo={activeQueueInfo}
+        user={user}
+        createQueue={createQueue}
+        switchQueue={switchQueue}
+        deleteQueue={deleteQueue}
+        renameQueue={renameQueue}
+        toggleQueueSync={toggleQueueSync}
+        cloudPlaylists={cloudPlaylists}
+        cloudLoading={cloudLoading}
+        syncStatus={syncStatus}
+        loadCloudPlaylist={loadCloudPlaylist}
+        fetchCloudPlaylists={fetchCloudPlaylists}
+        syncQueueNow={syncQueueNow}
       />
 
       {/* Main table area: Displays Verses corresponding to Queue */}
@@ -823,6 +965,7 @@ const Prelist = React.forwardRef((
         itemRefs={itemRefs}
         onFontSizeChange={handleFontSizeChange}
         onLivePreviewUpdate={handleLivePreviewUpdate}
+        activeQueueName={activeQueueInfo?.name}
       />
     </div>
   );

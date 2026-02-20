@@ -17,7 +17,7 @@ export const bibleStructure = {
   "Nehemiah": 13,
   "Esther": 10,
   "Job": 42,
-  "Psalms": 150,
+  "Psalm": 150,
   "Proverbs": 31,
   "Ecclesiastes": 12,
   "Song of Songs": 8,
