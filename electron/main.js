@@ -1,5 +1,5 @@
 // electron/main.js
-const { app, BrowserWindow, ipcMain, screen, Menu } = require("electron");
+const { app, BrowserWindow, ipcMain, screen, Menu, protocol } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const bibleKJV = require("./assets/bible/kjv.json");
@@ -14,6 +14,7 @@ function getIconPath() {
 let mainWin = null;
 let presentationWin = null;
 let currentPresentationPayload = null;
+let preferredDisplayId = 'auto'; // 'auto', 'primary', or specific display ID
 
 /* ---- App configuration (must be before app.whenReady) ----  */
 app.setAppUserModelId("com.scripturescreen.app");
@@ -79,8 +80,15 @@ function createPresentationWindow() {
 
   const displays = screen.getAllDisplays();
   const primary = screen.getPrimaryDisplay();
-  const targetDisplay =
-    displays.find((d) => d.id !== primary.id) || primary;
+  
+  let targetDisplay;
+  if (preferredDisplayId === 'primary') {
+    targetDisplay = primary;
+  } else if (preferredDisplayId === 'auto') {
+    targetDisplay = displays.find((d) => d.id !== primary.id) || primary;
+  } else {
+    targetDisplay = displays.find(d => d.id.toString() === preferredDisplayId.toString()) || primary;
+  }
 
   const iconPath = getIconPath();
 
@@ -237,8 +245,85 @@ ipcMain.handle("get-verse", (_, ref) => {
   }
 });
 
+// Save media file to local userData folder and return path
+ipcMain.handle("save-media-file", async (_, sourcePath) => {
+  try {
+    const mediaDir = path.join(app.getPath("userData"), "media");
+    if (!fs.existsSync(mediaDir)) {
+      fs.mkdirSync(mediaDir, { recursive: true });
+    }
+
+    const fileName = path.basename(sourcePath);
+    const destPath = path.join(mediaDir, fileName);
+
+    // Only copy if it exists and is not already at the destination
+    if (fs.existsSync(sourcePath) && sourcePath !== destPath) {
+      fs.copyFileSync(sourcePath, destPath);
+    }
+    
+    // Return a URL using our custom protocol
+    return `local-media://${fileName}`;
+  } catch (err) {
+    console.error("Failed to save media file:", err);
+    return null;
+  }
+});
+
+ipcMain.handle("get-displays", () => {
+  return screen.getAllDisplays().map(d => ({
+    id: d.id.toString(),
+    label: d.label || (d.id === screen.getPrimaryDisplay().id ? "Primary Display" : "Secondary Display"),
+    width: d.bounds.width,
+    height: d.bounds.height,
+    isPrimary: d.id === screen.getPrimaryDisplay().id
+  }));
+});
+
+ipcMain.on("set-preferred-display", (_, displayId) => {
+  preferredDisplayId = displayId;
+  
+  // If presentation window is already open, move it immediately
+  if (presentationWin && !presentationWin.isDestroyed()) {
+    const displays = screen.getAllDisplays();
+    const primary = screen.getPrimaryDisplay();
+    let targetDisplay;
+    
+    if (displayId === 'primary') {
+      targetDisplay = primary;
+    } else if (displayId === 'auto') {
+      // Prioritize secondary, fallback to primary
+      targetDisplay = displays.find(d => d.id !== primary.id) || primary;
+    } else {
+      // Find specific display by ID
+      targetDisplay = displays.find(d => d.id.toString() === displayId.toString()) || primary;
+    }
+    
+    if (targetDisplay) {
+      // Ensure we are in kiosk mode if needed, then move
+      presentationWin.setKiosk(false); // Temporarily exit kiosk to move smoothly
+      presentationWin.setBounds({
+        x: targetDisplay.bounds.x,
+        y: targetDisplay.bounds.y,
+        width: targetDisplay.bounds.width,
+        height: targetDisplay.bounds.height
+      });
+      presentationWin.setKiosk(true);
+    }
+  }
+});
+
 /* ------------ App Lifecycle ------------ */
 app.whenReady().then(() => {
+  // Register custom protocol to serve media from userData
+  // This allows us to load local files without disabling all web security
+  protocol.registerFileProtocol('local-media', (request, callback) => {
+    const filePath = request.url.replace('local-media://', '');
+    const mediaDir = path.join(app.getPath("userData"), "media");
+    // decodeURIComponent handles spaces and special chars in filenames
+    const fullPath = path.join(mediaDir, decodeURIComponent(filePath));
+    callback({ path: fullPath });
+  });
+
   // Create custom menu
   const menuTemplate = [
     {

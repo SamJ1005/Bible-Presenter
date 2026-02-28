@@ -27,17 +27,25 @@ export default function App() {
       presentationBgType: "solid",
       presentationSolidColor: "#000000",
       presentationBgImage: null,
-      tamilFontSize: 60,
-      englishFontSize: 60,
+      tamilFontOffset: 0,
+      englishFontOffset: 0,
+      indexFontOffset: 0,
       isTamilEnabled: true,
       isEnglishEnabled: true,
-      indexFontSize: 24,
+      preferredDisplayId: 'auto',
     })
   );
 
   useEffect(() => {
     saveMemory("settings", settings);
   }, [settings]);
+
+  // Sync display settings to Electron
+  useEffect(() => {
+    if (settings.preferredDisplayId && window.api?.setPreferredDisplay) {
+      window.api.setPreferredDisplay(settings.preferredDisplayId);
+    }
+  }, [settings.preferredDisplayId]);
 
   // Utility to get user-specific memory keys for isolation
   const getMemKey = useCallback((key) => {
@@ -248,7 +256,9 @@ export default function App() {
 
       setSyncStatus(newSyncStatus);
     } catch (err) {
-      console.error('Failed to fetch cloud playlists:', err);
+      if (err.code !== 'permission-denied') {
+        console.error('Failed to fetch cloud playlists:', err);
+      }
       // OFFLINE FALLBACK: Load cached cloud playlists metadata
       const cached = loadMemory(getMemKey('cloudPlaylistsCache'), null);
       if (cached && Object.keys(cached).length > 0) {
@@ -381,6 +391,10 @@ export default function App() {
             }
           }
         }
+      }, (err) => {
+        if (err.code !== 'permission-denied') {
+          console.error('[SYNC] Snapshot listener error:', err);
+        }
       });
       return () => unsubscribeSnapshot();
     }
@@ -412,7 +426,9 @@ export default function App() {
           console.log('[SYNC] Auto-synced:', activeQueueInfo?.name, `(${cloudItems.length} items)`);
         })
         .catch((err) => {
-          console.error('[SYNC] Auto-sync failed:', err);
+          if (err.code !== 'permission-denied') {
+            console.error('[SYNC] Auto-sync failed:', err);
+          }
           setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'unsynced' }));
           if (err.message && err.message.includes('maximum allowed size')) {
             toast.error('☁ Playlist too large to sync. Remove some file items.', { id: 'sync-size-error' });
@@ -425,7 +441,23 @@ export default function App() {
   }, [prelistedItems, user, queueMeta.activeId, getMemKey]);
 
   // ---- Queue Management Functions ----
+  const getUniqueQueueName = useCallback((baseName, existingQueues) => {
+    let finalName = baseName || 'New Queue';
+    if (!existingQueues.some(q => q.name.toLowerCase() === finalName.toLowerCase())) {
+      return finalName;
+    }
+    
+    let counter = 1;
+    let testName = `${finalName}_${counter}`;
+    while (existingQueues.some(q => q.name.toLowerCase() === testName.toLowerCase())) {
+      counter++;
+      testName = `${finalName}_${counter}`;
+    }
+    return testName;
+  }, []);
+
   const createQueue = useCallback((name, syncEnabled = false) => {
+    const uniqueName = getUniqueQueueName(name, queueMeta.queues);
     const newId = `q_${Date.now()}`;
     // Save current items before switching
     saveMemory(getMemKey(`queue_items_${queueMeta.activeId}`), prelistedItems);
@@ -434,12 +466,44 @@ export default function App() {
     // Update meta
     setQueueMeta(prev => ({
       activeId: newId,
-      queues: [...prev.queues, { id: newId, name: name || 'New Queue', syncEnabled: shouldSync }]
+      queues: [...prev.queues, { id: newId, name: uniqueName, syncEnabled: shouldSync }]
     }));
     // Load empty queue
     setPrelistedItems([]);
     setPrelistActiveId(null);
-  }, [queueMeta.activeId, prelistedItems, user, getMemKey]);
+  }, [queueMeta, prelistedItems, user, getMemKey, getUniqueQueueName]);
+
+  const copyQueue = useCallback((id) => {
+    const queueToCopy = queueMeta.queues.find(q => q.id === id);
+    if (!queueToCopy) return;
+
+    const newId = `q_${Date.now() + 1}`;
+    const baseCopyName = `${queueToCopy.name}_copy`;
+    const uniqueName = getUniqueQueueName(baseCopyName, queueMeta.queues);
+
+    // Load items of the queue to copy
+    // If it's the active queue, use current prelistedItems, otherwise load from memory
+    const itemsToCopy = id === queueMeta.activeId 
+      ? prelistedItems 
+      : loadMemory(getMemKey(`queue_items_${id}`), []).filter(item => {
+          if (item.type === 'file' && item.url && item.url.startsWith('blob:')) return false;
+          return true;
+        });
+
+    // Save items to the new queue ID
+    saveMemory(getMemKey(`queue_items_${newId}`), itemsToCopy);
+
+    setQueueMeta(prev => ({
+      ...prev,
+      queues: [...prev.queues, { 
+        id: newId, 
+        name: uniqueName, 
+        syncEnabled: user ? true : (queueToCopy.syncEnabled || false)
+      }]
+    }));
+
+    toast.success(`Copied: ${uniqueName}`);
+  }, [queueMeta, prelistedItems, getMemKey, getUniqueQueueName, user]);
 
   const switchQueue = useCallback((id) => {
     if (id === queueMeta.activeId) return;
@@ -531,15 +595,7 @@ export default function App() {
       getEnglishVerse,
     });
 
-  // ---- navigation (arrow keys, external prev/next)
-  useNavigation({
-    selectedBook,
-    selectedChapter,
-    selectedVerse,
-    setSelectedChapter,
-    setSelectedVerse,
-    getBibleSource: () => kjvData || englishBible,
-  });
+
 
   // ---- search helpers
   const {
@@ -600,6 +656,37 @@ export default function App() {
     smoothScrollToSelected(bookScrollRef, `.book-item.selected`);
   }, [selectedBook]);
 
+  // ---- GLOBAL KEYBOARD NAVIGATION FOR PLAYLIST ----
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (activeTab !== "prelisted") return;
+      
+      const tag = document.activeElement?.tagName;
+      const isCE = document.activeElement?.contentEditable === "true";
+      if (tag === "INPUT" || tag === "TEXTAREA" || isCE) {
+        return;
+      }
+
+      const keys = ["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft", "Enter", " ", "Escape"];
+      if (keys.includes(e.key)) {
+        if (e.key !== "Escape") e.preventDefault();
+        
+        if (["ArrowDown", "ArrowRight"].includes(e.key)) {
+          prelistRef.current?.goNext();
+        } else if (["ArrowUp", "ArrowLeft"].includes(e.key)) {
+          prelistRef.current?.goPrev();
+        } else if (e.key === "Enter" || e.key === " ") {
+          prelistRef.current?.presentActive();
+        } else if (e.key === "Escape") {
+          handleClosePresentation();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [activeTab]);
+
   useEffect(() => {
     smoothScrollToSelected(chapterScrollRef, `.chapter-item.selected`);
   }, [selectedChapter]);
@@ -621,6 +708,21 @@ export default function App() {
     }
   }, [activeTab]);
 
+  // Handle live preview: auto-update presentation when visual settings change
+  const fontOffsets = [settings.tamilFontOffset, settings.englishFontOffset, settings.indexFontOffset].join();
+  useEffect(() => {
+    // Only auto-update if we are NOT in prelisted tab (they have independent cards) 
+    // and not in blank mode, and we have a valid selection
+    if (activeTab !== "prelisted" && !isBlankMode && selectedBook && selectedChapter && selectedVerse) {
+      sendToPresentation({
+        selectedBook,
+        selectedChapter,
+        selectedVerse,
+        settings
+      });
+    }
+  }, [fontOffsets, settings.presentationBgType, settings.presentationBgColor, settings.presentationBgImage, settings.presentationTextColor]);
+
   // Handle blank presentation toggle
   const handleBlankPresentation = useCallback(async () => {
     setIsBlankMode(true);
@@ -641,68 +743,114 @@ export default function App() {
 
   // Navigation handlers as callbacks so they can be reused by buttons and IPC
   const handleNext = useCallback(() => {
-    // PRELIST NAVIGATION override
     if (activeTab === 'prelisted' && prelistRef.current) {
       prelistRef.current.goNext();
       return;
     }
-
-    // Don't navigate if in blank mode (Bible tab)
     if (isBlankMode) return;
+    
+    const source = kjvData || englishBible;
+    if (!source) return;
+    const book = source.books.find((b) => b.name === selectedBook);
+    if (!book) return;
+    const chIndex = book.chapters.findIndex((c) => +c.chapter === +selectedChapter);
+    const chObj = book.chapters[chIndex];
+    if (!chObj) return;
 
-    // Standard Bible Tab Logic
-    const versesInChapter = verseCountForSelectedChapter();
-    let next = Number(selectedVerse) + 1;
-    if (next > versesInChapter) next = 1;
-    setSelectedVerse(next);
+    let nextV = Number(selectedVerse) + 1;
+    let nextC = selectedChapter;
+
+    if (nextV > chObj.verses.length) {
+      if (chIndex < book.chapters.length - 1) {
+        nextC = +book.chapters[chIndex + 1].chapter;
+        nextV = 1;
+      } else {
+        return; // stay at end
+      }
+    }
+
+    setSelectedChapter(nextC);
+    setSelectedVerse(nextV);
     sendToPresentation({
       selectedBook,
-      selectedChapter,
-      selectedVerse: next,
+      selectedChapter: nextC,
+      selectedVerse: nextV,
       settings,
     });
+    addToRecent(selectedBook, nextC, nextV);
   }, [
     activeTab,
     isBlankMode,
     selectedBook,
     selectedChapter,
     selectedVerse,
-    verseCountForSelectedChapter,
+    kjvData,
+    englishBible,
     sendToPresentation,
     settings,
+    addToRecent,
   ]);
 
   const handlePrev = useCallback(() => {
-    // PRELIST NAVIGATION override
     if (activeTab === 'prelisted' && prelistRef.current) {
       prelistRef.current.goPrev();
       return;
     }
-
-    // Don't navigate if in blank mode (Bible tab)
     if (isBlankMode) return;
 
-    // Standard Bible Tab Logic
-    const versesInChapter = verseCountForSelectedChapter();
-    let prev = Number(selectedVerse) - 1;
-    if (prev < 1) prev = versesInChapter || 1;
-    setSelectedVerse(prev);
+    const source = kjvData || englishBible;
+    if (!source) return;
+    const book = source.books.find((b) => b.name === selectedBook);
+    if (!book) return;
+    const chIndex = book.chapters.findIndex((c) => +c.chapter === +selectedChapter);
+    
+    let prevV = Number(selectedVerse) - 1;
+    let prevC = selectedChapter;
+
+    if (prevV < 1) {
+      if (chIndex > 0) {
+        const prevCh = book.chapters[chIndex - 1];
+        prevC = +prevCh.chapter;
+        prevV = prevCh.verses.length || 1;
+      } else {
+        return; // stay at start
+      }
+    }
+
+    setSelectedChapter(prevC);
+    setSelectedVerse(prevV);
     sendToPresentation({
       selectedBook,
-      selectedChapter,
-      selectedVerse: prev,
+      selectedChapter: prevC,
+      selectedVerse: prevV,
       settings,
     });
+    addToRecent(selectedBook, prevC, prevV);
   }, [
     activeTab,
     isBlankMode,
     selectedBook,
     selectedChapter,
     selectedVerse,
-    verseCountForSelectedChapter,
+    kjvData,
+    englishBible,
     sendToPresentation,
     settings,
+    addToRecent,
   ]);
+
+  // ---- navigation (arrow keys, external prev/next)
+  useNavigation({
+    selectedBook,
+    selectedChapter,
+    selectedVerse,
+    setSelectedChapter,
+    setSelectedVerse,
+    getBibleSource: () => kjvData || englishBible,
+    activeTab,
+    onNext: handleNext,
+    onPrev: handlePrev,
+  });
 
   // Wrapped handleSearch to maintain focus
   const handleSearchWithFocus = useCallback(() => {
@@ -814,8 +962,18 @@ export default function App() {
     });
   }, []);
 
-  const addFileToQueue = useCallback((fileObj, insertAfterId = null) => {
-    // Limit large files for storage safety
+  const addFileToQueue = useCallback(async (fileObj, insertAfterId = null) => {
+    // 1. Attempt to persist the file to the app's local media folder
+    let localUrl = null;
+    if (fileObj.path && window.electron?.saveMediaFile) {
+      try {
+        localUrl = await window.electron.saveMediaFile(fileObj.path);
+      } catch (err) {
+        console.error("Failed to persist file locally:", err);
+      }
+    }
+
+    // 2. Also keep a preview URL (base64) for immediate/offline display in the playlist
     const reader = new FileReader();
 
     reader.onload = (e) => {
@@ -824,7 +982,8 @@ export default function App() {
         type: 'file',
         name: fileObj.name,
         fileType: fileObj.type,
-        url: e.target.result, // BASE64 DATA URL (Persistent)
+        url: e.target.result, // BASE64 DATA URL (Temporary/Session)
+        localUrl: localUrl,   // Persistent Local URL (local-media://...)
         path: fileObj.path || ""
       };
       setPrelistedItems((prev) => {
@@ -1228,6 +1387,7 @@ export default function App() {
           activeQueueInfo={activeQueueInfo}
           user={user}
           createQueue={createQueue}
+          copyQueue={copyQueue}
           switchQueue={switchQueue}
           deleteQueue={deleteQueue}
           renameQueue={renameQueue}

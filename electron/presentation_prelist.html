@@ -2,195 +2,46 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Prelist Presentation</title>
-
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: *; media-src 'self' data: file:;"
-    />
-
+    <title>Playlist Presentation</title>
     <style>
-      :root {
-        --bg: #000;
-        --text: #fff;
-      }
-
-      html,
-      body {
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        overflow: hidden;
-      }
-
-      body {
-        background: var(--bg);
-        color: var(--text);
-        font-family: Arial, sans-serif;
-      }
-
-      @font-face {
-        font-family: "TamilBibleFont";
-        src: url("fonts/NotoSansTamil-SemiBold.ttf")
-          format("truetype");
-        font-weight: normal;
-        font-style: normal;
-      }
-
-      #container {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-      }
-
-      /* Fade transition */
-      #container.fade-out {
-        opacity: 0;
-        transition: opacity 0.2s ease-out;
-      }
-      #container.fade-in {
-        opacity: 1;
-        transition: opacity 0.3s ease-in;
-      }
-
-      /* ---------- REFERENCE ---------- */
-      #referenceArea {
-        height: 6%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding-top: 2.5vh;
-        padding-bottom: 0.8vh; /* Permanent gap below reference */
-      }
-
-      #reference {
-        font-weight: bold;
-        font-family: "TamilBibleFont", Arial, sans-serif;
-        text-decoration: underline;
-        text-decoration-color: #b4b4b4ec;
-        text-underline-offset: 5px; /* Push underline down for Tamil descenders */
-        text-decoration-skip-ink: none; /* Prevents underline break on descendors */
-        color: #fff;
-        white-space: nowrap;
-      }
-
-      /* ---------- VERSE ---------- */
-      #verseArea {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        padding: 0.5vh 1vw 0; /* Added top padding for permanent gap from reference */
-      }
-
-      #verseBox {
-        width: 100%;
-        max-height: 95%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 1.5vh;
-        text-align: center;
-        overflow: hidden; /* Never allow text to bleed beyond boundaries */
-      }
-      #tamilText {
-        font-family: "TamilBibleFont", Arial, sans-serif;
-        font-weight: 900;
-        line-height: 1.28;
-        white-space: pre-wrap;
-        overflow-wrap: break-word; /* Prevent overflow */
-        word-break: break-word;   /* Ensure long words break */
-        max-width: 100%;
-      }
-
-      #englishText {
-        font-weight: 600;
-        line-height: 1.35;
-        white-space: pre-wrap;
-        overflow-wrap: break-word; /* Prevent overflow */
-        word-break: break-word;   /* Ensure long words break */
-      }
-
-      /* ---------- WATERMARK ---------- */
-      #watermark {
-        position: absolute;
-        bottom: 15px;
-        right: 25px;
-        font-size: 1.2vw;
-        opacity: 0.35;
-      }
-
-      /* ---------- MEDIA ---------- */
-      #mediaArea {
-        flex: 1;
-        display: none;
-        /* Hidden by default */
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        height: 100vh;
-        overflow: hidden;
-        position: relative;
-      }
-
-      #mediaImage {
-        width: auto;
-        height: 100%;
-        max-width: 100%;
-        object-fit: contain;
-      }
-
-      #mediaVideo {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-      }
-      #bgLayer {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: -1;
-        background-color: #000;
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        transition: background-image 0.5s ease, background-color 0.5s ease;
-      }
+      :root { --bg: #000; --text: #fff; }
+      html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--text); font-family: Arial, sans-serif; }
+      @font-face { font-family: "TamilBibleFont"; src: url("fonts/NotoSansTamil-SemiBold.ttf") format("truetype"); }
+      #container { width: 100%; height: 100%; display: flex; flex-direction: column; }
+      #container.fade-out { opacity: 0; transition: opacity 0.2s ease-out; }
+      #container.fade-in { opacity: 1; transition: opacity 0.3s ease-in; }
+      #referenceArea { min-height: 5%; display: flex; align-items: flex-start; justify-content: center; padding-top: 2.5vh; padding-bottom: 0.8vh; }
+      #reference { font-weight: bold; font-family: "TamilBibleFont", Arial, sans-serif; text-decoration: underline; text-decoration-color: #b4b4b4ec; text-underline-offset: 2px; text-decoration-skip-ink: none; color: #fff; text-align: center; }
+      #verseArea { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0.5vh 1vw 0; }
+      #verseBox { width: 100%; max-height: 95%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2vh; text-align: center; }
+      #tamilText { font-family: "TamilBibleFont", Arial, sans-serif; font-weight: 900; line-height: 1.28; white-space: pre-wrap; word-break: break-word; }
+      #englishText { font-weight: 600; line-height: 1.35; white-space: pre-wrap; word-break: break-word; }
+      #watermark { position: absolute; bottom: 15px; right: 25px; font-size: 16px; opacity: 0.35; z-index: 100; }
+      #bgLayer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background-size: cover; background-position: center; }
     </style>
   </head>
-
   <body>
     <div id="bgLayer"></div>
     <div id="container">
-      <div id="referenceArea">
-        <div id="reference"></div>
+      <div id="referenceArea"> <div id="reference"></div> </div>
+      <div id="verseArea"> <div id="verseBox"> <div id="tamilText"></div> <div id="englishText"></div> </div> </div>
+      <div id="mediaArea" style="display:none; width:100%; height:100%; position: absolute; top:0; left:0; align-items:center; justify-content:center; background: black; z-index: 10;">
+        <img id="mediaImg" style="width:100%; height:100%; object-fit:contain; display:none;">
+        <video id="mediaVideo" style="width:100%; height:100%; object-fit:contain; display:none;" autoplay controls loop></video>
       </div>
-
-      <div id="verseArea">
-        <div id="verseBox">
-          <div id="tamilText"></div>
-          <div id="englishText"></div>
-        </div>
-      </div>
-
-      <div id="mediaArea">
-        <img id="mediaImage" style="display: none" />
-        <video
-          id="mediaVideo"
-          style="display: none"
-          controls
-          autoplay
-          loop
-        ></video>
-      </div>
-
       <div id="watermark"></div>
     </div>
     <script>
-      /* ---------- VERSE TYPE ---------- */
+      function getVerseCount(indexStr) {
+        if (!indexStr) return 1;
+        const tamilText = document.getElementById("tamilText").innerHTML || "";
+        const lines = tamilText.split("<br>").filter((l) => l.trim()).length;
+        if (lines > 1) return lines;
+        const rangeMatch = indexStr.match(/:(\d+)-(\d+)/);
+        if (rangeMatch) return parseInt(rangeMatch[2]) - parseInt(rangeMatch[1]) + 1;
+        return 1;
+      }
+
       function getVerseType(tamil, english) {
         const len = (tamil?.length || 0) * 1.2 + (english?.length || 0);
         if (len < 80) return "small";
@@ -198,317 +49,232 @@
         return "medium";
       }
 
-      /* ---------- VERSE CHECK ---------- */
-      function isSingleVerse(indexStr) {
-        if (!indexStr) return true;
-        return !indexStr.includes(",") && !indexStr.includes("-");
-      }
-
-      function getVerseCount(indexStr) {
-        if (!indexStr) return 1;
-        // Count lines in the text (each verse is on a new line)
-        const tamilText = document.getElementById("tamilText").innerHTML || "";
-        const lines = tamilText.split("<br>").filter((l) => l.trim()).length;
-        if (lines > 1) return lines;
-        // Fallback: check for range like "1-3"
-        const rangeMatch = indexStr.match(/:(\d+)-(\d+)/);
-        if (rangeMatch)
-          return parseInt(rangeMatch[2]) - parseInt(rangeMatch[1]) + 1;
-        return 1;
-      }
-
-      /* ---------- FONT PRESETS ---------- */
-      const FONT_PRESETS = {
-        small: { tamil: 9.2, eng: 7.0, min: 0 },
-        medium: { tamil: 6.5, eng: 5.2, min: 3.5 },
-        large: { tamil: 4.7, eng: 3.9, min: 2.8 },
-        huge: { tamil: 8.0, eng: 6.5, min: 3.0 },
-        multi2: { tamil: 5.0, eng: 4.0, min: 2.5 }, // For exactly 2 verses
-        multi: { tamil: 3.8, eng: 3.2, min: 1.8 }, // For >2 verses
-      };
-
-      /* ---------- SAFE FIT ---------- */
-      function fitVerseBox(tamilEl, engEl, box, type, isSingle, verseCount, fontSizeOffset) {
-        let effectiveType = type;
-
-        if (isSingle && (type === "small" || type === "medium")) {
-          effectiveType = "huge";
-        } else if (!isSingle) {
-          effectiveType = verseCount === 2 ? "multi2" : "multi";
-        }
-
-        const preset = FONT_PRESETS[effectiveType];
-
-        // Apply font size offset (each step = 0.4vw for Tamil, 0.3vw for English)
-        const offsetStep = fontSizeOffset || 0;
-        let tamilVW = preset.tamil + (offsetStep * 0.4);
-        let engVW = preset.eng + (offsetStep * 0.3);
-
-        tamilEl.style.fontSize = tamilVW + "vw";
-        engEl.style.fontSize = engVW + "vw";
-
-        // Multi-verse: just apply preset + offset directly, NO auto-shrink.
-        // User controls font size manually via A+/a- buttons.
-        if (!isSingle) return;
-
-        // Single-verse only: auto-shrink to fit within the box
-        if (type === "small") return;
-
-        const adjustedMin = Math.max(1.5, preset.min - Math.abs(offsetStep) * 0.1);
-        let safety = 0;
-        while (
-          (box.scrollHeight > box.clientHeight ||
-            tamilEl.scrollWidth > box.clientWidth ||
-            engEl.scrollWidth > box.clientWidth) &&
-          tamilVW > adjustedMin &&
-          safety < 120
-        ) {
-          tamilVW -= 0.1;
-          engVW -= 0.08;
-
-          tamilEl.style.fontSize = tamilVW + "vw";
-          engEl.style.fontSize = engVW + "vw";
-
-          safety++;
-        }
-      }
-
-      /* ---------- REF FIT ---------- */
-      function fitReference(el) {
-        const text = (el.innerText || "").toLowerCase();
-
-        const isSmallRef =
-          text.includes("revelation") ||
-          text.includes("வெளிப்படுத்தின") ||
-          text.includes("thessalonians") ||
-          text.includes("தெச");
-
-        let vw = isSmallRef ? 4.2 : 5.5;
-
-        el.style.fontSize = vw + "vw";
-        while (el.scrollWidth > el.clientWidth && vw > 2.5) {
-          vw -= 0.1;
-          el.style.fontSize = vw + "vw";
-        }
-      }
-
-      /* ---------- UPDATE ---------- */
-      function updateVerse(data) {
-        // Reduced logging to avoid base64 spam
-        // console.log("[PRELIST] updateVerse called with data:", data);
-
-        const ref = document.getElementById("reference");
-        const refArea = document.getElementById("referenceArea");
-        const tamil = document.getElementById("tamilText");
-        const eng = document.getElementById("englishText");
-        const box = document.getElementById("verseBox");
-        const verseArea = document.getElementById("verseArea");
-        const mediaArea = document.getElementById("mediaArea");
-        const imgEl = document.getElementById("mediaImage");
-        const vidEl = document.getElementById("mediaVideo");
-
-        if (!data) {
-          ref.innerText = "";
-          tamil.innerText = "";
-          eng.innerText = "";
-          mediaArea.style.display = "none";
-          verseArea.style.display = "flex";
-          refArea.style.display = "flex";
-          vidEl.pause();
-          vidEl.src = "";
-          return;
-        }
-
-        if (data.type === "file") {
-          verseArea.style.display = "none";
-          refArea.style.display = "none";
-          mediaArea.style.display = "flex";
-          mediaArea.style.background = data.presentationBgColor || "black";
-
-          let isImage = data.fileType && data.fileType.startsWith("image");
-          let isVideo = data.fileType && data.fileType.startsWith("video");
-
-          if (!isImage && !isVideo && data.name) {
-            const lower = data.name.toLowerCase();
-            if (lower.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/)) isImage = true;
-            else if (lower.match(/\.(mp4|webm|ogg|mov)$/)) isVideo = true;
-          }
-
-          if (isImage) {
-            imgEl.src = data.url;
-            imgEl.style.display = "block";
-            vidEl.style.display = "none";
-            vidEl.pause();
-          } else if (isVideo) {
-            vidEl.src = data.url;
-            vidEl.style.display = "block";
-            imgEl.style.display = "none";
-            vidEl.play().catch((e) => console.log("Autoplay blocked", e));
-          } else {
-            imgEl.style.display = "none";
-            vidEl.style.display = "none";
-          }
-          return;
-        }
-
-        // ----- APPLY SETTINGS -----
-        // ----- APPLY SETTINGS -----
-        // Background - Cached to prevent flicker
+      function updateDisplay(data) {
+        if (!data) return;
         const bgLayer = document.getElementById('bgLayer');
-        const bgType = data.presentationBgType || 'black';
-        
-        // Initialize cache if needed
-        if (!window.bgCache) {
-           window.bgCache = { type: null, val: null };
-           bgLayer.style.backgroundColor = "black";
-           bgLayer.style.backgroundImage = "none";
-        }
+        const container = document.getElementById('container');
+        const ref = document.getElementById('reference');
+        const tamil = document.getElementById('tamilText');
+        const eng = document.getElementById('englishText');
+        const watermark = document.getElementById('watermark');
+        const box = document.getElementById('verseBox');
+        const verseArea = document.getElementById('verseArea');
+        const refArea = document.getElementById('referenceArea');
+        const mediaArea = document.getElementById('mediaArea');
+        const mediaImg = document.getElementById('mediaImg');
+        const mediaVideo = document.getElementById('mediaVideo');
 
-        if (bgType === 'image' && data.presentationBgImage) {
-          // Compare with cache
-          if (window.bgCache.type !== 'image' || window.bgCache.val !== data.presentationBgImage) {
-             bgLayer.style.backgroundImage = `url(${data.presentationBgImage})`;
-             bgLayer.style.backgroundColor = 'transparent'; 
-             window.bgCache = { type: 'image', val: data.presentationBgImage };
-          }
-        } else if (bgType === 'white') {
-           if (window.bgCache.type !== 'white') {
-             bgLayer.style.backgroundImage = 'none';
-             bgLayer.style.backgroundColor = '#ffffff';
-             window.bgCache = { type: 'white', val: null };
-           }
-        } else if (bgType === 'custom' && data.presentationBgColor) {
-           if (window.bgCache.type !== 'custom' || window.bgCache.val !== data.presentationBgColor) {
-             bgLayer.style.backgroundImage = 'none';
-             bgLayer.style.backgroundColor = data.presentationBgColor;
-             window.bgCache = { type: 'custom', val: data.presentationBgColor };
-           }
-        } else {
-           // Default black
-           if (window.bgCache.type !== 'black') {
-             bgLayer.style.backgroundImage = 'none';
-             bgLayer.style.backgroundColor = '#000000';
-             window.bgCache = { type: 'black', val: null };
-           }
-        }
-
-        // Text color
+        // Styles
         const textColor = data.presentationTextColor || '#fff';
         document.body.style.color = textColor;
         ref.style.color = textColor;
-        ref.style.textDecorationColor = textColor === 'black' || textColor === '#000000' ? '#444' : '#b4b4b4ec';
         tamil.style.color = textColor;
         eng.style.color = textColor;
-
-        // Watermark
-        const watermark = document.getElementById('watermark');
         if (watermark) {
           watermark.innerText = data.customWatermark || '';
           watermark.style.color = textColor;
         }
 
-        // Transition
-        const container = document.getElementById('container');
-        if (data.enableTransition) {
-          container.classList.add('fade-out');
-          container.classList.remove('fade-in');
-          setTimeout(() => {
-            applyVerseContent(data, ref, refArea, tamil, eng, box, verseArea);
-            container.classList.remove('fade-out');
-            container.classList.add('fade-in');
-          }, 200);
+        // Background
+        const bgType = data.presentationBgType || 'black';
+        if (bgType === 'image' && data.presentationBgImage) {
+          bgLayer.style.backgroundImage = `url(${data.presentationBgImage})`;
+          bgLayer.style.backgroundColor = 'transparent';
+        } else if (bgType === 'white') {
+          bgLayer.style.backgroundImage = 'none';
+          bgLayer.style.backgroundColor = '#ffffff';
+        } else if (bgType === 'custom') {
+          bgLayer.style.backgroundImage = 'none';
+          bgLayer.style.backgroundColor = data.presentationBgColor || '#000';
         } else {
-          container.className = '';
-          applyVerseContent(data, ref, refArea, tamil, eng, box, verseArea);
-        }
-      }
-
-      /* ---------- APPLY VERSE CONTENT ---------- */
-      function applyVerseContent(data, ref, refArea, tamil, eng, box, verseArea) {
-        // Show bible mode elements
-        const mediaArea = document.getElementById("mediaArea");
-        const vidEl = document.getElementById("mediaVideo");
-        mediaArea.style.display = "none";
-        vidEl.pause();
-        verseArea.style.display = "flex";
-        refArea.style.display = "flex";
-
-        const indexStr = data.index || "";
-        ref.innerText = indexStr;
-        tamil.innerHTML = data.tamilText || "";
-        eng.innerHTML = data.englishText || "";
-
-        fitReference(ref);
-
-        const type = getVerseType(
-          data.tamilText ? data.tamilText.replace(/<[^>]*>/g, "") : "",
-          data.englishText ? data.englishText.replace(/<[^>]*>/g, "") : "",
-        );
-        const isSingle = isSingleVerse(indexStr);
-
-        if (!isSingle) {
-          // Multi-verse: good line spacing but compact enough to fit all verses
-          tamil.style.lineHeight = "1.35";
-          eng.style.lineHeight = "1.35";
-        } else {
-          tamil.style.lineHeight = "1.28";
-          eng.style.lineHeight = "1.35";
+          bgLayer.style.backgroundImage = 'none';
+          bgLayer.style.backgroundColor = '#000';
         }
 
-        if (type === "small" || type === "medium") {
-          box.style.marginTop = "0";
+        const applyContent = () => {
+          // Check if it's a file
+          if (data.type === 'file') {
+            console.log('[PRESENTATION PRELIST] Handling file:', data.url, data.fileType);
+            
+            // Hide Verse layers
+            refArea.style.display = 'none';
+            verseArea.style.display = 'none';
+            
+            // Show Media Area
+            mediaArea.style.display = 'flex';
+            
+            const isImage = data.fileType && data.fileType.startsWith('image');
+            const isVideo = data.fileType && data.fileType.startsWith('video');
+            
+            if (isImage) {
+              mediaImg.src = data.url;
+              mediaImg.style.display = 'block';
+              mediaVideo.style.display = 'none';
+              mediaVideo.pause();
+            } else if (isVideo) {
+              mediaVideo.src = data.url;
+              mediaVideo.style.display = 'block';
+              mediaImg.style.display = 'none';
+              mediaVideo.play().catch(e => console.error('Auto-play failed:', e));
+            } else {
+              // Unknown type
+              mediaImg.style.display = 'none';
+              mediaVideo.style.display = 'none';
+            }
+            return;
+          }
 
-          if (isSingle) {
-            // HUGE CENTERED - keep large side padding + permanent top gap
-            verseArea.style.padding = "1vh 3vw 0";
-            box.style.gap = "0";
-            box.style.justifyContent = "center";
-            verseArea.style.justifyContent = "center";
-            box.style.maxHeight = "94%";
-            refArea.style.height = "6%";
+          // Otherwise, it's a bible/verse
+          mediaArea.style.display = 'none';
+          mediaVideo.pause();
+          verseArea.style.display = 'flex';
+
+          const indexStr = data.index || "";
+          ref.innerText = indexStr;
+          refArea.style.display = indexStr ? 'flex' : 'none';
+          
+          tamil.innerHTML = data.tamilText || "";
+          eng.innerHTML = data.englishText || "";
+
+          // --- MATCH presentation.html LOGIC ---
+          const type = getVerseType(
+            data.tamilText ? data.tamilText.replace(/<[^>]*>/g, "") : "",
+            data.englishText ? data.englishText.replace(/<[^>]*>/g, "") : ""
+          );
+          
+          const isSingle = !indexStr.includes(",") && !indexStr.includes("-");
+          const verseCount = getVerseCount(indexStr);
+          
+          const FONT_PRESETS = {
+            small:  { tamil: 9.2, eng: 6.5, min: 3.0 },
+            medium: { tamil: 6.5, eng: 5.0, min: 2.5 },
+            large:  { tamil: 5.0, eng: 3.5, min: 2.2 },
+            huge:   { tamil: 8.0, eng: 6.5, min: 3.0 },
+            multi2: { tamil: 5.5, eng: 0.0, min: 2.5 },
+            multi:  { tamil: 4.2, eng: 0.0, min: 1.8 },
+          };
+
+          let effectiveType = type;
+          if (isSingle && (type === "small" || type === "medium")) {
+            effectiveType = "huge";
+          } else if (!isSingle) {
+            effectiveType = verseCount === 2 ? "multi2" : "multi";
+          }
+          const preset = FONT_PRESETS[effectiveType];
+
+          // Line height adjustments
+          if (!isSingle) {
+            tamil.style.lineHeight = "1.35";
+            eng.style.lineHeight = "1.35";
           } else {
-            // MULTI - fit all verses on screen, clip at bottom if needed
+            tamil.style.lineHeight = "1.28";
+            eng.style.lineHeight = "1.35";
+          }
+
+          // Apply font size offsets
+          const offset = data.fontSizeOffset || 0;
+          const indexOffset = (data.indexFontOffset || 0) * 0.12;
+
+          let tamilVW = preset.tamil + (offset * 0.15);
+          let engVW   = preset.eng   + (offset * 0.12);
+          if (tamilVW < 1.5) tamilVW = 1.5;
+          if (engVW   < 1.2) engVW   = 1.2;
+
+          // Reference font size — length-based (matches PrelistVerseCard.jsx exactly):
+          //   ≤ 26 chars  → 4.5 vw  (short,  e.g. "யோவான் 3:16   John")
+          //   ≤ 38 chars  → 3.5 vw  (medium, e.g. "சங்கீதம் 1:1,2,3   Psalm")
+          //   > 38 chars  → 2.2 vw  (long,   e.g. "1 தேசலோனிக்கேயர்...Thessalonians")
+          const refLen = indexStr.length;
+          let refVW = (refLen > 38 ? 3.8 : refLen > 26 ? 6.5 : 5.5) + indexOffset;
+          if (refVW < 2.0) refVW = 2.0;
+
+          // Initial Apply
+          tamil.style.fontSize = tamilVW + "vw";
+          eng.style.fontSize   = engVW   + "vw";
+          ref.style.fontSize   = refVW   + "vw";
+
+          // Auto-shrink reference if it still overflows the screen width
+          while (ref.scrollWidth > ref.clientWidth && refVW > 2.5) {
+            refVW -= 0.1;
+            ref.style.fontSize = refVW + "vw";
+          }
+
+          // Exact Layout blocks from presentation.html
+          if (type === "small" || type === "medium") {
+            box.style.marginTop = "0";
+
+            if (isSingle) {
+              verseArea.style.padding = "0.5vh 3vw 0";
+              box.style.gap = "0";
+              box.style.justifyContent = "flex-start";
+              verseArea.style.justifyContent = "flex-start";
+              box.style.overflow = "hidden";
+              box.style.maxHeight = "94%";
+              refArea.style.height = "6%";
+            } else {
+              verseArea.style.padding = "1vh 1vw 0";
+              box.style.marginTop = "0";
+              box.style.gap = "0";
+              box.style.overflow = "hidden";
+              box.style.justifyContent = "flex-start";
+              verseArea.style.justifyContent = "flex-start";
+              box.style.maxHeight = "94%";
+              refArea.style.height = "5%";
+            }
+          } else {
             verseArea.style.padding = "1vh 1vw 0";
             box.style.marginTop = "0";
-            box.style.gap = "0.5vh";
+            box.style.gap = "0";
             box.style.overflow = "hidden";
             box.style.justifyContent = "flex-start";
             verseArea.style.justifyContent = "flex-start";
-            box.style.maxHeight = "95%";
+            box.style.maxHeight = "94%";
             refArea.style.height = "5%";
           }
-        } else {
-          // Large - fit all verses on screen, clip at bottom if needed
-          verseArea.style.padding = "1vh 1vw 0";
-          box.style.marginTop = "0";
-          box.style.gap = "0.5vh";
-          box.style.overflow = "hidden";
-          box.style.justifyContent = "flex-start";
-          verseArea.style.justifyContent = "flex-start";
-          box.style.maxHeight = "95%";
-          refArea.style.height = "5%";
-        }
 
-        const verseCount = getVerseCount(indexStr);
-        const fontSizeOffset = data.fontSizeOffset || 0;
-        fitVerseBox(tamil, eng, box, type, isSingle, verseCount, fontSizeOffset);
+          // --- VERSE AUTO-SHRINK LOOP (The "Responsive" fix) ---
+          let safety = 0;
+          while (
+            (box.scrollHeight > box.clientHeight ||
+              tamil.scrollWidth > box.clientWidth ||
+              eng.scrollWidth > box.clientWidth) &&
+            tamilVW > preset.min &&
+            safety < 120
+          ) {
+            tamilVW -= 0.1;
+            engVW -= 0.08;
+
+            tamil.style.fontSize = tamilVW + "vw";
+            eng.style.fontSize = engVW + "vw";
+
+            safety++;
+          }
+        };
+
+        if (data.enableTransition) {
+          container.style.opacity = '0';
+          setTimeout(() => {
+            applyContent();
+            container.style.transition = 'opacity 0.3s';
+            container.style.opacity = '1';
+          }, 200);
+        } else {
+          applyContent();
+          container.style.opacity = '1';
+        }
       }
 
-      /* ---------- ELECTRON API ---------- */
       (function waitAPI() {
-        if (window.presentationAPI?.onVerse) {
-          window.presentationAPI.onVerse(updateVerse);
-        } else {
-          setTimeout(waitAPI, 50);
-        }
+        if (window.presentationAPI?.onVerse) window.presentationAPI.onVerse(updateDisplay);
+        else setTimeout(waitAPI, 50);
       })();
 
-      /* ---------- KEYS ---------- */
+      /* ---------- PHYSICAL KEYBOARD NAVIGATION ---------- */
       document.addEventListener("keydown", (e) => {
         if (!window.presentationAPI) return;
         if (e.key === "Escape") window.presentationAPI.close?.();
-        if (e.key === "ArrowRight") window.presentationAPI.nextVerse?.();
-        if (e.key === "ArrowLeft") window.presentationAPI.previousVerse?.();
+        if (e.key === "ArrowRight" || e.key === "ArrowDown") window.presentationAPI.nextVerse?.();
+        if (e.key === "ArrowLeft" || e.key === "ArrowUp") window.presentationAPI.previousVerse?.();
       });
     </script>
   </body>

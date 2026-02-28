@@ -7,12 +7,32 @@ export default function useNavigation({
   setSelectedChapter,
   setSelectedVerse,
   getBibleSource,
+  activeTab,
+  onNext,
+  onPrev,
 }) {
   // --------- LOCAL KEYBOARD HANDLING (Keep this) ----------
   useEffect(() => {
     function handleArrowKeys(e) {
-      if (e.key === "ArrowLeft") goPrev();
-      if (e.key === "ArrowRight") goNext();
+      if (activeTab !== "bible") return; // Only run in Bible tab
+      
+      const tag = document.activeElement?.tagName;
+      const isCE = document.activeElement?.contentEditable === "true";
+      if (tag === "INPUT" || tag === "TEXTAREA" || isCE) {
+        if (e.key === "Escape") document.activeElement.blur();
+        return;
+      }
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        onPrev ? onPrev() : goPrev();
+      }
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        onNext ? onNext() : goNext();
+      }
+      if (e.key === "Escape") {
+        // We need access to handleClosePresentation or window.api.closePresentation
+        window.api?.closePresentation?.();
+      }
     }
 
     function goPrev() {
@@ -62,7 +82,7 @@ export default function useNavigation({
 
     window.addEventListener("keydown", handleArrowKeys);
     return () => window.removeEventListener("keydown", handleArrowKeys);
-  }, [selectedBook, selectedChapter, selectedVerse]);
+  }, [selectedBook, selectedChapter, selectedVerse, activeTab]); // Added activeTab to deps
 
   // DELETE the entire "ELECTRON PRESENTATION NAVIGATION" useEffect block here.
   // It is redundant and causes the double-fire bug.

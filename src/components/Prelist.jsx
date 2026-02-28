@@ -31,6 +31,7 @@ const Prelist = React.forwardRef((
     activeQueueInfo,
     user,
     createQueue,
+    copyQueue,
     switchQueue,
     deleteQueue,
     renameQueue,
@@ -113,51 +114,6 @@ const Prelist = React.forwardRef((
     setActiveId(id);
   };
 
-  // Keyboard navigation (arrow keys)
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (editingRefId || editingTextId) return; // Don't navigate if editing
-
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-
-        if (prelistedItems.length === 0) return;
-
-        // If no active item, start with first/last
-        if (!activeId) {
-          setActiveId(
-            e.key === "ArrowDown"
-              ? prelistedItems[0].id
-              : prelistedItems[prelistedItems.length - 1].id
-          );
-          return;
-        }
-
-        // Find current index
-        const currentIndex = prelistedItems.findIndex(
-          (item) => item.id === activeId
-        );
-        if (currentIndex === -1) return;
-
-        // Navigate
-        let nextIndex;
-        if (e.key === "ArrowDown") {
-          nextIndex =
-            currentIndex + 1 < prelistedItems.length
-              ? currentIndex + 1
-              : prelistedItems.length - 1;
-        } else {
-          nextIndex = currentIndex - 1 >= 0 ? currentIndex - 1 : 0;
-        }
-
-        setActiveId(prelistedItems[nextIndex].id);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeId, prelistedItems, editingRefId, editingTextId]);
-
   /* ---------- HANDLERS ---------- */
 
   const handlePresent = async (item) => {
@@ -168,10 +124,10 @@ const Prelist = React.forwardRef((
 
     // Handle "File" type or other legacy types
     if (item.type === "file") {
-      // Prefer File Path (file://) for performance/IPC, fallback to Base64
-      let mediaSrc = item.url;
+      // Prefer Local Persisted URL (local-media://), then preview URL, then original path
+      let mediaSrc = item.localUrl || item.url;
 
-      if (item.path) {
+      if (!mediaSrc && item.path) {
         const fixedPath = item.path.replace(/\\/g, "/");
         mediaSrc = `file:///${fixedPath}`;
       }
@@ -329,32 +285,18 @@ const Prelist = React.forwardRef((
     }
   };
 
-  // Expose navigation to parent
+  // Expose navigation and presentation to parent
   React.useImperativeHandle(ref, () => ({
     goNext: () => navigateList("next"),
     goPrev: () => navigateList("prev"),
-  }));
-
-  // Keyboard Navigation
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Ignore if editing text or ref
-      if (editingRefId || editingTextId) return;
-      // Ignore if focus is in search input (handled in input's onKeyDown, but good to check activeElement)
-      if (document.activeElement === searchInputRef.current) return;
-
-      if (e.key === "ArrowDown" || e.key === "ArrowRight") {
-        e.preventDefault();
-        navigateList("next");
-      } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
-        e.preventDefault();
-        navigateList("prev");
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [prelistedItems, activeId, editingRefId, editingTextId]);
+    presentActive: () => {
+      const activeItem = prelistedItems.find(i => i.id === activeId);
+      if (activeItem) handlePresent(activeItem);
+    },
+    presentItem: (item) => {
+      if (item) handlePresent(item);
+    }
+  }), [prelistedItems, activeId, editingRefId, editingTextId, handlePresent, navigateList]);
 
   const onFileSelect = (e) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -599,8 +541,6 @@ const Prelist = React.forwardRef((
         englishText: finalEnglish,
         index: indexStr,
         fontSizeOffset: fontOffset,
-        tamilFontSize: settings?.tamilFontSize ?? 60,
-        englishFontSize: settings?.englishFontSize ?? 60,
         tamilEnabled: settings?.isTamilEnabled ?? true,
         englishEnabled: settings?.isEnglishEnabled ?? true,
         presentationBgType: settings?.presentationBgType ?? 'color',
@@ -667,10 +607,10 @@ const Prelist = React.forwardRef((
               const ch = data.chapters.find(
                 (c) => Number(c.chapter) === Number(chapter)
               );
-              const v = ch?.verses?.find(
+              const ve = ch?.verses?.find(
                 (vv) => Number(vv.verse) === Number(verse)
               );
-              return v ? v.text : "";
+              return ve ? ve.text : "";
             } else if (data[chapter]?.verses) {
               const v = data[chapter].verses.find(
                 (vv) => Number(vv.verse) === Number(verse)
@@ -934,6 +874,7 @@ const Prelist = React.forwardRef((
         activeQueueInfo={activeQueueInfo}
         user={user}
         createQueue={createQueue}
+        copyQueue={copyQueue}
         switchQueue={switchQueue}
         deleteQueue={deleteQueue}
         renameQueue={renameQueue}
@@ -966,6 +907,7 @@ const Prelist = React.forwardRef((
         onFontSizeChange={handleFontSizeChange}
         onLivePreviewUpdate={handleLivePreviewUpdate}
         activeQueueName={activeQueueInfo?.name}
+        settings={settings}
       />
     </div>
   );

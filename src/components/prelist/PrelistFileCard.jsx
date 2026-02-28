@@ -5,16 +5,16 @@ const PrelistFileCard = ({ item, theme, isActive, handlePresent, handleItemClick
   const isVideo = item.fileType && item.fileType.startsWith('video');
   const [imgError, setImgError] = useState(false);
 
-  // Check if the URL is valid for display (support blob:, file:, data:, or item.path)
-  const previewUrl = (item.url && item.url !== '[local-file]') ? item.url : item.path;
-  const hasValidUrl = previewUrl && (
-    previewUrl.startsWith('data:') || 
-    previewUrl.startsWith('blob:') || 
-    previewUrl.startsWith('file:') ||
-    previewUrl.includes('://') // Catch other valid protocols
+  // Check if the URL is valid for display (support blob:, local-media:, data:, or item.path)
+  const rawUrl = (item.url && item.url !== '[local-file]') ? item.url : item.localUrl;
+  const hasValidUrl = rawUrl && (
+    rawUrl.startsWith('data:') || 
+    rawUrl.startsWith('blob:') || 
+    rawUrl.startsWith('local-media:') ||
+    rawUrl.includes('://') 
   );
 
-  const displayUrl = hasValidUrl ? previewUrl : null;
+  const displayUrl = hasValidUrl ? rawUrl : null;
 
   return (
     <div
@@ -58,13 +58,20 @@ const PrelistFileCard = ({ item, theme, isActive, handlePresent, handleItemClick
       )}
       {isImage && !displayUrl && (
         <div style={{
-          padding: '16px',
-          color: theme === 'dark' ? '#888' : '#999',
+          padding: '20px 16px',
+          color: theme === 'dark' ? '#aaa' : '#666',
           fontSize: '12px',
-          background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-          borderRadius: '6px'
+          background: theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+          borderRadius: '8px',
+          border: theme === 'dark' ? '1px dashed #333' : '1px dashed #ccc',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '8px'
         }}>
-          🖼 Image available locally only (added on another session)
+          <span style={{ fontSize: '24px', opacity: 0.5 }}>🖼</span>
+          <span>Image available on original device only</span>
+          <div style={{ fontSize: '10px', opacity: 0.6 }}>Add this file locally to present it.</div>
         </div>
       )}
       {isVideo && displayUrl && (
@@ -72,11 +79,20 @@ const PrelistFileCard = ({ item, theme, isActive, handlePresent, handleItemClick
       )}
       {isVideo && !displayUrl && (
         <div style={{
-          padding: '16px',
-          color: theme === 'dark' ? '#888' : '#999',
-          fontSize: '12px'
+          padding: '20px 16px',
+          color: theme === 'dark' ? '#aaa' : '#666',
+          fontSize: '12px',
+          background: theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+          borderRadius: '8px',
+          border: theme === 'dark' ? '1px dashed #333' : '1px dashed #ccc',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '8px'
         }}>
-          🎬 Video available locally only
+          <span style={{ fontSize: '24px', opacity: 0.5 }}>🎬</span>
+          <span>Video available on original device only</span>
+          <div style={{ fontSize: '10px', opacity: 0.6 }}>Add this file locally to present it.</div>
         </div>
       )}
       {!isImage && !isVideo && (

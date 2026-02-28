@@ -189,7 +189,7 @@
       };
 
       /* ---------- SAFE FIT ---------- */
-      function fitVerseBox(tamilEl, engEl, box, type, isSingle, verseCount) {
+      function fitVerseBox(tamilEl, engEl, box, type, isSingle, verseCount, data = {}) {
         let effectiveType = type;
         if (isSingle && (type === "small" || type === "medium")) {
           effectiveType = "huge";
@@ -199,8 +199,17 @@
 
         const preset = FONT_PRESETS[effectiveType];
 
-        let tamilVW = preset.tamil;
-        let engVW = preset.eng;
+        // Apply settings offsets (from Bible Tab Font Size settings)
+        // Each offset unit = 0.15vw adjustment
+        const tamilOffset = (data.tamilFontOffset || 0) * 0.15;
+        const engOffset = (data.englishFontOffset || 0) * 0.12;
+
+        let tamilVW = preset.tamil + tamilOffset;
+        let engVW = preset.eng + engOffset;
+
+        // Clamp minimums
+        if (tamilVW < 1.5) tamilVW = 1.5;
+        if (engVW < 1.2) engVW = 1.2;
 
         tamilEl.style.fontSize = tamilVW + "vw";
         engEl.style.fontSize = engVW + "vw";
@@ -386,7 +395,7 @@
         }
 
         const verseCount = getVerseCount(indexStr);
-        fitVerseBox(tamil, eng, box, type, isSingle, verseCount);
+        fitVerseBox(tamil, eng, box, type, isSingle, verseCount, data);
       }
 
       /* ---------- ELECTRON API ---------- */

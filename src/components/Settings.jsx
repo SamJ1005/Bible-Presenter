@@ -30,42 +30,49 @@ const SettingsCard = ({ title, children, style = {} }) => (
   </div>
 );
 
-// Reusable Font Size Input with Buttons
-const FontSizeInput = ({ label, value, min, max, defaultValue, onChange, theme }) => {
-  const btnStyle = {
+// Font Offset Control with A+/a- buttons (matches playlist style)
+const FontOffsetControl = ({ label, value, onChange, theme }) => {
+  const offset = value || 0;
+  
+  const btnBase = {
     cursor: 'pointer',
     background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
     border: `1px solid ${theme === 'dark' ? '#444' : '#ccc'}`,
     borderRadius: '6px',
-    width: '36px',
-    height: '36px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: theme === 'dark' ? '#eee' : '#333',
-    fontSize: '18px',
     fontWeight: 'bold',
+    lineHeight: 1,
     transition: 'all 0.2s ease',
     userSelect: 'none',
-    outline: 'none'
+    outline: 'none',
+    padding: '4px 8px',
   };
 
-  const handleUpdate = (delta) => {
-    let next = Number(value) + delta;
-    if (next < min) next = min;
-    if (next > max) next = max;
+  const handleDelta = (delta) => {
+    let next = offset + delta;
+    if (next < -15) next = -15;
+    if (next > 15) next = 15;
     onChange(next);
   };
 
   return (
-    <div style={{ marginBottom: "18px" }}>
+    <div style={{ marginBottom: "16px" }}>
       <label style={{ fontWeight: 600, fontSize: "13px", display: "block", marginBottom: "8px", opacity: 0.7 }}>
         {label}
       </label>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {/* a- button */}
         <button
-          style={btnStyle}
-          onClick={() => handleUpdate(-2)}
+          style={{
+            ...btnBase,
+            color: theme === 'dark' ? '#00ff99' : '#505050ff',
+            fontSize: '12px',
+            height: '34px',
+          }}
+          onClick={() => handleDelta(-1)}
+          title="Decrease font size"
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = theme === 'dark' ? '#00ff99' : '#003399';
             e.currentTarget.style.background = theme === 'dark' ? 'rgba(0,255,153,0.1)' : 'rgba(0,51,153,0.05)';
@@ -75,39 +82,55 @@ const FontSizeInput = ({ label, value, min, max, defaultValue, onChange, theme }
             e.currentTarget.style.background = theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
           }}
         >
-          -
+          a-
         </button>
+
+        {/* Reset button */}
         <button
           style={{
-            ...btnStyle,
-            width: '30px',
+            ...btnBase,
+            height: '34px',
             fontSize: '14px',
-            color: value !== defaultValue ? '#ff9800' : (theme === 'dark' ? '#666' : '#999'),
-            background: value !== defaultValue ? (theme === 'dark' ? 'rgba(255, 152, 0, 0.1)' : 'rgba(255, 152, 0, 0.05)') : btnStyle.background
+            color: offset !== 0 ? '#ff9800' : (theme === 'dark' ? '#555' : '#999'),
+            background: offset !== 0 ? (theme === 'dark' ? 'rgba(255, 152, 0, 0.1)' : 'rgba(255, 152, 0, 0.05)') : btnBase.background,
           }}
-          onClick={() => onChange(defaultValue)}
-          title={`Reset to ${defaultValue}px`}
+          onClick={() => onChange(0)}
+          title="Reset to default (0)"
         >
           ↺
         </button>
+
+        {/* Offset display */}
         <div style={{
-          minWidth: '60px',
-          height: '36px',
+          minWidth: '54px',
+          height: '34px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           background: theme === 'dark' ? '#000' : '#fff',
           border: `1px solid ${theme === 'dark' ? '#333' : '#ddd'}`,
           borderRadius: '6px',
-          fontSize: '15px',
+          fontSize: '14px',
           fontWeight: '700',
-          color: theme === 'dark' ? '#00ff99' : '#003399'
+          color: offset > 0
+            ? '#4caf50'
+            : offset < 0
+              ? '#ff9800'
+              : (theme === 'dark' ? '#666' : '#999'),
         }}>
-          {value}px
+          {offset > 0 ? `+${offset}` : offset}
         </div>
+
+        {/* A+ button */}
         <button
-          style={btnStyle}
-          onClick={() => handleUpdate(2)}
+          style={{
+            ...btnBase,
+            color: theme === 'dark' ? '#bbb' : '#333',
+            fontSize: '14px',
+            height: '34px',
+          }}
+          onClick={() => handleDelta(1)}
+          title="Increase font size"
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = theme === 'dark' ? '#00ff99' : '#003399';
             e.currentTarget.style.background = theme === 'dark' ? 'rgba(0,255,153,0.1)' : 'rgba(0,51,153,0.05)';
@@ -117,7 +140,7 @@ const FontSizeInput = ({ label, value, min, max, defaultValue, onChange, theme }
             e.currentTarget.style.background = theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
           }}
         >
-          +
+          A+
         </button>
       </div>
     </div>
@@ -145,6 +168,20 @@ const CheckIcon = ({ size = 14, color = "#00ff99" }) => (
 export default function SettingsPage({ settings, setSettings, theme, setTheme, user }) {
   const [showLogin, setShowLogin] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [displays, setDisplays] = React.useState([]);
+
+  React.useEffect(() => {
+    if (window.api?.getDisplays) {
+      window.api.getDisplays()
+        .then(setDisplays)
+        .catch(() => {
+          // Electron main process may not have the handler yet (needs restart)
+          console.warn('Display detection not available. Restart the app to enable.');
+          setDisplays([]);
+        });
+    }
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -644,39 +681,81 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
               )}
             </div>
           </SettingsCard>
+
+          {/* Display Selection */}
+          <SettingsCard title="Display Options">
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ fontWeight: 600, fontSize: "13px", display: "block", marginBottom: "8px" }}>
+                Presentation Display
+              </label>
+              <select
+                value={settings.preferredDisplayId || 'auto'}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSettings(prev => ({ ...prev, preferredDisplayId: val }));
+                  if (window.api?.setPreferredDisplay) {
+                    window.api.setPreferredDisplay(val);
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  border: theme === 'dark' ? '1px solid #444' : '1px solid #ccc',
+                  background: theme === 'dark' ? '#1a1a1a' : '#fff',
+                  color: theme === 'dark' ? '#e0e0e0' : '#222',
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  outline: 'none'
+                }}
+              >
+                <option value="auto">Auto Select Device (Prioritize Secondary)</option>
+                
+                {/* Primary Display Option */}
+                {displays.filter(d => d.isPrimary).map(d => (
+                  <option key={d.id} value={d.id}>
+                    Primary Device {d.width}x{d.height} px
+                  </option>
+                ))}
+
+                {/* Secondary Display Options */}
+                {displays.filter(d => !d.isPrimary).map((d, index) => (
+                  <option key={d.id} value={d.id}>
+                    Secondary Device {d.width}x{d.height} px {displays.filter(x => !x.isPrimary).length > 1 ? `(${index + 1})` : ''}
+                  </option>
+                ))}
+              </select>
+              <div style={{ fontSize: '11px', opacity: 0.6, marginTop: '6px', lineHeight: 1.4 }}>
+                Choose where the presentation window should appear. 'Auto' will prioritize the secondary monitor if available.
+              </div>
+            </div>
+          </SettingsCard>
         </div>
 
         {/* RIGHT COLUMN — Font Sizes & General */}
         <div style={{ flex: 1, minWidth: 0 }}>
 
           {/* Font Sizes */}
-          <SettingsCard title="Font Sizes">
-            <FontSizeInput
-              label="Tamil Verse (20 – 140px)"
-              value={settings.tamilFontSize}
-              min={20}
-              max={140}
-              defaultValue={60}
+          <SettingsCard title="Bible Tab Font Size">
+            <div style={{ fontSize: '11px', opacity: 0.8, marginBottom: '15px', lineHeight: 1.4 }}>
+              Adjust the font offset for Bible tab presentations. These values are separate from the playlist font settings. Range: -15 to +15.
+            </div>
+            <FontOffsetControl
+              label="Tamil Verse"
+              value={settings.tamilFontOffset ?? 0}
               theme={theme}
-              onChange={(v) => setSettings(prev => ({ ...prev, tamilFontSize: v }))}
+              onChange={(v) => setSettings(prev => ({ ...prev, tamilFontOffset: v }))}
             />
-            <FontSizeInput
-              label="English Verse (18 – 120px)"
-              value={settings.englishFontSize}
-              min={18}
-              max={120}
-              defaultValue={60}
+            <FontOffsetControl
+              label="English Verse"
+              value={settings.englishFontOffset ?? 0}
               theme={theme}
-              onChange={(v) => setSettings(prev => ({ ...prev, englishFontSize: v }))}
+              onChange={(v) => setSettings(prev => ({ ...prev, englishFontOffset: v }))}
             />
-            <FontSizeInput
-              label="Index / Reference (10 – 60px)"
-              value={settings.indexFontSize}
-              min={10}
-              max={60}
-              defaultValue={24}
+            <FontOffsetControl
+              label="Index / Reference"
+              value={settings.indexFontOffset ?? 0}
               theme={theme}
-              onChange={(v) => setSettings(prev => ({ ...prev, indexFontSize: v }))}
+              onChange={(v) => setSettings(prev => ({ ...prev, indexFontOffset: v }))}
             />
           </SettingsCard>
 
@@ -706,7 +785,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                 Primary Translation
               </label>
               <select
-                value={settings.primaryTranslation}
+                value={settings.primaryTranslation || "Tamil"}
                 onChange={(e) =>
                   setSettings((prev) => ({
                     ...prev,
@@ -732,7 +811,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
               </label>
               <input
                 type="text"
-                value={settings.customWatermark}
+                value={settings.customWatermark || ""}
                 placeholder="Enter watermark text"
                 onChange={(e) =>
                   setSettings((prev) => ({

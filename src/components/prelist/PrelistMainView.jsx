@@ -20,7 +20,8 @@ const PrelistMainView = ({
   itemRefs,
   onFontSizeChange,
   onLivePreviewUpdate,
-  activeQueueName
+  activeQueueName,
+  settings
 }) => {
   // Helper to lookup verse text
   const getVerseText = (bookName, chapter, verse) => {
@@ -138,6 +139,7 @@ const PrelistMainView = ({
               itemRefs={itemRefs}
               onFontSizeChange={onFontSizeChange}
               onLivePreviewUpdate={onLivePreviewUpdate}
+              settings={settings}
             />
           );
         })}

@@ -5,6 +5,9 @@ contextBridge.exposeInMainWorld("electron", {
   openBlankPresentation: () => ipcRenderer.invoke("open-blank-presentation"),
   sendPresentation: (payload) => ipcRenderer.send("send-presentation", payload),
   getPresentationStatus: () => ipcRenderer.invoke("get-presentation-status"),
+  getDisplays: () => ipcRenderer.invoke("get-displays"),
+  setPreferredDisplay: (id) => ipcRenderer.send("set-preferred-display", id),
+  saveMediaFile: (path) => ipcRenderer.invoke("save-media-file", path),
 });
 
 contextBridge.exposeInMainWorld("api", {
@@ -14,6 +17,9 @@ contextBridge.exposeInMainWorld("api", {
   sendPresentation: (payload) => ipcRenderer.send("send-presentation", payload),
   // Close presentation window
   closePresentation: () => ipcRenderer.send("close-presentation"),
+  getDisplays: () => ipcRenderer.invoke("get-displays"),
+  setPreferredDisplay: (id) => ipcRenderer.send("set-preferred-display", id),
+  saveMediaFile: (path) => ipcRenderer.invoke("save-media-file", path),
 
   // React can listen for navigation requests coming from presentation window (arrow keys)
   onNavigateNext: (cb) => {
