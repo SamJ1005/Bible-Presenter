@@ -709,10 +709,15 @@ export default function App() {
   }, [activeTab]);
 
   // Handle live preview: auto-update presentation when visual settings change
+  // presentationOpenedRef prevents the window from auto-opening on app start.
+  // It is set to true only after the user explicitly opens a presentation.
+  const presentationOpenedRef = useRef(false);
   const fontOffsets = [settings.tamilFontOffset, settings.englishFontOffset, settings.indexFontOffset].join();
   useEffect(() => {
-    // Only auto-update if we are NOT in prelisted tab (they have independent cards) 
-    // and not in blank mode, and we have a valid selection
+    // Only auto-update if presentation was already opened by the user,
+    // we are NOT in prelisted tab (they have independent cards),
+    // not in blank mode, and we have a valid selection.
+    if (!presentationOpenedRef.current) return;
     if (activeTab !== "prelisted" && !isBlankMode && selectedBook && selectedChapter && selectedVerse) {
       sendToPresentation({
         selectedBook,
@@ -726,6 +731,7 @@ export default function App() {
   // Handle blank presentation toggle
   const handleBlankPresentation = useCallback(async () => {
     setIsBlankMode(true);
+    presentationOpenedRef.current = true;
     // Open presentation window first
     if (window.api.openPresentation) {
       await window.api.openPresentation();
@@ -738,6 +744,7 @@ export default function App() {
 
   const handleClosePresentation = useCallback(() => {
     setIsBlankMode(false);
+    presentationOpenedRef.current = false;
     window.api.closePresentation?.();
   }, []);
 
@@ -771,6 +778,7 @@ export default function App() {
 
     setSelectedChapter(nextC);
     setSelectedVerse(nextV);
+    presentationOpenedRef.current = true;
     sendToPresentation({
       selectedBook,
       selectedChapter: nextC,
@@ -819,6 +827,7 @@ export default function App() {
 
     setSelectedChapter(prevC);
     setSelectedVerse(prevV);
+    presentationOpenedRef.current = true;
     sendToPresentation({
       selectedBook,
       selectedChapter: prevC,

@@ -3,7 +3,7 @@ import PrelistEditToolbar from "./PrelistEditToolbar";
 import { getTamilBookName } from "../../utils/bibleBooks";
 
 // Virtual slide: 1920×1080 — matches presentation_prelist.html vw/vh base
-const VIRTUAL_W = 1920;
+const VIRTUAL_W = 1620;
 const VIRTUAL_H = 1080;
 
 const PrelistVerseCard = ({
@@ -81,23 +81,22 @@ const PrelistVerseCard = ({
 
   // ─── FONT_PRESETS — MUST match presentation_prelist.html exactly
   const FONT_PRESETS = {
-    small:  { tamil: 9.3, eng: 7.2, min: 2.2 },
+    small:  { tamil: 7.3, eng: 5.2, min: 2.2 },
     medium: { tamil: 6.5, eng: 4.8, min: 2.5 },
-    large:  { tamil: 5.0, eng: 3.0, min: 2.2 },
-    huge:   { tamil: 6.5, eng: 6.3, min: 3.0 },
+    large:  { tamil: 5.5, eng: 2.2, min: 2.0 },
+    huge:   { tamil: 3.3, eng: 2.14, min: 1.5 },
     multi2: { tamil: 5.5, eng: 0.0, min: 2.5 },
     multi:  { tamil: 2.7, eng: 0.0, min: 1.8 },
   };
 
   let effectiveType = type;
-  if (isSingle && (type === "small" || type === "medium")) {
+  if (isSingle) {
     effectiveType = "huge";
-  } else if (!isSingle) {
+  } else {
     effectiveType = verseCount === 2 ? "multi2" : "multi";
   }
   const preset = FONT_PRESETS[effectiveType];
 
-  // Auto-shrink logic exactly mirroring presentation.html while-loop
   useLayoutEffect(() => {
     if (!tamilTextRef.current || !boxRef.current || !verseAreaRef.current) return;
     
@@ -192,9 +191,9 @@ const PrelistVerseCard = ({
   const verseBoxJustify  = 'flex-start';
   const tamilLineHeight  = isSingle ? 1.28 : 1.35;
 
-  // Ref area: requested increased padding on index ONLY on preview versecard
-  const REF_PAD_TOP    = 42;  // ~4vh padding top
-  const REF_HEIGHT     = isSmallMedium && isSingle ? '6%' : '5%';
+  // Ref area: increased padding on index ONLY on preview versecard
+  const REF_PAD_TOP    = 65;  // extra padding above index in preview
+  const REF_HEIGHT     = isSmallMedium && isSingle ? '7%' : '6%';
   const REF_PAD_BOTTOM = 9;
 
   // ─── Appearance
@@ -334,8 +333,8 @@ const PrelistVerseCard = ({
             style={{
               flex: 1,
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              alignItems: 'flex-start',
+              justifyContent: 'flex-start',
               padding: verseAreaPadding,
               boxSizing: 'border-box',
             }}
@@ -345,12 +344,13 @@ const PrelistVerseCard = ({
               ref={boxRef}
               style={{
                 width: '100%',
-                maxHeight: '95%',
+                maxHeight: '94%',
+                overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: verseBoxJustify,
-                gap: '12px', /* approx 1.2vh */
+                gap: '0',
                 textAlign: 'center',
               }}
             >
