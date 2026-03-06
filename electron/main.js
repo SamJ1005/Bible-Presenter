@@ -19,6 +19,7 @@ let preferredDisplayId = 'auto'; // 'auto', 'primary', or specific display ID
 /* ---- App configuration (must be before app.whenReady) ----  */
 app.setAppUserModelId("com.scripturescreen.app");
 app.commandLine.appendSwitch("disable-gpu-vsync");
+app.commandLine.appendSwitch("disable-quic"); // Fix for Firebase Storage net::ERR_QUIC_PROTOCOL_ERROR
 app.commandLine.appendSwitch(
   "disable-features",
   "CalculateNativeWinOcclusion"

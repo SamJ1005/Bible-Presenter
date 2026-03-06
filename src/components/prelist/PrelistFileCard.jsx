@@ -5,16 +5,12 @@ const PrelistFileCard = ({ item, theme, isActive, handlePresent, handleItemClick
   const isVideo = item.fileType && item.fileType.startsWith('video');
   const [imgError, setImgError] = useState(false);
 
-  // Check if the URL is valid for display (support blob:, local-media:, data:, or item.path)
-  const rawUrl = (item.url && item.url !== '[local-file]') ? item.url : item.localUrl;
-  const hasValidUrl = rawUrl && (
-    rawUrl.startsWith('data:') || 
-    rawUrl.startsWith('blob:') || 
-    rawUrl.startsWith('local-media:') ||
-    rawUrl.includes('://') 
-  );
-
-  const displayUrl = hasValidUrl ? rawUrl : null;
+  // Check if the URL is valid for display
+  const isPending = item.url === '[uploading]';
+  const isFailed = item.url === '[upload-failed]' || item.url === '[offline-or-failed-upload]' || item.url === '[local-file]';
+  const hasValidUrl = item.url && !isPending && !isFailed;
+  
+  const displayUrl = hasValidUrl ? item.url : (item.localPreview || null);
 
   return (
     <div
@@ -69,9 +65,19 @@ const PrelistFileCard = ({ item, theme, isActive, handlePresent, handleItemClick
           alignItems: 'center',
           gap: '8px'
         }}>
-          <span style={{ fontSize: '24px', opacity: 0.5 }}>🖼</span>
-          <span>Image available on original device only</span>
-          <div style={{ fontSize: '10px', opacity: 0.6 }}>Add this file locally to present it.</div>
+          {isPending ? (
+             <>
+               <span style={{ fontSize: '24px', opacity: 0.5 }}>⏳</span>
+               <span>Uploading Image to Cloud...</span>
+               <div style={{ fontSize: '10px', opacity: 0.6 }}>Please wait</div>
+             </>
+          ) : (
+             <>
+               <span style={{ fontSize: '24px', opacity: 0.5 }}>🖼</span>
+               <span>Image failed to upload or sync properly</span>
+               <div style={{ fontSize: '10px', opacity: 0.6 }}>Add this file again to sync it.</div>
+             </>
+          )}
         </div>
       )}
       {isVideo && displayUrl && (

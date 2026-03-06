@@ -14,7 +14,7 @@ dist-ssr
 
 # Electron / Vite builds
 dist/
-build/
+./build/
 versions/
 out/
 release/
@@ -29,6 +29,9 @@ Theme codes/
 !.vscode/extensions.json
 .idea
 .DS_Store
+*.bat
+*.txt
+
 *.suo
 *.ntvs*
 *.njsproj

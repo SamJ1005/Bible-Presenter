@@ -1,9 +1,10 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { saveMemory, loadMemory } from "./hooks/useLocalMemory";
-import { auth, db } from "./firebase";
+import { auth, db, storage } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, setDoc, deleteDoc, collection, getDocs, getDoc } from "firebase/firestore";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import "./index.css";
 import Settings from "./components/Settings";
 import Header from "./components/Header";
@@ -170,9 +171,17 @@ export default function App() {
   const sanitizeItemsForCloud = (items) => {
     return items.map(item => {
       if (item.type === 'file') {
-        // Strip the large base64 URL — keep metadata only
-        const { url, ...rest } = item;
-        return { ...rest, url: '[local-file]', localOnly: true };
+        // Under strict requirements, the `url` MUST be a Firebase Storage URL.
+        const isFirebaseUrl = item.url && item.url.startsWith('https://firebasestorage');
+        
+        // Strip out the large base64 localPreview before saving to Firestore
+        const { localPreview, ...itemToSync } = item;
+        
+        return { 
+          ...itemToSync, 
+          url: isFirebaseUrl ? itemToSync.url : '[offline-or-failed-upload]', 
+          localOnly: !isFirebaseUrl 
+        };
       }
       // For verse items, strip any very large custom text (safety net)
       const sanitized = { ...item };
@@ -372,12 +381,20 @@ export default function App() {
             // Cloud items may have '[local-file]' for file items since base64 is too large for Firestore
             const localItems = loadMemory(getMemKey(`queue_items_${queueMeta.activeId}`), []);
             const mergedItems = data.items.map(cloudItem => {
-              // For ALL file items from cloud, restore the local base64 URL
+              // If a cloud item is a file, verify it has a valid URL
               if (cloudItem.type === 'file') {
                 const localMatch = localItems.find(li => li.id === cloudItem.id);
-                if (localMatch && localMatch.url && localMatch.url !== '[local-file]') {
-                  return { ...cloudItem, url: localMatch.url };
+                let newUrl = cloudItem.url;
+                // If cloud URL is invalid but we have a valid cloud URL locally, preserve it
+                if ((!newUrl || newUrl === '[offline-or-failed-upload]') && 
+                    localMatch && localMatch.url && localMatch.url.startsWith('https://firebasestorage')) {
+                  newUrl = localMatch.url;
                 }
+                return { 
+                  ...cloudItem, 
+                  url: newUrl,
+                  localPreview: localMatch ? localMatch.localPreview : undefined
+                };
               }
               return cloudItem;
             });
@@ -972,29 +989,27 @@ export default function App() {
   }, []);
 
   const addFileToQueue = useCallback(async (fileObj, insertAfterId = null) => {
-    // 1. Attempt to persist the file to the app's local media folder
-    let localUrl = null;
-    if (fileObj.path && window.electron?.saveMediaFile) {
-      try {
-        localUrl = await window.electron.saveMediaFile(fileObj.path);
-      } catch (err) {
-        console.error("Failed to persist file locally:", err);
-      }
+    if (!user) {
+      toast.error("You must be logged in to upload and sync files.");
+      return;
     }
 
-    // 2. Also keep a preview URL (base64) for immediate/offline display in the playlist
     const reader = new FileReader();
 
     reader.onload = (e) => {
+      // Generate strict initial Item
+      const newItemId = Date.now() + Math.random();
       const newItem = {
-        id: Date.now() + Math.random(),
+        id: newItemId,
         type: 'file',
         name: fileObj.name,
         fileType: fileObj.type,
-        url: e.target.result, // BASE64 DATA URL (Temporary/Session)
-        localUrl: localUrl,   // Persistent Local URL (local-media://...)
-        path: fileObj.path || ""
+        url: '[uploading]', // Temporary state
+        localPreview: e.target.result, // BASE64 for local immediate use only, stripped by sanitizeItemsForCloud
+        cloudUploadStatus: 'pending'
+        // STRICT REQUIREMENT: No local paths stored
       };
+
       setPrelistedItems((prev) => {
         // Insert below active item if provided
         if (insertAfterId) {
@@ -1008,6 +1023,37 @@ export default function App() {
         // Fallback: append to end
         return [...prev, newItem];
       });
+
+      try {
+        const timeStr = Date.now();
+        const cleanName = fileObj.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        const storageRef = ref(storage, `users/${user.uid}/media/${timeStr}_${cleanName}`);
+        
+        const uploadTask = uploadBytesResumable(storageRef, fileObj);
+        
+        uploadTask.on('state_changed', 
+          null, 
+          (error) => {
+            console.error("Image upload failed:", error);
+            updateQueueItem(newItemId, { cloudUploadStatus: 'error', url: '[upload-failed]' });
+            toast.error(`Failed to upload ${fileObj.name}`);
+          }, 
+          async () => {
+            try {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              // STRICT REQUIREMENT: Set real Firebase URL to `url`
+              updateQueueItem(newItemId, { url: downloadURL, cloudUploadStatus: 'success' });
+              toast.success(`Uploaded ${fileObj.name} to cloud`);
+            } catch (urlErr) {
+              console.error("Failed to get download URL:", urlErr);
+              updateQueueItem(newItemId, { cloudUploadStatus: 'error', url: '[upload-failed]' });
+            }
+          }
+        );
+      } catch (err) {
+        console.error("Error setting up upload:", err);
+        updateQueueItem(newItemId, { cloudUploadStatus: 'error', url: '[upload-failed]' });
+      }
     };
 
     reader.onerror = (err) => {
@@ -1017,7 +1063,7 @@ export default function App() {
     if (fileObj) {
       reader.readAsDataURL(fileObj);
     }
-  }, []);
+  }, [user, updateQueueItem]);
 
   const handlePrelistSearch = useCallback(() => {
     handleSearch(addToQueue);

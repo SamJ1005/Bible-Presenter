@@ -4,30 +4,142 @@
     <meta charset="UTF-8" />
     <title>Playlist Presentation</title>
     <style>
-      :root { --bg: #000; --text: #fff; }
-      html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--text); font-family: Arial, sans-serif; }
-      @font-face { font-family: "TamilBibleFont"; src: url("fonts/NotoSansTamil-SemiBold.ttf") format("truetype"); }
-      #container { width: 100%; height: 100%; display: flex; flex-direction: column; }
-      #container.fade-out { opacity: 0; transition: opacity 0.2s ease-out; }
-      #container.fade-in { opacity: 1; transition: opacity 0.3s ease-in; }
-      #referenceArea { min-height: 5%; display: flex; align-items: flex-start; justify-content: center; padding-top: 2.5vh; padding-bottom: 0.8vh; }
-      #reference { font-weight: bold; font-family: "TamilBibleFont", Arial, sans-serif; text-decoration: underline; text-decoration-color: #b4b4b4ec; text-underline-offset: 2px; text-decoration-skip-ink: none; color: #fff; text-align: center; }
-      #verseArea { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0.5vh 1vw 0; }
-      #verseBox { width: 100%; max-height: 95%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2vh; text-align: center; }
-      #tamilText { font-family: "TamilBibleFont", Arial, sans-serif; font-weight: 900; line-height: 1.28; white-space: pre-wrap; word-break: break-word; }
-      #englishText { font-weight: 600; line-height: 1.35; white-space: pre-wrap; word-break: break-word; }
-      #watermark { position: absolute; bottom: 15px; right: 25px; font-size: 16px; opacity: 0.35; z-index: 100; }
-      #bgLayer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background-size: cover; background-position: center; }
+      :root {
+        --bg: #000;
+        --text: #fff;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Arial, sans-serif;
+      }
+      @font-face {
+        font-family: "TamilBibleFont";
+        src: url("fonts/NotoSansTamil-SemiBold.ttf") format("truetype");
+      }
+      #container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      #container.fade-out {
+        opacity: 0;
+        transition: opacity 0.2s ease-out;
+      }
+      #container.fade-in {
+        opacity: 1;
+        transition: opacity 0.3s ease-in;
+      }
+      #referenceArea {
+        min-height: 5%;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 2.5vh;
+        padding-bottom: 0.8vh;
+      }
+      #reference {
+        font-weight: bold;
+        font-family: "TamilBibleFont", Arial, sans-serif;
+        text-decoration: underline;
+        text-decoration-color: #b4b4b4ec;
+        text-underline-offset: 2px;
+        text-decoration-skip-ink: none;
+        color: #fff;
+        text-align: center;
+      }
+      #verseArea {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5vh 1vw 0;
+      }
+      #verseBox {
+        width: 100%;
+        max-height: 95%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1.2vh;
+        text-align: center;
+      }
+      #tamilText {
+        font-family: "TamilBibleFont", Arial, sans-serif;
+        font-weight: 900;
+        line-height: 1.28;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      #englishText {
+        font-weight: 600;
+        line-height: 1.35;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      #watermark {
+        position: absolute;
+        bottom: 15px;
+        right: 25px;
+        font-size: 16px;
+        opacity: 0.35;
+        z-index: 100;
+      }
+      #bgLayer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        background-size: cover;
+        background-position: center;
+      }
     </style>
   </head>
   <body>
     <div id="bgLayer"></div>
     <div id="container">
-      <div id="referenceArea"> <div id="reference"></div> </div>
-      <div id="verseArea"> <div id="verseBox"> <div id="tamilText"></div> <div id="englishText"></div> </div> </div>
-      <div id="mediaArea" style="display:none; width:100%; height:100%; position: absolute; top:0; left:0; align-items:center; justify-content:center; background: black; z-index: 10;">
-        <img id="mediaImg" style="width:100%; height:100%; object-fit:contain; display:none;">
-        <video id="mediaVideo" style="width:100%; height:100%; object-fit:contain; display:none;" autoplay controls loop></video>
+      <div id="referenceArea"><div id="reference"></div></div>
+      <div id="verseArea">
+        <div id="verseBox">
+          <div id="tamilText"></div>
+          <div id="englishText"></div>
+        </div>
+      </div>
+      <div
+        id="mediaArea"
+        style="
+          display: none;
+          width: 100%;
+          height: 100%;
+          position: absolute;
+          top: 0;
+          left: 0;
+          align-items: center;
+          justify-content: center;
+          background: black;
+          z-index: 10;
+        "
+      >
+        <img
+          id="mediaImg"
+          style="width: 100%; height: 100%; object-fit: contain; display: none"
+        />
+        <video
+          id="mediaVideo"
+          style="width: 100%; height: 100%; object-fit: contain; display: none"
+          autoplay
+          controls
+          loop
+        ></video>
       </div>
       <div id="watermark"></div>
     </div>
@@ -38,7 +150,8 @@
         const lines = tamilText.split("<br>").filter((l) => l.trim()).length;
         if (lines > 1) return lines;
         const rangeMatch = indexStr.match(/:(\d+)-(\d+)/);
-        if (rangeMatch) return parseInt(rangeMatch[2]) - parseInt(rangeMatch[1]) + 1;
+        if (rangeMatch)
+          return parseInt(rangeMatch[2]) - parseInt(rangeMatch[1]) + 1;
         return 1;
       }
 
@@ -51,107 +164,143 @@
 
       function updateDisplay(data) {
         if (!data) return;
-        const bgLayer = document.getElementById('bgLayer');
-        const container = document.getElementById('container');
-        const ref = document.getElementById('reference');
-        const tamil = document.getElementById('tamilText');
-        const eng = document.getElementById('englishText');
-        const watermark = document.getElementById('watermark');
-        const box = document.getElementById('verseBox');
-        const verseArea = document.getElementById('verseArea');
-        const refArea = document.getElementById('referenceArea');
-        const mediaArea = document.getElementById('mediaArea');
-        const mediaImg = document.getElementById('mediaImg');
-        const mediaVideo = document.getElementById('mediaVideo');
+        const bgLayer = document.getElementById("bgLayer");
+        const container = document.getElementById("container");
+        const ref = document.getElementById("reference");
+        const tamil = document.getElementById("tamilText");
+        const eng = document.getElementById("englishText");
+        const watermark = document.getElementById("watermark");
+        const box = document.getElementById("verseBox");
+        const verseArea = document.getElementById("verseArea");
+        const refArea = document.getElementById("referenceArea");
+        const mediaArea = document.getElementById("mediaArea");
+        const mediaImg = document.getElementById("mediaImg");
+        const mediaVideo = document.getElementById("mediaVideo");
 
         // Styles
-        const textColor = data.presentationTextColor || '#fff';
+        const textColor = data.presentationTextColor || "#fff";
         document.body.style.color = textColor;
         ref.style.color = textColor;
         tamil.style.color = textColor;
         eng.style.color = textColor;
         if (watermark) {
-          watermark.innerText = data.customWatermark || '';
+          watermark.innerText = data.customWatermark || "";
           watermark.style.color = textColor;
         }
 
         // Background
-        const bgType = data.presentationBgType || 'black';
-        if (bgType === 'image' && data.presentationBgImage) {
+        const bgType = data.presentationBgType || "black";
+        if (bgType === "image" && data.presentationBgImage) {
           bgLayer.style.backgroundImage = `url(${data.presentationBgImage})`;
-          bgLayer.style.backgroundColor = 'transparent';
-        } else if (bgType === 'white') {
-          bgLayer.style.backgroundImage = 'none';
-          bgLayer.style.backgroundColor = '#ffffff';
-        } else if (bgType === 'custom') {
-          bgLayer.style.backgroundImage = 'none';
-          bgLayer.style.backgroundColor = data.presentationBgColor || '#000';
+          bgLayer.style.backgroundColor = "transparent";
+        } else if (bgType === "white") {
+          bgLayer.style.backgroundImage = "none";
+          bgLayer.style.backgroundColor = "#ffffff";
+        } else if (bgType === "custom") {
+          bgLayer.style.backgroundImage = "none";
+          bgLayer.style.backgroundColor = data.presentationBgColor || "#000";
         } else {
-          bgLayer.style.backgroundImage = 'none';
-          bgLayer.style.backgroundColor = '#000';
+          bgLayer.style.backgroundImage = "none";
+          bgLayer.style.backgroundColor = "#000";
         }
 
         const applyContent = () => {
           // Check if it's a file
-          if (data.type === 'file') {
-            console.log('[PRESENTATION PRELIST] Handling file:', data.url, data.fileType);
-            
+          if (data.type === "file") {
+            console.log(
+              "[PRESENTATION PRELIST] Handling file:",
+              data.url,
+              data.fileType,
+            );
+
             // Hide Verse layers
-            refArea.style.display = 'none';
-            verseArea.style.display = 'none';
-            
+            refArea.style.display = "none";
+            verseArea.style.display = "none";
+
             // Show Media Area
-            mediaArea.style.display = 'flex';
-            
-            const isImage = data.fileType && data.fileType.startsWith('image');
-            const isVideo = data.fileType && data.fileType.startsWith('video');
-            
+            mediaArea.style.display = "flex";
+
+            const isImage = data.fileType && data.fileType.startsWith("image");
+            const isVideo = data.fileType && data.fileType.startsWith("video");
+
             if (isImage) {
-              mediaImg.src = data.url;
-              mediaImg.style.display = 'block';
-              mediaVideo.style.display = 'none';
+              const displayUrl =
+                data.url &&
+                ![
+                  "[uploading]",
+                  "[upload-failed]",
+                  "[offline-or-failed-upload]",
+                  "[local-file]",
+                ].includes(data.url)
+                  ? data.url
+                  : data.localPreview;
+
+              if (displayUrl) {
+                mediaImg.src = displayUrl;
+                mediaImg.style.display = "block";
+              } else {
+                mediaImg.style.display = "none";
+              }
+              mediaVideo.style.display = "none";
               mediaVideo.pause();
             } else if (isVideo) {
-              mediaVideo.src = data.url;
-              mediaVideo.style.display = 'block';
-              mediaImg.style.display = 'none';
-              mediaVideo.play().catch(e => console.error('Auto-play failed:', e));
+              const displayUrl =
+                data.url &&
+                ![
+                  "[uploading]",
+                  "[upload-failed]",
+                  "[offline-or-failed-upload]",
+                  "[local-file]",
+                ].includes(data.url)
+                  ? data.url
+                  : data.localPreview;
+
+              if (displayUrl) {
+                mediaVideo.src = displayUrl;
+                mediaVideo.style.display = "block";
+                mediaVideo
+                  .play()
+                  .catch((e) => console.error("Auto-play failed:", e));
+              } else {
+                mediaVideo.style.display = "none";
+              }
+              mediaImg.style.display = "none";
             } else {
               // Unknown type
-              mediaImg.style.display = 'none';
-              mediaVideo.style.display = 'none';
+              mediaImg.style.display = "none";
+              mediaVideo.style.display = "none";
             }
             return;
           }
 
           // Otherwise, it's a bible/verse
-          mediaArea.style.display = 'none';
+          mediaArea.style.display = "none";
           mediaVideo.pause();
-          verseArea.style.display = 'flex';
+          verseArea.style.display = "flex";
 
           const indexStr = data.index || "";
           ref.innerText = indexStr;
-          refArea.style.display = indexStr ? 'flex' : 'none';
-          
+          refArea.style.display = indexStr ? "flex" : "none";
+
           tamil.innerHTML = data.tamilText || "";
           eng.innerHTML = data.englishText || "";
 
           // --- MATCH presentation.html LOGIC ---
           const type = getVerseType(
             data.tamilText ? data.tamilText.replace(/<[^>]*>/g, "") : "",
-            data.englishText ? data.englishText.replace(/<[^>]*>/g, "") : ""
+            data.englishText ? data.englishText.replace(/<[^>]*>/g, "") : "",
           );
-          
+
           const isSingle = !indexStr.includes(",") && !indexStr.includes("-");
           const verseCount = getVerseCount(indexStr);
-          
+
           const FONT_PRESETS = {
-            small:  { tamil: 9.2, eng: 6.5, min: 3.0 },
+            small: { tamil: 9.2, eng: 6.5, min: 3.0 },
             medium: { tamil: 6.5, eng: 5.0, min: 2.5 },
-            large:  { tamil: 5.0, eng: 3.5, min: 2.2 },
-            huge:   { tamil: 8.0, eng: 6.5, min: 3.0 },
+            large: { tamil: 5.0, eng: 3.5, min: 2.2 },
+            huge: { tamil: 8.0, eng: 6.5, min: 3.0 },
             multi2: { tamil: 5.5, eng: 0.0, min: 2.5 },
-            multi:  { tamil: 4.2, eng: 0.0, min: 1.8 },
+            multi: { tamil: 4.2, eng: 0.0, min: 1.8 },
           };
 
           let effectiveType = type;
@@ -175,23 +324,24 @@
           const offset = data.fontSizeOffset || 0;
           const indexOffset = (data.indexFontOffset || 0) * 0.12;
 
-          let tamilVW = preset.tamil + (offset * 0.15);
-          let engVW   = preset.eng   + (offset * 0.12);
+          let tamilVW = preset.tamil + offset * 0.15;
+          let engVW = preset.eng + offset * 0.12;
           if (tamilVW < 1.5) tamilVW = 1.5;
-          if (engVW   < 1.2) engVW   = 1.2;
+          if (engVW < 1.2) engVW = 1.2;
 
           // Reference font size — length-based (matches PrelistVerseCard.jsx exactly):
           //   ≤ 26 chars  → 4.5 vw  (short,  e.g. "யோவான் 3:16   John")
           //   ≤ 38 chars  → 3.5 vw  (medium, e.g. "சங்கீதம் 1:1,2,3   Psalm")
           //   > 38 chars  → 2.2 vw  (long,   e.g. "1 தேசலோனிக்கேயர்...Thessalonians")
           const refLen = indexStr.length;
-          let refVW = (refLen > 38 ? 3.8 : refLen > 26 ? 6.5 : 5.5) + indexOffset;
+          let refVW =
+            (refLen > 38 ? 3.8 : refLen > 26 ? 6.5 : 5.5) + indexOffset;
           if (refVW < 2.0) refVW = 2.0;
 
           // Initial Apply
           tamil.style.fontSize = tamilVW + "vw";
-          eng.style.fontSize   = engVW   + "vw";
-          ref.style.fontSize   = refVW   + "vw";
+          eng.style.fontSize = engVW + "vw";
+          ref.style.fontSize = refVW + "vw";
 
           // Auto-shrink reference if it still overflows the screen width
           while (ref.scrollWidth > ref.clientWidth && refVW > 2.5) {
@@ -252,20 +402,21 @@
         };
 
         if (data.enableTransition) {
-          container.style.opacity = '0';
+          container.style.opacity = "0";
           setTimeout(() => {
             applyContent();
-            container.style.transition = 'opacity 0.3s';
-            container.style.opacity = '1';
+            container.style.transition = "opacity 0.3s";
+            container.style.opacity = "1";
           }, 200);
         } else {
           applyContent();
-          container.style.opacity = '1';
+          container.style.opacity = "1";
         }
       }
 
       (function waitAPI() {
-        if (window.presentationAPI?.onVerse) window.presentationAPI.onVerse(updateDisplay);
+        if (window.presentationAPI?.onVerse)
+          window.presentationAPI.onVerse(updateDisplay);
         else setTimeout(waitAPI, 50);
       })();
 
@@ -273,8 +424,10 @@
       document.addEventListener("keydown", (e) => {
         if (!window.presentationAPI) return;
         if (e.key === "Escape") window.presentationAPI.close?.();
-        if (e.key === "ArrowRight" || e.key === "ArrowDown") window.presentationAPI.nextVerse?.();
-        if (e.key === "ArrowLeft" || e.key === "ArrowUp") window.presentationAPI.previousVerse?.();
+        if (e.key === "ArrowRight" || e.key === "ArrowDown")
+          window.presentationAPI.nextVerse?.();
+        if (e.key === "ArrowLeft" || e.key === "ArrowUp")
+          window.presentationAPI.previousVerse?.();
       });
     </script>
   </body>
