@@ -14,7 +14,7 @@ dist-ssr
 
 # Electron / Vite builds
 dist/
-./build/
+build/
 versions/
 out/
 release/
@@ -23,6 +23,7 @@ Theme codes/
 *.dmg
 *.AppImage
 *.png
+*.ico
 
 # Editor directories and files
 .vscode/*
