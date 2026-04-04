@@ -1,7 +1,7 @@
 // VerseList.jsx
 import React, { useEffect } from "react";
 
-export default function VerseList({ count = 0, selectedVerse, setSelectedVerse, verseScrollRef, theme, selectedBook, selectedChapter, sendToPresentation, settings }) {
+export default function VerseList({ count = 0, selectedVerse, setSelectedVerse, verseScrollRef, theme, selectedBook, selectedChapter, sendToPresentation, settings, resetFontOffsets, zeroedSettings }) {
   
   // Auto-scroll to selected verse
   useEffect(() => {
@@ -32,11 +32,12 @@ export default function VerseList({ count = 0, selectedVerse, setSelectedVerse, 
               onClick={() => {
                 setSelectedVerse(v);
                 // Also send to presentation (Option A)
+                resetFontOffsets?.(); // Reset per-verse font offset in UI
                 sendToPresentation({
                   selectedBook,
                   selectedChapter,
                   selectedVerse: v,
-                  settings,
+                  settings: zeroedSettings ? zeroedSettings(settings) : settings,
                 });
               }}
               style={{

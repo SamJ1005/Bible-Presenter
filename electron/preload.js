@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld("electron", {
   getDisplays: () => ipcRenderer.invoke("get-displays"),
   setPreferredDisplay: (id) => ipcRenderer.send("set-preferred-display", id),
   saveMediaFile: (path) => ipcRenderer.invoke("save-media-file", path),
+  downloadMediaFile: (url, uniqueId) => ipcRenderer.invoke("download-media-file", url, uniqueId),
 });
 
 contextBridge.exposeInMainWorld("api", {
@@ -20,6 +21,7 @@ contextBridge.exposeInMainWorld("api", {
   getDisplays: () => ipcRenderer.invoke("get-displays"),
   setPreferredDisplay: (id) => ipcRenderer.send("set-preferred-display", id),
   saveMediaFile: (path) => ipcRenderer.invoke("save-media-file", path),
+  downloadMediaFile: (url, uniqueId) => ipcRenderer.invoke("download-media-file", url, uniqueId),
 
   // React can listen for navigation requests coming from presentation window (arrow keys)
   onNavigateNext: (cb) => {

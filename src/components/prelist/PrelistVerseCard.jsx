@@ -26,6 +26,9 @@ const PrelistVerseCard = ({
   onFontSizeChange,
   onLivePreviewUpdate,
   settings,
+  pendingLayoutOverrides,
+  setPendingLayoutOverrides,
+  applyCustomFontSize
 }) => {
   const [localFontOffset, setLocalFontOffset] = useState(
     item.fontSizeOffset || 0,
@@ -83,18 +86,18 @@ const PrelistVerseCard = ({
 
   // ─── FONT_PRESETS — MUST match presentation_prelist.html exactly
   const FONT_PRESETS = {
-    small: { tamil: 9.2, eng: 6.5, min: 3.0 },
-    medium: { tamil: 6.5, eng: 5.0, min: 2.5 },
-    large: { tamil: 5.0, eng: 3.5, min: 2.2 },
-    huge: { tamil: 8.0, eng: 6.5, min: 3.0 },
-    multi2: { tamil: 5.5, eng: 0.0, min: 2.5 },
-    multi: { tamil: 4.2, eng: 0.0, min: 1.8 },
+    small: { tamil: 9.2, eng: 7.0, min: 0.0 },
+    medium: { tamil: 6.2, eng: 5.8, min: 3.5 },
+    large: { tamil: 4.5, eng: 3.8, min: 1.8 },
+    huge: { tamil: 6.0, eng: 6.8, min: 3.0 },
+    multi2: { tamil: 5.5, eng: 0.0, min: 3.0 },
+    multi: { tamil: 4.2, eng: 0.0, min: 2.0 },
   };
 
   let effectiveType = type;
-  if (isSingle) {
+  if (isSingle && (type === "small" || type === "medium")) {
     effectiveType = "huge";
-  } else {
+  } else if (!isSingle) {
     effectiveType = verseCount === 2 ? "multi2" : "multi";
   }
   const preset = FONT_PRESETS[effectiveType];
@@ -104,39 +107,52 @@ const PrelistVerseCard = ({
       return;
 
     const offset = localFontOffset;
-    let tamilVW = preset.tamil + offset * 0.15;
-    let engVW = preset.eng + offset * 0.12;
+    let tamilVW = preset.tamil;
+    let engVW = preset.eng;
     if (tamilVW < 1.5) tamilVW = 1.5;
     if (engVW < 1.2) engVW = 1.2;
 
+
+
     const vwUnit = VIRTUAL_W / 100;
 
-    // Apply initial sizes
+    // Apply initial sizes without offset
     tamilTextRef.current.style.fontSize = `${tamilVW * vwUnit}px`;
     if (engTextRef.current) {
       engTextRef.current.style.fontSize = `${engVW * vwUnit}px`;
     }
 
-    // Shrink loop exactly matching presentation.html
+    // Always auto-shrink to fit screen 
     let safety = 0;
     while (
       (boxRef.current.scrollHeight > boxRef.current.clientHeight ||
-        (tamilTextRef.current &&
-          tamilTextRef.current.scrollWidth > boxRef.current.clientWidth) ||
-        (engTextRef.current &&
-          engTextRef.current.scrollWidth > boxRef.current.clientWidth)) &&
+        tamilTextRef.current.scrollWidth > boxRef.current.clientWidth ||
+        (engTextRef.current && engTextRef.current.scrollWidth > boxRef.current.clientWidth)) &&
       tamilVW > preset.min &&
       safety < 120
     ) {
       tamilVW -= 0.1;
       engVW -= 0.08;
+
       tamilTextRef.current.style.fontSize = `${tamilVW * vwUnit}px`;
       if (engTextRef.current) {
-        engTextRef.current.style.fontSize = `${Math.max(0, engVW) * vwUnit}px`;
+        engTextRef.current.style.fontSize = `${engVW * vwUnit}px`;
       }
       safety++;
     }
-  }, [displayTamil, displayEnglish, localFontOffset, preset]);
+
+    // Apply manual sizing offsets AFTER auto-shrink has found the container bounds
+    const globalTamilOffset = (settings?.tamilFontOffset || 0) * 0.15;
+    const globalEngOffset = (settings?.englishFontOffset || 0) * 0.12;
+    
+    tamilVW += offset * 0.15 + globalTamilOffset;
+    engVW += offset * 0.12 + globalEngOffset;
+
+    tamilTextRef.current.style.fontSize = `${tamilVW * vwUnit}px`;
+    if (engTextRef.current) {
+      engTextRef.current.style.fontSize = `${Math.max(0, engVW) * vwUnit}px`;
+    }
+  }, [displayTamil, displayEnglish, localFontOffset, preset, settings]);
 
   // Reference sizing logic exactly mirroring presentation_prelist.html
   useLayoutEffect(() => {
@@ -149,17 +165,7 @@ const PrelistVerseCard = ({
 
     const vwUnit = VIRTUAL_W / 100;
     indexTextRef.current.style.fontSize = `${vw * vwUnit}px`;
-
-    let rSafety = 0;
-    while (
-      indexTextRef.current.scrollWidth > indexTextRef.current.clientWidth &&
-      vw > 2.5 &&
-      rSafety < 100
-    ) {
-      vw -= 0.1;
-      indexTextRef.current.style.fontSize = `${vw * vwUnit}px`;
-      rSafety++;
-    }
+    // Auto-shrink removed to guarantee 1:1 view
   }, [indexStr, settings?.indexFontOffset]);
 
   const handleFontSizeClick = (delta, e) => {
@@ -191,32 +197,66 @@ const PrelistVerseCard = ({
     handlePresent(item);
   };
 
-  // vwUnit: 1 vw = 19.2 virtual px on a 1920px canvas
+
+  // Read Custom Slide Layout Overrides (from PPT-like text box adjustment)
+  const layout = pendingLayoutOverrides || item.layoutOverrides || {};
+
+  const handleLayoutChange = (key, value) => {
+    if (setPendingLayoutOverrides) {
+      setPendingLayoutOverrides(prev => ({
+        ...(prev || item.layoutOverrides || {}),
+        [key]: value
+      }));
+    }
+  };
+
+  const vhUnit = VIRTUAL_H / 100;
   const vwUnit = VIRTUAL_W / 100;
-  // NOTE: Initial sizing is now handled inside useLayoutEffect to match presentation html
 
   // ─── Layout
   const isSmallMedium = type === "small" || type === "medium";
-  // Verse area padding in virtual px to match presentation_prelist.html
-  // Small/medium + single = 0.5vh top | else = 1vh top
-  const verseAreaPadding =
-    isSmallMedium && isSingle
-      ? "5.4px 57.6px 0" // 0.5vh top, 3vw sides
-      : "10.8px 19.2px 0"; // 1vh top, 1vw sides
-  const verseBoxJustify = "flex-start";
-  const tamilLineHeight = isSingle ? 1.28 : 1.35;
+  // Verse area padding default
+  let verseAreaPaddingTop =
+    isSmallMedium && isSingle ? 0.5 * vhUnit : 1 * vhUnit;
+  let verseAreaPaddingSides = isSmallMedium && isSingle ? 3 * vwUnit : 1 * vwUnit;
+  
+  if (layout.versePaddingTop !== undefined) {
+    verseAreaPaddingTop = layout.versePaddingTop * vhUnit;
+  }
+  const verseAreaPadding = `${verseAreaPaddingTop}px ${verseAreaPaddingSides}px 0`;
+  const verseBoxJustify = isSingle ? "center" : "flex-start";
+  
+  const tamilLineHeight = layout.tamilLineHeight !== undefined ? layout.tamilLineHeight : (isSingle ? 1.28 : 1.35);
+  const englishLineHeight = layout.englishLineHeight !== undefined ? layout.englishLineHeight : 1.35;
 
-  // Ref area: increased padding on index ONLY on preview versecard
-  const REF_PAD_TOP = 65; // extra padding above index in preview
-  const REF_HEIGHT = isSmallMedium && isSingle ? "7%" : "6%";
-  const REF_PAD_BOTTOM = 9;
+  // Ref area default
+  // extra padding above index in preview, unless manually set
+  const REF_PAD_TOP = (layout.indexPaddingTop !== undefined ? layout.indexPaddingTop : 2.5) * vhUnit;
+  const REF_HEIGHT = "auto"; // let the top padding take over
+  const REF_PAD_BOTTOM = 0.8 * vhUnit;
 
   // ─── Appearance
-  const bgType = settings?.presentationBgType || "color";
-  const bgColor = settings?.presentationBgColor || "#000";
+  const defaultBg = theme === "light" ? "#ffffff" : "#000000";
+  const defaultText = theme === "light" ? "#000000" : "#ffffff";
+
+  const bgType = settings?.presentationBgType;
+  const bgColor = settings?.presentationBgColor || "#000000";
   const bgImage = settings?.presentationBgImage || "";
-  const textColor = settings?.presentationTextColor || "#fff";
+  const textColor = settings?.presentationTextColor || defaultText;
+
   const isImageBg = bgType === "image" && bgImage;
+
+  let slideBg = defaultBg;
+  if (isImageBg) {
+    // Always quote the URL in case pathways contain backslashes or spaces on Windows
+    slideBg = `url("${bgImage.replace(/\\/g, '/')}") center/cover no-repeat`;
+  } else if (bgType === "custom") {
+    slideBg = bgColor;
+  } else if (bgType === "white") {
+    slideBg = "#ffffff";
+  } else if (bgType === "black") {
+    slideBg = "#000000";
+  }
 
   const btnStyle = (extra = {}) => ({
     cursor: "pointer",
@@ -332,6 +372,7 @@ const PrelistVerseCard = ({
           ) : (
             <PrelistEditToolbar
               applyStyle={applyStyle}
+              applyCustomFontSize={applyCustomFontSize}
               saveTextEdit={saveTextEdit}
               cancelTextEdit={cancelTextEdit}
               itemId={item.id}
@@ -341,34 +382,36 @@ const PrelistVerseCard = ({
       </div>
 
       {/* ── Slide Preview ── */}
+      {/* 16:9 Aspect Ratio Container */}
       <div
-        ref={containerRef}
         style={{
           width: "100%",
-          aspectRatio: "16 / 9",
-          overflow: "hidden",
-          background: "#000",
+          paddingTop: "56.25%",
           position: "relative",
-          cursor: "pointer",
-          borderRadius: "0 0 8px 8px",
+          overflow: "hidden",
+          borderRadius: "8px",
+          boxShadow:
+            isActive && !isEditing
+              ? "0 0 0 3px #00ff99, 0 4px 15px rgba(0, 255, 153, 0.3)"
+              : theme === "dark"
+                ? "0 4px 12px rgba(0,0,0,0.5)"
+                : "0 4px 12px rgba(0,0,0,0.1)",
+          transition: "box-shadow 0.2s ease-in-out",
         }}
-        onClick={!isEditing ? handlePresentClick : undefined}
+        ref={containerRef}
       >
-        {/* Inner virtual 1920×1080 canvas, CSS-transformed to fit */}
+        {/* The Scaled 1920x1080 "Virtual" Screen */}
         <div
+          onClick={!isEditing ? handlePresentClick : undefined}
           style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
             width: `${VIRTUAL_W}px`,
             height: `${VIRTUAL_H}px`,
             transform: `scale(${scale})`,
             transformOrigin: "top left",
-            position: "absolute",
-            top: 0,
-            left: 0,
-            background: isImageBg
-              ? `url(${bgImage}) center/cover no-repeat`
-              : bgType === "white"
-                ? "#fff"
-                : bgColor,
+            background: slideBg,
             display: "flex",
             flexDirection: "column",
           }}
@@ -376,9 +419,9 @@ const PrelistVerseCard = ({
           {/* ── Reference Area ── */}
           <div
             style={{
-              height: REF_HEIGHT,
+              minHeight: "5cqb",
               display: "flex",
-              alignItems: "center",
+              alignItems: "flex-start",
               justifyContent: "center",
               paddingTop: `${REF_PAD_TOP}px`,
               paddingBottom: `${REF_PAD_BOTTOM}px`,
@@ -469,7 +512,7 @@ const PrelistVerseCard = ({
                   dangerouslySetInnerHTML={{ __html: displayEnglish }}
                   style={{
                     fontWeight: 600,
-                    lineHeight: 1.35,
+                    lineHeight: englishLineHeight,
                     color: textColor,
                     whiteSpace: "pre-wrap",
                     width: "100%",
@@ -502,6 +545,62 @@ const PrelistVerseCard = ({
           )}
         </div>
       </div>
+
+      {/* ── Slide Properties Panel (Edit Mode Only) ── */}
+      {isEditing && (
+        <div style={{
+          padding: '12px 15px',
+          background: theme === 'dark' ? '#0f0e0eff' : '#fff',
+          borderTop: theme === 'dark' ? '1px solid #333' : '1px solid #e0e0e0',
+          borderRadius: '0 0 8px 8px',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '15px',
+          fontSize: '13px',
+          color: theme === 'dark' ? '#ccc' : '#444'
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontWeight: 'bold' }}>Ref Top Padding (vh)</label>
+            <input 
+              type="number" 
+              step="0.5" 
+              value={layout.indexPaddingTop !== undefined ? layout.indexPaddingTop : 4} 
+              onChange={e => handleLayoutChange('indexPaddingTop', Number(e.target.value))}
+              style={{ padding: '4px', borderRadius: '4px', border: '1px solid #555', background: theme === 'dark' ? '#222' : '#fff', color: theme === 'dark' ? '#fff' : '#000', width: '80px' }}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontWeight: 'bold' }}>Verse Top Padding (vh)</label>
+            <input 
+              type="number" 
+              step="0.5" 
+              value={layout.versePaddingTop !== undefined ? layout.versePaddingTop : (isSmallMedium && isSingle ? 0.5 : 1)} 
+              onChange={e => handleLayoutChange('versePaddingTop', Number(e.target.value))}
+              style={{ padding: '4px', borderRadius: '4px', border: '1px solid #555', background: theme === 'dark' ? '#222' : '#fff', color: theme === 'dark' ? '#fff' : '#000', width: '80px' }}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontWeight: 'bold' }}>Tamil Line Height</label>
+            <input 
+              type="number" 
+              step="0.05" 
+              value={layout.tamilLineHeight !== undefined ? layout.tamilLineHeight : (isSingle ? 1.28 : 1.35)} 
+              onChange={e => handleLayoutChange('tamilLineHeight', Number(e.target.value))}
+              style={{ padding: '4px', borderRadius: '4px', border: '1px solid #555', background: theme === 'dark' ? '#222' : '#fff', color: theme === 'dark' ? '#fff' : '#000', width: '80px' }}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontWeight: 'bold' }}>English Line Height</label>
+            <input 
+              type="number" 
+              step="0.05" 
+              value={layout.englishLineHeight !== undefined ? layout.englishLineHeight : 1.35} 
+              onChange={e => handleLayoutChange('englishLineHeight', Number(e.target.value))}
+              style={{ padding: '4px', borderRadius: '4px', border: '1px solid #555', background: theme === 'dark' ? '#222' : '#fff', color: theme === 'dark' ? '#fff' : '#000', width: '80px' }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

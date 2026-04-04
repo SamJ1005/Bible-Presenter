@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export default function useNavigation({
   selectedBook,
@@ -11,6 +11,12 @@ export default function useNavigation({
   onNext,
   onPrev,
 }) {
+  // Store latest callbacks in refs so the keyboard handler never has a stale closure
+  const onNextRef = useRef(onNext);
+  const onPrevRef = useRef(onPrev);
+  useEffect(() => { onNextRef.current = onNext; }, [onNext]);
+  useEffect(() => { onPrevRef.current = onPrev; }, [onPrev]);
+
   // --------- LOCAL KEYBOARD HANDLING (Keep this) ----------
   useEffect(() => {
     function handleArrowKeys(e) {
@@ -24,13 +30,12 @@ export default function useNavigation({
       }
 
       if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-        onPrev ? onPrev() : goPrev();
+        onPrevRef.current ? onPrevRef.current() : goPrev();
       }
       if (e.key === "ArrowRight" || e.key === "ArrowDown") {
-        onNext ? onNext() : goNext();
+        onNextRef.current ? onNextRef.current() : goNext();
       }
       if (e.key === "Escape") {
-        // We need access to handleClosePresentation or window.api.closePresentation
         window.api?.closePresentation?.();
       }
     }
@@ -82,8 +87,5 @@ export default function useNavigation({
 
     window.addEventListener("keydown", handleArrowKeys);
     return () => window.removeEventListener("keydown", handleArrowKeys);
-  }, [selectedBook, selectedChapter, selectedVerse, activeTab]); // Added activeTab to deps
-
-  // DELETE the entire "ELECTRON PRESENTATION NAVIGATION" useEffect block here.
-  // It is redundant and causes the double-fire bug.
+  }, [selectedBook, selectedChapter, selectedVerse, activeTab]); // onNext/onPrev accessed via ref — no stale closure
 }

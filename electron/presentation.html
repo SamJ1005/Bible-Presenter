@@ -44,15 +44,7 @@
         flex-direction: column;
       }
 
-      /* Fade transition */
-      #container.fade-out {
-        opacity: 0;
-        transition: opacity 0.2s ease-out;
-      }
-      #container.fade-in {
-        opacity: 1;
-        transition: opacity 0.3s ease-in;
-      }
+      /* Fade transition — controlled via JS inline styles */
 
       /* ---------- REFERENCE ---------- */
       #referenceArea {
@@ -181,9 +173,9 @@
       /* ---------- FONT PRESETS ---------- */
       const FONT_PRESETS = {
         small: { tamil: 9.2, eng: 7.0, min: 0 },
-        medium: { tamil: 6.5, eng: 5.2, min: 3.5 },
+        medium: { tamil: 7.2, eng: 5.8, min: 3.5 },
         large: { tamil: 4.7, eng: 3.9, min: 2.8 },
-        huge: { tamil: 8.0, eng: 6.5, min: 3.0 },
+        huge: { tamil: 9.8, eng: 7.8, min: 3.0 },
         multi2: { tamil: 5.5, eng: 4.5, min: 3.0 }, // For exactly 2 verses
         multi: { tamil: 4.2, eng: 3.5, min: 2.0 }, // For >2 verses
       };
@@ -204,8 +196,8 @@
         const tamilOffset = (data.tamilFontOffset || 0) * 0.15;
         const engOffset = (data.englishFontOffset || 0) * 0.12;
 
-        let tamilVW = preset.tamil + tamilOffset;
-        let engVW = preset.eng + engOffset;
+        let tamilVW = preset.tamil;
+        let engVW = preset.eng;
 
         // Clamp minimums
         if (tamilVW < 1.5) tamilVW = 1.5;
@@ -231,6 +223,12 @@
 
           safety++;
         }
+
+        // Apply offset AFTER auto-shrink has found the container bounds
+        tamilVW += tamilOffset;
+        engVW += engOffset;
+        tamilEl.style.fontSize = tamilVW + "vw";
+        engEl.style.fontSize = engVW + "vw";
       }
 
       /* ---------- REF FIT ---------- */
@@ -326,15 +324,30 @@
         // Transition
         const container = document.getElementById('container');
         if (data.enableTransition) {
-          container.classList.add('fade-out');
-          container.classList.remove('fade-in');
-          setTimeout(() => {
+          // Step 1: fade OUT — set transition + opacity 0
+          container.style.transition = 'opacity 0.28s ease-out';
+          container.style.opacity = '0';
+
+          // Step 2: wait for fade-out to fully complete, then swap content
+          container.addEventListener('transitionend', function onFadeOut() {
+            container.removeEventListener('transitionend', onFadeOut);
+
+            // Update content while invisible
             applyBibleContent(data, ref, refArea, tamil, eng, box, verseArea);
-            container.classList.remove('fade-out');
-            container.classList.add('fade-in');
-          }, 200);
+
+            // Step 3: double-rAF guarantees the browser renders opacity:0
+            // before starting the fade-in paint cycle
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                container.style.transition = 'opacity 0.35s ease-in';
+                container.style.opacity = '1';
+              });
+            });
+          }, { once: true });
         } else {
-          container.className = '';
+          // No transition: clear any lingering inline styles and update
+          container.style.transition = '';
+          container.style.opacity = '1';
           applyBibleContent(data, ref, refArea, tamil, eng, box, verseArea);
         }
       }

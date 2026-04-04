@@ -57,6 +57,8 @@ const Prelist = React.forwardRef((
   const [editingTextId, setEditingTextId] = useState(null);
   // Track pending font size offset during editing (before save)
   const [pendingFontOffset, setPendingFontOffset] = useState(null);
+  // Track layout overrides during editing
+  const [pendingLayoutOverrides, setPendingLayoutOverrides] = useState(null);
 
   // Auto-scroll Refs
   const itemRefs = useRef({}); // Map of main content refs (Main View)
@@ -124,8 +126,8 @@ const Prelist = React.forwardRef((
 
     // Handle "File" type or other legacy types
     if (item.type === "file") {
-      // Prefer Local Persisted URL (local-media://), then preview URL, then original path
-      let mediaSrc = item.localUrl || item.url;
+      // Prefer Local Persisted URL (local-media://), then Firebase imageUrl, then preview URL, then original path
+      let mediaSrc = item.localUrl || item.imageUrl || item.url;
 
       if (!mediaSrc && item.path) {
         const fixedPath = item.path.replace(/\\/g, "/");
@@ -460,6 +462,12 @@ const Prelist = React.forwardRef((
   const startEditingText = (item) => {
     setEditingTextId(item.id);
     setPendingFontOffset(item.fontSizeOffset || 0);
+    setPendingLayoutOverrides(item.layoutOverrides || {
+      indexPaddingTop: undefined,
+      versePaddingTop: undefined,
+      tamilLineHeight: undefined,
+      englishLineHeight: undefined
+    });
     // Close the presentation window when entering edit mode
     // to prevent live edits from being shown on the projected screen
     window.api?.closePresentation?.();
@@ -480,6 +488,10 @@ const Prelist = React.forwardRef((
     if (pendingFontOffset !== null) {
       updates.fontSizeOffset = pendingFontOffset;
     }
+    // Save layout overrides
+    if (pendingLayoutOverrides !== null) {
+      updates.layoutOverrides = pendingLayoutOverrides;
+    }
 
     if (Object.keys(updates).length > 0) {
       updateQueueItem(id, updates);
@@ -488,12 +500,14 @@ const Prelist = React.forwardRef((
 
     setEditingTextId(null);
     setPendingFontOffset(null);
+    setPendingLayoutOverrides(null);
   };
 
   const cancelTextEdit = (e) => {
     if (e) e.stopPropagation();
     setEditingTextId(null);
     setPendingFontOffset(null);
+    setPendingLayoutOverrides(null);
   };
 
   // Font size change handler - saves immediately to queue item
@@ -549,6 +563,10 @@ const Prelist = React.forwardRef((
         presentationTextColor: settings?.presentationTextColor ?? 'white',
         enableTransition: settings?.enableTransition ?? false,
         customWatermark: settings?.customWatermark ?? '',
+        tamilFontOffset: settings?.tamilFontOffset ?? 0,
+        englishFontOffset: settings?.englishFontOffset ?? 0,
+        indexFontOffset: settings?.indexFontOffset ?? 0,
+        layoutOverrides: pendingLayoutOverrides || item.layoutOverrides || {},
       });
     } catch (e) {
       console.error('Live preview update failed', e);
@@ -834,9 +852,25 @@ const Prelist = React.forwardRef((
     }, 50);
   };
 
-  const applyStyle = (command) => {
-    document.execCommand(command, false, null);
+  const applyStyle = (command, value = null) => {
+    document.execCommand(command, false, value);
     // Keep focus
+  };
+
+  const applyCustomFontSize = (vwSize) => {
+    // Use native execCommand to cleanly handle cross-boundary selections
+    document.execCommand("fontSize", false, "7");
+    
+    // Replace the generated <font size="7"> tags with our custom vw styled spans
+    // This allows robust rich text sizing that natively scales with the window
+    const fonts = document.querySelectorAll('font[size="7"]');
+    fonts.forEach(font => {
+      const span = document.createElement('span');
+      span.style.fontSize = `${vwSize}vw`;
+      // carry over any inherent styling if needed, though typically it's just raw HTML
+      span.innerHTML = font.innerHTML;
+      font.replaceWith(span);
+    });
   };
 
   return (
@@ -899,6 +933,7 @@ const Prelist = React.forwardRef((
         saveTextEdit={saveTextEdit}
         cancelTextEdit={cancelTextEdit}
         applyStyle={applyStyle}
+        applyCustomFontSize={applyCustomFontSize}
         tamilContentRef={tamilContentRef}
         englishContentRef={englishContentRef}
         handleItemClick={handleItemClick}

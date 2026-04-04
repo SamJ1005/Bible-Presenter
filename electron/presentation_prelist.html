@@ -70,6 +70,7 @@
         justify-content: center;
         gap: 1.2vh;
         text-align: center;
+        overflow: hidden;
       }
       #tamilText {
         font-family: "TamilBibleFont", Arial, sans-serif;
@@ -99,8 +100,11 @@
         width: 100%;
         height: 100%;
         z-index: -1;
+        background-color: #000;
         background-size: cover;
         background-position: center;
+        background-repeat: no-repeat;
+        transition: background-image 0.5s ease, background-color 0.5s ease;
       }
     </style>
   </head>
@@ -177,31 +181,52 @@
         const mediaImg = document.getElementById("mediaImg");
         const mediaVideo = document.getElementById("mediaVideo");
 
+        // Handle inconsistent payload structures (nested vs flat from Prelist.jsx)
+        const settings = data.settings || data;
+
         // Styles
-        const textColor = data.presentationTextColor || "#fff";
+        const textColor = settings.presentationTextColor || "#fff";
         document.body.style.color = textColor;
         ref.style.color = textColor;
         tamil.style.color = textColor;
         eng.style.color = textColor;
         if (watermark) {
-          watermark.innerText = data.customWatermark || "";
+          watermark.innerText = settings.customWatermark || "";
           watermark.style.color = textColor;
         }
 
-        // Background
-        const bgType = data.presentationBgType || "black";
-        if (bgType === "image" && data.presentationBgImage) {
-          bgLayer.style.backgroundImage = `url(${data.presentationBgImage})`;
-          bgLayer.style.backgroundColor = "transparent";
+        // Background - Cached logic from presentation.html
+        if (!window.bgCache) {
+          window.bgCache = { type: null, val: null };
+        }
+
+        const bgType = settings.presentationBgType || "black";
+        const bgImage = settings.presentationBgImage;
+
+        if (bgType === "image" && bgImage) {
+          if (window.bgCache.type !== "image" || window.bgCache.val !== bgImage) {
+            bgLayer.style.backgroundImage = `url("${bgImage.replace(/\\/g, '/')}")`;
+            bgLayer.style.backgroundColor = "transparent";
+            window.bgCache = { type: "image", val: bgImage };
+          }
         } else if (bgType === "white") {
-          bgLayer.style.backgroundImage = "none";
-          bgLayer.style.backgroundColor = "#ffffff";
-        } else if (bgType === "custom") {
-          bgLayer.style.backgroundImage = "none";
-          bgLayer.style.backgroundColor = data.presentationBgColor || "#000";
+          if (window.bgCache.type !== "white") {
+            bgLayer.style.backgroundImage = "none";
+            bgLayer.style.backgroundColor = "#ffffff";
+            window.bgCache = { type: "white", val: null };
+          }
+        } else if (bgType === "custom" && settings.presentationBgColor) {
+          if (window.bgCache.type !== "custom" || window.bgCache.val !== settings.presentationBgColor) {
+            bgLayer.style.backgroundImage = "none";
+            bgLayer.style.backgroundColor = settings.presentationBgColor;
+            window.bgCache = { type: "custom", val: settings.presentationBgColor };
+          }
         } else {
-          bgLayer.style.backgroundImage = "none";
-          bgLayer.style.backgroundColor = "#000";
+          if (window.bgCache.type !== "black") {
+            bgLayer.style.backgroundImage = "none";
+            bgLayer.style.backgroundColor = "#000";
+            window.bgCache = { type: "black", val: null };
+          }
         }
 
         const applyContent = () => {
@@ -295,12 +320,12 @@
           const verseCount = getVerseCount(indexStr);
 
           const FONT_PRESETS = {
-            small: { tamil: 9.2, eng: 6.5, min: 3.0 },
-            medium: { tamil: 6.5, eng: 5.0, min: 2.5 },
-            large: { tamil: 5.0, eng: 3.5, min: 2.2 },
-            huge: { tamil: 8.0, eng: 6.5, min: 3.0 },
-            multi2: { tamil: 5.5, eng: 0.0, min: 2.5 },
-            multi: { tamil: 4.2, eng: 0.0, min: 1.8 },
+            small: { tamil: 9.2, eng: 7.0, min: 0.0 },
+            medium: { tamil: 7.2, eng: 5.8, min: 3.5 },
+            large: { tamil: 4.7, eng: 3.9, min: 2.8 },
+            huge: { tamil: 9.8, eng: 7.8, min: 3.0 },
+            multi2: { tamil: 5.5, eng: 4.5, min: 3.0 },
+            multi: { tamil: 4.2, eng: 3.5, min: 2.0 },
           };
 
           let effectiveType = type;
@@ -311,78 +336,24 @@
           }
           const preset = FONT_PRESETS[effectiveType];
 
-          // Line height adjustments
-          if (!isSingle) {
-            tamil.style.lineHeight = "1.35";
-            eng.style.lineHeight = "1.35";
-          } else {
-            tamil.style.lineHeight = "1.28";
-            eng.style.lineHeight = "1.35";
-          }
+          // Line height adjustments with support for layoutOverrides
+          const layout = data.layoutOverrides || {};
+          let tLineHeight = layout.tamilLineHeight !== undefined ? layout.tamilLineHeight : (!isSingle ? "1.35" : "1.28");
+          let eLineHeight = layout.englishLineHeight !== undefined ? layout.englishLineHeight : "1.35";
+          tamil.style.lineHeight = tLineHeight;
+          eng.style.lineHeight = eLineHeight;
 
-          // Apply font size offsets
-          const offset = data.fontSizeOffset || 0;
-          const indexOffset = (data.indexFontOffset || 0) * 0.12;
+          let tamilVW = preset.tamil;
+          let engVW = preset.eng;
 
-          let tamilVW = preset.tamil + offset * 0.15;
-          let engVW = preset.eng + offset * 0.12;
+          // Clamp minimums
           if (tamilVW < 1.5) tamilVW = 1.5;
           if (engVW < 1.2) engVW = 1.2;
 
-          // Reference font size — length-based (matches PrelistVerseCard.jsx exactly):
-          //   ≤ 26 chars  → 4.5 vw  (short,  e.g. "யோவான் 3:16   John")
-          //   ≤ 38 chars  → 3.5 vw  (medium, e.g. "சங்கீதம் 1:1,2,3   Psalm")
-          //   > 38 chars  → 2.2 vw  (long,   e.g. "1 தேசலோனிக்கேயர்...Thessalonians")
-          const refLen = indexStr.length;
-          let refVW =
-            (refLen > 38 ? 3.8 : refLen > 26 ? 6.5 : 5.5) + indexOffset;
-          if (refVW < 2.0) refVW = 2.0;
-
-          // Initial Apply
           tamil.style.fontSize = tamilVW + "vw";
           eng.style.fontSize = engVW + "vw";
-          ref.style.fontSize = refVW + "vw";
 
-          // Auto-shrink reference if it still overflows the screen width
-          while (ref.scrollWidth > ref.clientWidth && refVW > 2.5) {
-            refVW -= 0.1;
-            ref.style.fontSize = refVW + "vw";
-          }
-
-          // Exact Layout blocks from presentation.html
-          if (type === "small" || type === "medium") {
-            box.style.marginTop = "0";
-
-            if (isSingle) {
-              verseArea.style.padding = "0.5vh 3vw 0";
-              box.style.gap = "0";
-              box.style.justifyContent = "flex-start";
-              verseArea.style.justifyContent = "flex-start";
-              box.style.overflow = "hidden";
-              box.style.maxHeight = "94%";
-              refArea.style.height = "6%";
-            } else {
-              verseArea.style.padding = "1vh 1vw 0";
-              box.style.marginTop = "0";
-              box.style.gap = "0";
-              box.style.overflow = "hidden";
-              box.style.justifyContent = "flex-start";
-              verseArea.style.justifyContent = "flex-start";
-              box.style.maxHeight = "94%";
-              refArea.style.height = "5%";
-            }
-          } else {
-            verseArea.style.padding = "1vh 1vw 0";
-            box.style.marginTop = "0";
-            box.style.gap = "0";
-            box.style.overflow = "hidden";
-            box.style.justifyContent = "flex-start";
-            verseArea.style.justifyContent = "flex-start";
-            box.style.maxHeight = "94%";
-            refArea.style.height = "5%";
-          }
-
-          // --- VERSE AUTO-SHRINK LOOP (The "Responsive" fix) ---
+          // Always auto-shrink to fit screen 
           let safety = 0;
           while (
             (box.scrollHeight > box.clientHeight ||
@@ -399,9 +370,64 @@
 
             safety++;
           }
+
+          // Apply font size offsets AFTER auto-shrink
+          const offset = data.fontSizeOffset || 0;
+          const globalTamilOffset = (data.tamilFontOffset || 0) * 0.15;
+          const globalEngOffset = (data.englishFontOffset || 0) * 0.12;
+          const indexOffset = (data.indexFontOffset || 0) * 0.12;
+
+          tamilVW += offset * 0.15 + globalTamilOffset;
+          engVW += offset * 0.12 + globalEngOffset;
+
+          tamil.style.fontSize = tamilVW + "vw";
+          eng.style.fontSize = engVW + "vw";
+
+          // Reference font size — length-based
+          const refLen = indexStr.length;
+          let refVW =
+            (refLen > 38 ? 3.8 : refLen > 26 ? 6.5 : 5.5) + indexOffset;
+          if (refVW < 2.0) refVW = 2.0;
+
+          ref.style.fontSize = refVW + "vw";
+
+          // Exact Layout blocks from presentation.html
+          if (type === "small" || type === "medium") {
+            box.style.marginTop = "0";
+
+            if (isSingle) {
+              verseArea.style.padding = layout.versePaddingTop !== undefined ? `${layout.versePaddingTop}vh 3vw 0` : "0.5vh 3vw 0";
+              box.style.gap = "0";
+              box.style.justifyContent = "center";
+              verseArea.style.justifyContent = "center";
+              box.style.overflow = "hidden";
+              box.style.maxHeight = "94%";
+              refArea.style.height = "6%";
+            } else {
+              verseArea.style.padding = layout.versePaddingTop !== undefined ? `${layout.versePaddingTop}vh 1vw 0` : "1vh 1vw 0";
+              box.style.marginTop = "0";
+              box.style.gap = "0";
+              box.style.overflow = "hidden";
+              box.style.justifyContent = "flex-start";
+              verseArea.style.justifyContent = "flex-start";
+              box.style.maxHeight = "94%";
+              refArea.style.height = "5%";
+            }
+          } else {
+            verseArea.style.padding = layout.versePaddingTop !== undefined ? `${layout.versePaddingTop}vh 1vw 0` : "1vh 1vw 0";
+            box.style.marginTop = "0";
+            box.style.gap = "0";
+            box.style.overflow = "hidden";
+            box.style.justifyContent = "flex-start";
+            verseArea.style.justifyContent = "flex-start";
+            box.style.maxHeight = "94%";
+            refArea.style.height = "5%";
+          }
+          
+          refArea.style.paddingTop = layout.indexPaddingTop !== undefined ? `${layout.indexPaddingTop}vh` : "2.5vh";
         };
 
-        if (data.enableTransition) {
+        if (settings.enableTransition) {
           container.style.opacity = "0";
           setTimeout(() => {
             applyContent();
@@ -419,6 +445,13 @@
           window.presentationAPI.onVerse(updateDisplay);
         else setTimeout(waitAPI, 50);
       })();
+
+      // Support for iframe preview integration via postMessage
+      window.addEventListener("message", (event) => {
+        if (event.data && event.data.type === "SHOW_VERSE") {
+          updateDisplay(event.data.payload);
+        }
+      });
 
       /* ---------- PHYSICAL KEYBOARD NAVIGATION ---------- */
       document.addEventListener("keydown", (e) => {

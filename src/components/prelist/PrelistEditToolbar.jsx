@@ -2,6 +2,7 @@ import React from "react";
 
 const PrelistEditToolbar = ({
   applyStyle,
+  applyCustomFontSize,
   saveTextEdit,
   cancelTextEdit,
   itemId,
@@ -42,6 +43,40 @@ const PrelistEditToolbar = ({
       >
         <span style={{ textDecoration: "underline" }}>U</span>
       </button>
+
+      <div className="separator"></div>
+
+      <select 
+        title="Font Size (vw)"
+        onChange={(e) => {
+          if (e.target.value && applyCustomFontSize) {
+            applyCustomFontSize(e.target.value);
+            e.target.value = ""; // reset
+          }
+        }}
+        style={{
+          marginLeft: '4px',
+          padding: '2px 4px',
+          borderRadius: '4px',
+          border: '1px solid #555',
+          background: '#222',
+          color: '#fff',
+          fontSize: '12px',
+          cursor: 'pointer'
+        }}
+      >
+        <option value="">Size...</option>
+        <option value="2">2vw</option>
+        <option value="3">3vw</option>
+        <option value="4">4vw</option>
+        <option value="5">5vw</option>
+        <option value="6">6vw</option>
+        <option value="7">7vw</option>
+        <option value="8">8vw</option>
+        <option value="9">9vw</option>
+        <option value="12">12vw</option>
+        <option value="15">15vw</option>
+      </select>
 
       <div className="separator"></div>
 

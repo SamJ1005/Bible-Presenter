@@ -13,6 +13,7 @@ const PrelistMainView = ({
   saveTextEdit,
   cancelTextEdit,
   applyStyle,
+  applyCustomFontSize,
   tamilContentRef,
   englishContentRef,
   handleItemClick,
@@ -21,7 +22,9 @@ const PrelistMainView = ({
   onFontSizeChange,
   onLivePreviewUpdate,
   activeQueueName,
-  settings
+  settings,
+  pendingLayoutOverrides,
+  setPendingLayoutOverrides
 }) => {
   // Helper to lookup verse text
   const getVerseText = (bookName, chapter, verse) => {
@@ -132,6 +135,7 @@ const PrelistMainView = ({
               saveTextEdit={saveTextEdit}
               cancelTextEdit={cancelTextEdit}
               applyStyle={applyStyle}
+              applyCustomFontSize={applyCustomFontSize}
               tamilContentRef={tamilContentRef}
               englishContentRef={englishContentRef}
               handleItemClick={handleItemClick}
@@ -140,6 +144,8 @@ const PrelistMainView = ({
               onFontSizeChange={onFontSizeChange}
               onLivePreviewUpdate={onLivePreviewUpdate}
               settings={settings}
+              pendingLayoutOverrides={isEditing ? pendingLayoutOverrides : null}
+              setPendingLayoutOverrides={setPendingLayoutOverrides}
             />
           );
         })}

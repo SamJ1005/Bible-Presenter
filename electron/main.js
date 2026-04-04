@@ -270,6 +270,54 @@ ipcMain.handle("save-media-file", async (_, sourcePath) => {
   }
 });
 
+// Download media from a remote URL (like Firebase Storage Download URL) and save to local userData folder
+ipcMain.handle("download-media-file", async (_, fileUrl, uniqueId) => {
+  try {
+    const mediaDir = path.join(app.getPath("userData"), "media");
+    if (!fs.existsSync(mediaDir)) {
+      fs.mkdirSync(mediaDir, { recursive: true });
+    }
+
+    // Determine a filename: Use uniqueId if provided, else extract from URL or use a timestamp
+    let fileName;
+    if (uniqueId) {
+      fileName = `${uniqueId}.jpg`; // typically we are saving jpgs
+    } else {
+      // Very basic extraction, might not work perfectly with Firebase tokens
+      const urlObj = new URL(fileUrl);
+      fileName = path.basename(urlObj.pathname);
+      if (!fileName || fileName.includes("%")) {
+         fileName = `download_${Date.now()}.jpg`;
+      }
+    }
+    
+    // Sanitize
+    fileName = fileName.replace(/[^a-zA-Z0-9.-_]/g, '_');
+    
+    const destPath = path.join(mediaDir, fileName);
+
+    // If it already exists, assume it was already successfully downloaded/cached to save bandwidth
+    if (fs.existsSync(destPath)) {
+       return `local-media://${fileName}`;
+    }
+
+    const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+    const response = await fetch(fileUrl);
+    
+    if (!response.ok) {
+        throw new Error(`Failed to fetch ${fileUrl}: ${response.statusText}`);
+    }
+    
+    const buffer = await response.buffer();
+    fs.writeFileSync(destPath, buffer);
+    
+    return `local-media://${fileName}`;
+  } catch (err) {
+    console.error("Failed to download media file:", err);
+    return null;
+  }
+});
+
 ipcMain.handle("get-displays", () => {
   return screen.getAllDisplays().map(d => ({
     id: d.id.toString(),

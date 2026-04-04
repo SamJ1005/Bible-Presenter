@@ -1,6 +1,9 @@
 // usePresentation.js
+import { useRef } from "react";
 import { getTamilBookName } from "../utils/bibleBooks";
 export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilBookDataRef }) {
+  const lastPayloadParamsRef = useRef(null);
+
   function buildPayload({ selectedBook, selectedChapter, selectedVerse, settings = {}, tamilDataOverride = null, englishText = null, tamilText = null, viewMode = "bible", type = "bible", fileData = null, fontSizeOffset = 0, index = null }) {
     if (type === "file" && fileData) {
       return {
@@ -9,6 +12,8 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
         url: fileData.url,
         fileType: fileData.fileType,
         name: fileData.name,
+        presentationBgType: settings.presentationBgType ?? "color",
+        presentationBgImage: settings.presentationBgImage ?? "",
         presentationBgColor: settings.presentationBgColor ?? "black",
         presentationTextColor: settings.presentationTextColor ?? "white",
         enableTransition: settings.enableTransition ?? false,
@@ -58,6 +63,9 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
 
     const payload = buildPayload({ selectedBook, selectedChapter, selectedVerse, settings, tamilDataOverride, englishText, tamilText, viewMode, type, fileData, fontSizeOffset, index });
 
+    // Store the exact parameters needed to rebuild this slide with new settings later
+    lastPayloadParamsRef.current = { selectedBook, selectedChapter, selectedVerse, tamilDataOverride, englishText, tamilText, viewMode, type, fileData, fontSizeOffset, index };
+
     try {
       // Ensure presentation window exists (Option A behavior: clicking a verse opens it)
       await window.electron.openBlankPresentation?.();
@@ -67,5 +75,19 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
     }
   }
 
-  return { sendToPresentation };
+  // Called when settings change to update the live window without changing the active slide
+  async function rePresentWithSettings(newSettings) {
+    if (!lastPayloadParamsRef.current) return;
+    
+    // Re-build the payload for the currently showing slide using the fresh settings
+    const payload = buildPayload({ ...lastPayloadParamsRef.current, settings: newSettings });
+    
+    try {
+      window.electron.sendPresentation?.(payload);
+    } catch (e) {
+      console.error("rePresentWithSettings error", e);
+    }
+  }
+
+  return { sendToPresentation, rePresentWithSettings };
 }

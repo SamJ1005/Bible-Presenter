@@ -12,6 +12,8 @@ export default function ChapterTable({
   sendToPresentation,
   verseTableRef,
   settings,
+  resetFontOffsets,
+  zeroedSettings,
 }) {
   // english verses for chapter
   const englishVerses =
@@ -33,13 +35,13 @@ export default function ChapterTable({
   function handleRowClick(vn) {
     // update selection in App
     setSelectedVerse(Number(vn));
-
-    // send to presentation (Option A)
+    // Reset per-verse font offset, then send with zeroed settings
+    resetFontOffsets?.();
     sendToPresentation({
       selectedBook,
       selectedChapter,
       selectedVerse: Number(vn),
-      settings,
+      settings: zeroedSettings ? zeroedSettings(settings) : settings,
     });
   }
 

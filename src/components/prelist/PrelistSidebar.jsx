@@ -266,15 +266,15 @@ const CheckIcon = ({ size = 14 }) => (
       {queueMeta && (
         <div style={{
           display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '8px 8px 6px 8px',
+          flexDirection: 'column',
+          gap: '8px',
+          padding: '10px 8px 8px 8px',
           borderBottom: theme === 'dark' ? '1px solid #333' : '1px solid #e0e0e0',
           marginBottom: '0',
-          flexWrap: 'nowrap',
-          minHeight: '36px'
         }}>
-          {/* Queue Selector Dropdown / Rename Input / Create Input */}
+          {/* TOP ROW: List and Add List */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+            {/* Queue Selector Dropdown / Rename Input / Create Input */}
           {isCreatingQueue ? (
             <input
               ref={createInputRef}
@@ -349,8 +349,8 @@ const CheckIcon = ({ size = 14 }) => (
               ))}
             </select>
           )}
-
-          {/* Create New Queue */}
+            
+            {/* Create New Queue */}
           <button
             onClick={isCreatingQueue ? handleFinishCreate : handleCreateQueue}
             title={isCreatingQueue ? 'Confirm' : 'Create New Playlist'}
@@ -385,8 +385,11 @@ const CheckIcon = ({ size = 14 }) => (
           >
             {isCreatingQueue ? <CheckIcon /> : <PlusIcon />}
           </button>
+          </div>
 
-          {/* Rename Queue */}
+          {/* BOTTOM ROW: Other Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', paddingBottom: '4px' }}>
+            {/* Rename Queue */}
           <button
             onClick={handleStartRename}
             title="Rename Queue"
@@ -468,6 +471,51 @@ const CheckIcon = ({ size = 14 }) => (
               <TrashIcon />
             </button>
           )}
+            
+            {/* Manual Save to Cloud */}
+          {user && (
+            <button
+              onClick={syncQueueNow}
+              title="Save Playlist to Cloud"
+              style={{
+                background: syncStatus[queueMeta.activeId] === "unsynced" 
+                  ? (theme === 'dark' ? 'rgba(255, 170, 0, 0.15)' : 'rgba(204, 136, 0, 0.1)') 
+                  : 'transparent',
+                border: syncStatus[queueMeta.activeId] === "unsynced"
+                  ? (theme === 'dark' ? '1px solid #ffaa00' : '1px solid #cc8800')
+                  : (theme === 'dark' ? '1px solid #444' : '1px solid #bbb'),
+                borderRadius: '6px',
+                padding: '4px 8px',
+                cursor: 'pointer',
+                color: syncStatus[queueMeta.activeId] === "unsynced"
+                  ? (theme === 'dark' ? '#ffaa00' : '#cc8800')
+                  : (theme === 'dark' ? '#aaa' : '#555'),
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '11px',
+                fontWeight: 600,
+                transition: 'all 0.2s',
+                marginLeft: 'auto'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = theme === 'dark' ? '#00ff99' : '#003399';
+                e.currentTarget.style.borderColor = theme === 'dark' ? '#00ff99' : '#003399';
+              }}
+              onMouseLeave={(e) => {
+                if (syncStatus[queueMeta.activeId] === "unsynced") {
+                  e.currentTarget.style.color = theme === 'dark' ? '#ffaa00' : '#cc8800';
+                  e.currentTarget.style.borderColor = theme === 'dark' ? '#ffaa00' : '#cc8800';
+                } else {
+                  e.currentTarget.style.color = theme === 'dark' ? '#aaa' : '#555';
+                  e.currentTarget.style.borderColor = theme === 'dark' ? '#444' : '#bbb';
+                }
+              }}
+            >
+              ☁ Save
+            </button>
+          )}
+          </div>
 
         </div>
       )}

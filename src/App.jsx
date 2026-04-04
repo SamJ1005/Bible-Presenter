@@ -1,10 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { saveMemory, loadMemory } from "./hooks/useLocalMemory";
-import { auth, db, storage } from "./firebase";
+import { db, auth } from './firebase';
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot, setDoc, deleteDoc, collection, getDocs, getDoc } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import "./index.css";
 import Settings from "./components/Settings";
 import Header from "./components/Header";
@@ -171,16 +170,17 @@ export default function App() {
   const sanitizeItemsForCloud = (items) => {
     return items.map(item => {
       if (item.type === 'file') {
-        // Under strict requirements, the `url` MUST be a Firebase Storage URL.
-        const isFirebaseUrl = item.url && item.url.startsWith('https://firebasestorage');
+        // Under strict requirements, the `url` MUST be a valid cloud URL.
+        const isCloudUrl = item.url && (item.url.startsWith('https://firebasestorage') || item.url.startsWith('https://res.cloudinary.com'));
         
         // Strip out the large base64 localPreview before saving to Firestore
         const { localPreview, ...itemToSync } = item;
         
         return { 
           ...itemToSync, 
-          url: isFirebaseUrl ? itemToSync.url : '[offline-or-failed-upload]', 
-          localOnly: !isFirebaseUrl 
+          url: isCloudUrl ? itemToSync.url : '[offline-or-failed-upload]', 
+          imageUrl: item.imageUrl || (isCloudUrl ? itemToSync.url : null),
+          localOnly: !isCloudUrl 
         };
       }
       // For verse items, strip any very large custom text (safety net)
@@ -380,32 +380,57 @@ export default function App() {
             // Merge cloud items with local items to preserve file URLs
             // Cloud items may have '[local-file]' for file items since base64 is too large for Firestore
             const localItems = loadMemory(getMemKey(`queue_items_${queueMeta.activeId}`), []);
-            const mergedItems = data.items.map(cloudItem => {
-              // If a cloud item is a file, verify it has a valid URL
-              if (cloudItem.type === 'file') {
-                const localMatch = localItems.find(li => li.id === cloudItem.id);
-                let newUrl = cloudItem.url;
-                // If cloud URL is invalid but we have a valid cloud URL locally, preserve it
-                if ((!newUrl || newUrl === '[offline-or-failed-upload]') && 
-                    localMatch && localMatch.url && localMatch.url.startsWith('https://firebasestorage')) {
-                  newUrl = localMatch.url;
-                }
-                return { 
-                  ...cloudItem, 
-                  url: newUrl,
-                  localPreview: localMatch ? localMatch.localPreview : undefined
-                };
-              }
-              return cloudItem;
-            });
+            
+            // We use an async function to handle potential downloads, but set state inside
+            const processMergedItems = async () => {
+              const mergedItems = await Promise.all(data.items.map(async cloudItem => {
+                // If a cloud item is a file, verify it has a valid URL
+                if (cloudItem.type === 'file') {
+                  const localMatch = localItems.find(li => li.id === cloudItem.id);
+                  let newUrl = cloudItem.url;
+                  let newLocalUrl = localMatch?.localUrl || null;
+                  
+                  // If cloud URL is invalid but we have a valid cloud URL locally, preserve it
+                  if ((!newUrl || newUrl === '[offline-or-failed-upload]') && 
+                      localMatch && localMatch.url && (localMatch.url.startsWith('https://firebasestorage') || localMatch.url.startsWith('https://res.cloudinary.com'))) {
+                    newUrl = localMatch.url;
+                  }
+                  
+                  // If we have an imageUrl from Cloudinary/Firebase but no localUrl or the localUrl is missing, download it
+                  if (cloudItem.imageUrl && (cloudItem.imageUrl.startsWith('https://firebasestorage') || cloudItem.imageUrl.startsWith('https://res.cloudinary.com'))) {
+                     // Check if local image actually exists or if we need to cache it now
+                     if (!newLocalUrl || newLocalUrl === '[uploading]') {
+                         try {
+                             if (window.api && window.api.downloadMediaFile) {
+                                 // We use the ID to ensure somewhat unique filename caching
+                                 newLocalUrl = await window.api.downloadMediaFile(cloudItem.imageUrl, `sync_${cloudItem.id}`);
+                             }
+                         } catch (e) {
+                             console.error("Failed to download remote file during sync:", e);
+                         }
+                     }
+                  }
 
-            isRemoteUpdate.current = true;
-            setPrelistedItems(mergedItems);
-            // Update local timestamp
-            if (data.lastModified) {
-              saveMemory(getMemKey(`queue_modified_${queueMeta.activeId}`), data.lastModified);
-              setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'synced' }));
-            }
+                  return { 
+                    ...cloudItem, 
+                    url: newUrl, // Preserve fallback url if needed
+                    localUrl: newLocalUrl, // The actual offline path
+                    localPreview: localMatch ? localMatch.localPreview : undefined
+                  };
+                }
+                return cloudItem;
+              }));
+
+              isRemoteUpdate.current = true;
+              setPrelistedItems(mergedItems);
+              // Update local timestamp
+              if (data.lastModified) {
+                saveMemory(getMemKey(`queue_modified_${queueMeta.activeId}`), data.lastModified);
+                setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'synced' }));
+              }
+            };
+            
+            processMergedItems();
           }
         }
       }, (err) => {
@@ -427,30 +452,11 @@ export default function App() {
     // Always save to localStorage (backup + offline)
     saveMemory(getMemKey(`queue_items_${queueMeta.activeId}`), prelistedItems);
 
-    // Auto-sync to Firestore when user is logged in and cloud sync is enabled
+    // We no longer auto-sync to Firestore on every keystroke/change.
+    // Instead we just mark the local queue as unsynced if cloud sync is enabled.
+    // The user must manually click 'Save' to push to cloud to avoid cross-device loop conflicts.
     if (user && settings.cloudSyncEnabled !== false) {
-      const now = new Date().toISOString();
-      const queueRef = doc(db, "users", user.uid, "queues", queueMeta.activeId);
-      const cloudItems = sanitizeItemsForCloud(prelistedItems);
-      setDoc(queueRef, {
-        name: activeQueueInfo?.name || 'Untitled',
-        items: cloudItems,
-        lastModified: now,
-      }, { merge: true })
-        .then(() => {
-          saveMemory(getMemKey(`queue_modified_${queueMeta.activeId}`), now);
-          setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'synced' }));
-          console.log('[SYNC] Auto-synced:', activeQueueInfo?.name, `(${cloudItems.length} items)`);
-        })
-        .catch((err) => {
-          if (err.code !== 'permission-denied') {
-            console.error('[SYNC] Auto-sync failed:', err);
-          }
-          setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'unsynced' }));
-          if (err.message && err.message.includes('maximum allowed size')) {
-            toast.error('☁ Playlist too large to sync. Remove some file items.', { id: 'sync-size-error' });
-          }
-        });
+      setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'unsynced' }));
     } else {
       // Not logged in or sync disabled, mark as local
       setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'local' }));
@@ -606,7 +612,7 @@ export default function App() {
   } = useBible();
 
   // ---- presentation (IPC) helpers
-  const { sendToPresentation, sendPresentationPayload, openBlankPresentation } =
+  const { sendToPresentation, rePresentWithSettings } =
     usePresentation({
       getTamilVerse,
       getEnglishVerse,
@@ -729,21 +735,27 @@ export default function App() {
   // presentationOpenedRef prevents the window from auto-opening on app start.
   // It is set to true only after the user explicitly opens a presentation.
   const presentationOpenedRef = useRef(false);
+
+  // Helper: returns settings with font offsets zeroed (used when presenting a new verse)
+  const zeroedSettings = useCallback((s) => ({
+    ...s,
+    tamilFontOffset: 0,
+    englishFontOffset: 0,
+    indexFontOffset: 0,
+  }), []);
+
+  // Helper: reset font offset UI values to 0
+  const resetFontOffsets = useCallback(() => {
+    setSettings(prev => ({ ...prev, tamilFontOffset: 0, englishFontOffset: 0, indexFontOffset: 0 }));
+  }, []);
+
+  // When user manually adjusts font offsets in settings, update the live presentation instantly (no transition)
   const fontOffsets = [settings.tamilFontOffset, settings.englishFontOffset, settings.indexFontOffset].join();
   useEffect(() => {
-    // Only auto-update if presentation was already opened by the user,
-    // we are NOT in prelisted tab (they have independent cards),
-    // not in blank mode, and we have a valid selection.
     if (!presentationOpenedRef.current) return;
-    if (activeTab !== "prelisted" && !isBlankMode && selectedBook && selectedChapter && selectedVerse) {
-      sendToPresentation({
-        selectedBook,
-        selectedChapter,
-        selectedVerse,
-        settings
-      });
-    }
-  }, [fontOffsets, settings.presentationBgType, settings.presentationBgColor, settings.presentationBgImage, settings.presentationTextColor]);
+    rePresentWithSettings({ ...settings, enableTransition: false });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fontOffsets]);
 
   // Handle blank presentation toggle
   const handleBlankPresentation = useCallback(async () => {
@@ -796,13 +808,14 @@ export default function App() {
     setSelectedChapter(nextC);
     setSelectedVerse(nextV);
     presentationOpenedRef.current = true;
+    resetFontOffsets(); // Reset per-verse offset in UI before sending
     sendToPresentation({
       selectedBook,
       selectedChapter: nextC,
       selectedVerse: nextV,
-      settings,
+      settings: zeroedSettings(settings),
     });
-    addToRecent(selectedBook, nextC, nextV);
+    // Note: Arrow navigation intentionally does NOT add to recent list
   }, [
     activeTab,
     isBlankMode,
@@ -813,7 +826,8 @@ export default function App() {
     englishBible,
     sendToPresentation,
     settings,
-    addToRecent,
+    zeroedSettings,
+    resetFontOffsets,
   ]);
 
   const handlePrev = useCallback(() => {
@@ -845,13 +859,14 @@ export default function App() {
     setSelectedChapter(prevC);
     setSelectedVerse(prevV);
     presentationOpenedRef.current = true;
+    resetFontOffsets(); // Reset per-verse offset in UI before sending
     sendToPresentation({
       selectedBook,
       selectedChapter: prevC,
       selectedVerse: prevV,
-      settings,
+      settings: zeroedSettings(settings),
     });
-    addToRecent(selectedBook, prevC, prevV);
+    // Note: Arrow navigation intentionally does NOT add to recent list
   }, [
     activeTab,
     isBlankMode,
@@ -862,7 +877,8 @@ export default function App() {
     englishBible,
     sendToPresentation,
     settings,
-    addToRecent,
+    zeroedSettings,
+    resetFontOffsets,
   ]);
 
   // ---- navigation (arrow keys, external prev/next)
@@ -994,17 +1010,26 @@ export default function App() {
       return;
     }
 
+    const newItemId = Date.now() + Math.random();
+    const cleanName = fileObj.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    
+    // Attempt immediate local cache for immediate presentation
+    let immediateLocalUrl = null;
+    if (fileObj.path && window.api && window.api.saveMediaFile) {
+        immediateLocalUrl = await window.api.saveMediaFile(fileObj.path);
+    }
+
     const reader = new FileReader();
 
     reader.onload = (e) => {
       // Generate strict initial Item
-      const newItemId = Date.now() + Math.random();
       const newItem = {
         id: newItemId,
         type: 'file',
         name: fileObj.name,
         fileType: fileObj.type,
         url: '[uploading]', // Temporary state
+        localUrl: immediateLocalUrl, // Available immediately!
         localPreview: e.target.result, // BASE64 for local immediate use only, stripped by sanitizeItemsForCloud
         cloudUploadStatus: 'pending'
         // STRICT REQUIREMENT: No local paths stored
@@ -1025,34 +1050,56 @@ export default function App() {
       });
 
       try {
-        const timeStr = Date.now();
-        const cleanName = fileObj.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-        const storageRef = ref(storage, `users/${user.uid}/media/${timeStr}_${cleanName}`);
+        const cloudName = "dojyn0gux"; // User's Cloud Name
+        const uploadPreset = "bible_app"; // From user input
         
-        const uploadTask = uploadBytesResumable(storageRef, fileObj);
+        const url = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
         
-        uploadTask.on('state_changed', 
-          null, 
-          (error) => {
-            console.error("Image upload failed:", error);
-            updateQueueItem(newItemId, { cloudUploadStatus: 'error', url: '[upload-failed]' });
-            toast.error(`Failed to upload ${fileObj.name}`);
-          }, 
-          async () => {
-            try {
-              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-              // STRICT REQUIREMENT: Set real Firebase URL to `url`
-              updateQueueItem(newItemId, { url: downloadURL, cloudUploadStatus: 'success' });
-              toast.success(`Uploaded ${fileObj.name} to cloud`);
-            } catch (urlErr) {
-              console.error("Failed to get download URL:", urlErr);
-              updateQueueItem(newItemId, { cloudUploadStatus: 'error', url: '[upload-failed]' });
+        const formData = new FormData();
+        formData.append("file", fileObj);
+        formData.append("upload_preset", uploadPreset);
+        
+        // Optional: you can add a public_id if you want to cleanly name them in Cloudinary
+        // formData.append("public_id", `playlistImages/${newItemId}_${fileObj.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`);
+        
+        fetch(url, {
+          method: "POST",
+          body: formData
+        })
+        .then(response => response.json())
+        .then(async (data) => {
+          if (data.secure_url) {
+            const downloadURL = data.secure_url;
+            
+            // Cache locally immediately to ensure offline support on this device
+            let newLocalUrl = immediateLocalUrl;
+            if (!newLocalUrl && window.api && window.api.downloadMediaFile) {
+                // Determine a clean name for local caching
+                const cleanName = fileObj.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+                newLocalUrl = await window.api.downloadMediaFile(downloadURL, `${newItemId}_${cleanName}`);
             }
+            
+            // Set real Cloudinary URL to `imageUrl`
+            updateQueueItem(newItemId, { 
+               url: downloadURL, 
+               imageUrl: downloadURL, 
+               localUrl: newLocalUrl, 
+               cloudUploadStatus: 'success' 
+            });
+          } else {
+            console.error("Cloudinary upload failed:", data.error?.message || data);
+            updateQueueItem(newItemId, { cloudUploadStatus: 'error', url: immediateLocalUrl || '[upload-failed]', imageUrl: '[upload-failed]' });
+            toast.error(`Cloud sync failed for ${fileObj.name}. (Local presentation works)`);
           }
-        );
+        })
+        .catch(err => {
+          console.error("Cloudinary upload request failed:", err);
+          updateQueueItem(newItemId, { cloudUploadStatus: 'error', url: immediateLocalUrl || '[upload-failed]', imageUrl: '[upload-failed]' });
+          toast.error(`Cloud sync failed for ${fileObj.name}. (Local presentation works)`);
+        });
       } catch (err) {
         console.error("Error setting up upload:", err);
-        updateQueueItem(newItemId, { cloudUploadStatus: 'error', url: '[upload-failed]' });
+        updateQueueItem(newItemId, { cloudUploadStatus: 'error', url: immediateLocalUrl || '[upload-failed]', imageUrl: '[upload-failed]' });
       }
     };
 
@@ -1168,7 +1215,7 @@ export default function App() {
                       "background 0.25s ease-in-out, color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out",
                     background: theme === "dark" ? "#0f0e0eff" : "#fff",
                     cursor: "text",
-                    border: theme === "dark" ? "1px solid #333" : "1px solid #ddd",
+                    border: theme === "dark" ? "1px solid #474747ff" : "1px solid #ddd",
                   }}
                   className="search-container"
                   onClick={() => searchInputRef.current?.focus()}
@@ -1176,7 +1223,7 @@ export default function App() {
                   <input
                     ref={searchInputRef}
                     className="search-input"
-                    placeholder="Reference 2sam 21 1" // Shortened placeholder
+                    placeholder="Refer 2sam 21 1" // Shortened placeholder
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     // Remove default outline to avoid double focus visual
@@ -1212,7 +1259,7 @@ export default function App() {
                       height="18"
                       viewBox="0 0 24 24"
                       fill="none"
-                      stroke={theme === "dark" ? "#888" : "#666"}
+                      stroke={theme === "dark" ? "#ccccccff" : "#0c0c0cff"}
                       strokeWidth="2"
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -1224,11 +1271,11 @@ export default function App() {
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.stroke =
-                          theme === "dark" ? "#00ff99" : "#003399";
+                          theme === "dark" ? "#00ff99" : "#0642bbff";
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.stroke =
-                          theme === "dark" ? "#888" : "#666";
+                          theme === "dark" ? "#ccccccff" : "#0c0c0cff";
                       }}
                     >
                       <circle cx="11" cy="11" r="8" />
@@ -1350,6 +1397,8 @@ export default function App() {
                   selectedChapter={selectedChapter}
                   sendToPresentation={sendToPresentation}
                   settings={settings}
+                  resetFontOffsets={resetFontOffsets}
+                  zeroedSettings={zeroedSettings}
                 />
               </div>
 
@@ -1402,6 +1451,8 @@ export default function App() {
                   sendToPresentation={sendToPresentation}
                   verseTableRef={verseTableRef}
                   settings={settings}
+                  resetFontOffsets={resetFontOffsets}
+                  zeroedSettings={zeroedSettings}
                 />
               </div>
             </div>
