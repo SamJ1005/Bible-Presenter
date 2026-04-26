@@ -73,7 +73,7 @@ function createMainWindow() {
 }
 
 /* ------------ Presentation Window (KIOSK MODE) ------------ */
-function createPresentationWindow() {
+function createPresentationWindow(startFile = "presentation.html") {
   if (presentationWin && !presentationWin.isDestroyed()) {
     presentationWin.focus();
     return;
@@ -100,7 +100,7 @@ function createPresentationWindow() {
     y: targetDisplay.bounds.y,
     width: targetDisplay.bounds.width,
     height: targetDisplay.bounds.height,
-    kiosk: true,              // ✅ KEY CHANGE
+    kiosk: true,
     frame: false,
     show: false,
     backgroundThrottling: false,
@@ -116,30 +116,29 @@ function createPresentationWindow() {
 
   presentationWin.setIcon(iconPath);
 
-  presentationWin.loadFile(
-    path.join(__dirname, "presentation.html")
-  );
+  currentPresentationFile = startFile;
+  presentationWin.loadFile(path.join(__dirname, startFile));
+  console.log('[MAIN] Created presentation window, loading:', startFile);
 
-  // Reset file tracker since we're loading presentation.html
-  currentPresentationFile = "presentation.html";
-  console.log('[MAIN] Created presentation window, loaded:', currentPresentationFile);
-
-  // Wait for DOM to be ready before sending messages
   presentationWin.webContents.once("dom-ready", () => {
+    console.log('[MAIN] Presentation DOM ready');
+    if (presentationWin && !presentationWin.isDestroyed()) {
+      presentationWin.show(); // Ensure it shows on dom-ready too
+    }
     if (currentPresentationPayload) {
-      // Small delay to ensure event listeners are set up
       setTimeout(() => {
-        presentationWin.webContents.send(
-          "display-verse",
-          currentPresentationPayload
-        );
+        if (presentationWin && !presentationWin.isDestroyed()) {
+          presentationWin.webContents.send("display-verse", currentPresentationPayload);
+        }
       }, 100);
     }
   });
 
   presentationWin.once("ready-to-show", () => {
-    presentationWin.show();
-    presentationWin.focus();
+    if (presentationWin && !presentationWin.isDestroyed()) {
+      presentationWin.show();
+      presentationWin.focus();
+    }
   });
 
   presentationWin.on("closed", () => {
@@ -192,22 +191,28 @@ ipcMain.on("send-presentation", (_, payload) => {
     : "presentation.html";
 
   if (!presentationWin || presentationWin.isDestroyed()) {
-    createPresentationWindow(); // Will load default "presentation.html" initially
-    // We need to override if target is prelist
-    if (targetFile !== "presentation.html") {
-      currentPresentationFile = "presentation.html"; // reset default
-    }
+    console.log('[MAIN] Presentation window not found or destroyed, creating now...');
+    createPresentationWindow(targetFile);
+    return;
   }
 
-  // Ensure window exists
-  if (!presentationWin || presentationWin.isDestroyed()) return;
+  // Ensure window exists (extra safety)
+  if (!presentationWin || presentationWin.isDestroyed()) {
+    console.error('[MAIN] CRITICAL: Failed to create/find presentation window.');
+    return;
+  }
+
+  console.log('[MAIN] Window exists, updating content to:', targetFile);
 
   if (currentPresentationFile !== targetFile) {
     loadPresentationFile(targetFile);
     // loadFile is async-ish, need to wait for dom-ready again
     presentationWin.webContents.once("dom-ready", () => {
       setTimeout(() => {
-        presentationWin.webContents.send("display-verse", payload);
+        if (presentationWin && !presentationWin.isDestroyed()) {
+          console.log('[MAIN] File swapped, sending payload.');
+          presentationWin.webContents.send("display-verse", payload);
+        }
       }, 100);
     });
     return;
@@ -215,12 +220,16 @@ ipcMain.on("send-presentation", (_, payload) => {
 
   // Same file, standard send
   if (presentationWin.webContents.isLoading()) {
+    console.log('[MAIN] Window is still loading, waiting for dom-ready...');
     presentationWin.webContents.once("dom-ready", () => {
       setTimeout(() => {
-        presentationWin.webContents.send("display-verse", payload);
+        if (presentationWin && !presentationWin.isDestroyed()) {
+          presentationWin.webContents.send("display-verse", payload);
+        }
       }, 100);
     });
   } else {
+    console.log('[MAIN] Sending payload to existing window.');
     presentationWin.webContents.send("display-verse", payload);
   }
 });
@@ -399,6 +408,28 @@ app.whenReady().then(() => {
         { role: 'zoom' },
         { type: 'separator' },
         { role: 'close' }
+      ]
+    },
+    {
+      label: 'Bible',
+      submenu: [
+        {
+          label: 'Select Version',
+          submenu: [
+            { label: 'English: NKJV (Default)', type: 'radio', checked: true },
+            { label: 'English: KJV', type: 'radio' },
+            { label: 'Tamil: BSI', type: 'radio', checked: true }
+          ]
+        },
+        { type: 'separator' },
+        {
+          label: 'Manage Versions...',
+          click: () => {
+            // Future implementation for importing/managing JSON/XML/CSV
+            console.log('Manage versions clicked');
+            if (mainWin) mainWin.webContents.send('open-manage-versions');
+          }
+        }
       ]
     },
     {

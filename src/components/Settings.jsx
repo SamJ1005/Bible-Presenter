@@ -192,20 +192,29 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
     }
   };
 
-  // Background image uploader
+  // Background image uploader — stores base64 in settings (persisted to localStorage)
   const handleBgUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = () => {
       setSettings((prev) => ({
         ...prev,
         presentationBgImage: reader.result,
+        presentationBgImageName: file.name,
         presentationBgType: "image",
       }));
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleClearBgImage = () => {
+    setSettings((prev) => ({
+      ...prev,
+      presentationBgImage: null,
+      presentationBgImageName: null,
+      presentationBgType: "black",
+    }));
   };
 
   const isCloudSyncOn = settings.cloudSyncEnabled !== false;
@@ -475,14 +484,74 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
         </div>
       )}
 
-      {/* TWO COLUMN LAYOUT */}
+      {/* THREE COLUMN LAYOUT */}
       <div style={{
-        display: "flex",
-        gap: "24px",
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr 1fr",
+        gap: "20px",
         alignItems: "flex-start"
       }}>
-        {/* LEFT COLUMN — Presentation Settings */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        {/* COLUMN 1 — Language & Display */}
+        <div style={{ minWidth: 0 }}>
+
+          {/* Primary Translation */}
+          <SettingsCard title="Primary Language">
+            <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+              Sets which language appears first — in the Bible tab and on-screen presentation.
+            </div>
+            {["Tamil", "English"].map((lang) => (
+              <div key={lang} style={{ marginBottom: "10px" }}>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "10px" }}>
+                  <input
+                    type="radio"
+                    name="primaryTranslation"
+                    checked={(settings.primaryTranslation || "Tamil") === lang}
+                    onChange={() => setSettings((prev) => ({ ...prev, primaryTranslation: lang }))}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '14px' }}>{lang}</div>
+                    <div style={{ fontSize: '11px', opacity: 0.6 }}>
+                      {lang === "Tamil" ? "Tamil on left / top" : "English on left / top"}
+                    </div>
+                  </div>
+                </label>
+              </div>
+            ))}
+          </SettingsCard>
+
+          {/* Language Visibility */}
+          <SettingsCard title="Show Languages">
+            <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+              Toggle which languages are shown in the presentation.
+            </div>
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
+                <input
+                  type="checkbox"
+                  checked={settings.isTamilEnabled !== false}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, isTamilEnabled: e.target.checked }))}
+                  style={{ width: '16px', height: '16px' }}
+                />
+                Show Tamil
+              </label>
+            </div>
+            <div>
+              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
+                <input
+                  type="checkbox"
+                  checked={settings.isEnglishEnabled !== false}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, isEnglishEnabled: e.target.checked }))}
+                  style={{ width: '16px', height: '16px' }}
+                />
+                Show English
+              </label>
+            </div>
+          </SettingsCard>
+
+        </div>
+
+        {/* COLUMN 2 — Presentation Appearance */}
+        <div style={{ minWidth: 0 }}>
 
           {/* Background Options */}
           <SettingsCard title="Presentation Background">
@@ -526,45 +595,134 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
               </label>
             </div>
 
-            {/* Custom Image */}
+            {/* Custom Image — gallery approach */}
             <div style={{ marginBottom: "8px" }}>
               <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
                 <input
                   type="radio"
                   name="bg"
                   checked={settings.presentationBgType === "image"}
-                  onChange={() =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      presentationBgType: "image",
-                    }))
-                  }
+                  onChange={() => setSettings((prev) => ({ ...prev, presentationBgType: "image" }))}
                 />
                 <span>Custom Image</span>
               </label>
 
-              {settings.presentationBgType === "image" && (
-                <div style={{ marginTop: "8px", marginLeft: "24px" }}>
-                  <input type="file" accept="image/*" onChange={handleBgUpload} />
-                </div>
-              )}
-
-              {settings.presentationBgType === "image" &&
-                settings.presentationBgImage && (
-                  <div style={{ marginTop: "8px", marginLeft: "24px" }}>
-                    <img
-                      src={settings.presentationBgImage}
-                      alt="Preview"
-                      style={{
-                        width: "120px",
-                        height: "80px",
-                        objectFit: "cover",
-                        borderRadius: "6px",
-                        border: "1px solid #666",
-                      }}
-                    />
+              {/* Image Gallery */}
+              <div style={{ marginTop: '10px', marginLeft: '4px' }}>
+                {/* Stored image thumbnails */}
+                {(settings.bgImageGallery || []).length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                    {(settings.bgImageGallery || []).map((img) => {
+                      const isActive = settings.presentationBgImage === img.data;
+                      return (
+                        <div
+                          key={img.id}
+                          style={{ position: 'relative', cursor: 'pointer' }}
+                          title={img.name}
+                        >
+                          <img
+                            src={img.data}
+                            alt={img.name}
+                            onClick={() => setSettings((prev) => ({
+                              ...prev,
+                              presentationBgImage: img.data,
+                              presentationBgImageName: img.name,
+                              presentationBgType: 'image',
+                            }))}
+                            style={{
+                              width: '80px',
+                              height: '52px',
+                              objectFit: 'cover',
+                              borderRadius: '6px',
+                              border: isActive ? '2px solid #00ff99' : '2px solid transparent',
+                              display: 'block',
+                              transition: 'border-color 0.2s',
+                            }}
+                          />
+                          {/* Active badge */}
+                          {isActive && (
+                            <div style={{
+                              position: 'absolute', top: 2, left: 2,
+                              background: '#00ff99', color: '#000',
+                              fontSize: '9px', fontWeight: 700,
+                              padding: '1px 4px', borderRadius: '3px',
+                            }}>✓</div>
+                          )}
+                          {/* Remove button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSettings((prev) => {
+                                const gallery = (prev.bgImageGallery || []).filter(x => x.id !== img.id);
+                                const wasActive = prev.presentationBgImage === img.data;
+                                return {
+                                  ...prev,
+                                  bgImageGallery: gallery,
+                                  presentationBgImage: wasActive ? (gallery[0]?.data || null) : prev.presentationBgImage,
+                                  presentationBgImageName: wasActive ? (gallery[0]?.name || null) : prev.presentationBgImageName,
+                                  presentationBgType: wasActive && gallery.length === 0 ? 'black' : prev.presentationBgType,
+                                };
+                              });
+                            }}
+                            style={{
+                              position: 'absolute', top: 2, right: 2,
+                              width: '16px', height: '16px',
+                              background: 'rgba(231,76,60,0.85)', color: '#fff',
+                              border: 'none', borderRadius: '50%', cursor: 'pointer',
+                              fontSize: '10px', fontWeight: 700,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              lineHeight: 1, padding: 0,
+                            }}
+                          >×</button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
+
+                <label style={{
+                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px',
+                  fontSize: '13px', padding: '6px 12px', borderRadius: '6px',
+                  border: `1.5px dashed ${theme === 'dark' ? '#888' : '#666'}`,
+                  color: theme === 'dark' ? '#eee' : '#333',
+                  fontWeight: '600',
+                  transition: 'all 0.2s ease',
+                  background: theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                }}>
+                  + Add Image
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files);
+                      files.forEach((file) => {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          const newImg = { id: Date.now() + Math.random(), name: file.name, data: reader.result };
+                          setSettings((prev) => ({
+                            ...prev,
+                            bgImageGallery: [...(prev.bgImageGallery || []), newImg],
+                            // Auto-select the first added image
+                            presentationBgImage: prev.presentationBgImage || reader.result,
+                            presentationBgImageName: prev.presentationBgImageName || file.name,
+                            presentationBgType: 'image',
+                          }));
+                        };
+                        reader.readAsDataURL(file);
+                      });
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+
+                {(settings.bgImageGallery || []).length === 0 && (
+                  <div style={{ fontSize: '11px', opacity: 0.5, marginTop: '6px' }}>
+                    Upload images to build a gallery. Click any thumbnail to use it.
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Custom Color */}
@@ -682,129 +840,25 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
             </div>
           </SettingsCard>
 
-          {/* Display Selection */}
-          <SettingsCard title="Display Options">
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ fontWeight: 600, fontSize: "13px", display: "block", marginBottom: "8px" }}>
-                Presentation Display
-              </label>
-              <select
-                value={settings.preferredDisplayId || 'auto'}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSettings(prev => ({ ...prev, preferredDisplayId: val }));
-                  if (window.api?.setPreferredDisplay) {
-                    window.api.setPreferredDisplay(val);
-                  }
-                }}
-                style={{
-                  width: "100%",
-                  padding: "8px 10px",
-                  border: theme === 'dark' ? '1px solid #444' : '1px solid #ccc',
-                  background: theme === 'dark' ? '#1a1a1a' : '#fff',
-                  color: theme === 'dark' ? '#e0e0e0' : '#222',
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                  outline: 'none'
-                }}
-              >
-                <option value="auto">Auto Select Device (Prioritize Secondary)</option>
-                
-                {/* Primary Display Option */}
-                {displays.filter(d => d.isPrimary).map(d => (
-                  <option key={d.id} value={d.id}>
-                    Primary Device {d.width}x{d.height} px
-                  </option>
-                ))}
-
-                {/* Secondary Display Options */}
-                {displays.filter(d => !d.isPrimary).map((d, index) => (
-                  <option key={d.id} value={d.id}>
-                    Secondary Device {d.width}x{d.height} px {displays.filter(x => !x.isPrimary).length > 1 ? `(${index + 1})` : ''}
-                  </option>
-                ))}
-              </select>
-              <div style={{ fontSize: '11px', opacity: 0.6, marginTop: '6px', lineHeight: 1.4 }}>
-                Choose where the presentation window should appear. 'Auto' will prioritize the secondary monitor if available.
-              </div>
-            </div>
-          </SettingsCard>
         </div>
 
-        {/* RIGHT COLUMN — Font Sizes & General */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-
-          {/* Font Sizes */}
-          <SettingsCard title="Bible Tab Font Size">
-            <div style={{ fontSize: '11px', opacity: 0.8, marginBottom: '15px', lineHeight: 1.4 }}>
-              Adjust the font offset for Bible tab presentations. These values are separate from the playlist font settings. Range: -15 to +15.
-            </div>
-            <FontOffsetControl
-              label="Tamil Verse"
-              value={settings.tamilFontOffset ?? 0}
-              theme={theme}
-              onChange={(v) => setSettings(prev => ({ ...prev, tamilFontOffset: v }))}
-            />
-            <FontOffsetControl
-              label="English Verse"
-              value={settings.englishFontOffset ?? 0}
-              theme={theme}
-              onChange={(v) => setSettings(prev => ({ ...prev, englishFontOffset: v }))}
-            />
-            <FontOffsetControl
-              label="Index / Reference"
-              value={settings.indexFontOffset ?? 0}
-              theme={theme}
-              onChange={(v) => setSettings(prev => ({ ...prev, indexFontOffset: v }))}
-            />
-          </SettingsCard>
+        {/* COLUMN 3 — Output & General */}
+        <div style={{ minWidth: 0 }}>
 
           {/* General Options */}
           <SettingsCard title="General">
-            {/* Transition */}
             <div style={{ marginBottom: "16px" }}>
               <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontSize: "14px" }}>
                 <input
                   type="checkbox"
                   checked={settings.enableTransition}
-                  onChange={(e) =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      enableTransition: e.target.checked,
-                    }))
-                  }
+                  onChange={(e) => setSettings((prev) => ({ ...prev, enableTransition: e.target.checked }))}
                   style={{ width: "16px", height: "16px" }}
                 />
                 Enable Slide/Fade Transition
               </label>
             </div>
 
-            {/* Primary Translation */}
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ fontWeight: 600, fontSize: "13px", display: "block", marginBottom: "6px" }}>
-                Primary Translation
-              </label>
-              <select
-                value={settings.primaryTranslation || "Tamil"}
-                onChange={(e) =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    primaryTranslation: e.target.value,
-                  }))
-                }
-                style={{
-                  width: "160px",
-                  padding: "6px 10px",
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                }}
-              >
-                <option value="Tamil">Tamil</option>
-                <option value="English">English</option>
-              </select>
-            </div>
-
-            {/* Watermark */}
             <div>
               <label style={{ fontWeight: 600, fontSize: "13px", display: "block", marginBottom: "6px" }}>
                 Custom Watermark
@@ -812,22 +866,52 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
               <input
                 type="text"
                 value={settings.customWatermark || ""}
-                placeholder="Enter watermark text"
-                onChange={(e) =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    customWatermark: e.target.value,
-                  }))
-                }
+                placeholder="e.g. Church Name"
+                onChange={(e) => setSettings((prev) => ({ ...prev, customWatermark: e.target.value }))}
                 style={{
                   width: "100%",
-                  maxWidth: "280px",
                   padding: "6px 10px",
                   borderRadius: "6px",
                   fontSize: "14px",
-                  boxSizing: "border-box"
+                  boxSizing: "border-box",
+                  border: theme === 'dark' ? '1px solid #444' : '1px solid #ccc',
+                  background: theme === 'dark' ? '#1a1a1a' : '#fff',
+                  color: theme === 'dark' ? '#e0e0e0' : '#222',
                 }}
               />
+            </div>
+          </SettingsCard>
+
+          {/* Display Selection */}
+          <SettingsCard title="Display Device">
+            <select
+              value={settings.preferredDisplayId || 'auto'}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSettings(prev => ({ ...prev, preferredDisplayId: val }));
+                if (window.api?.setPreferredDisplay) window.api.setPreferredDisplay(val);
+              }}
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                border: theme === 'dark' ? '1px solid #444' : '1px solid #ccc',
+                background: theme === 'dark' ? '#1a1a1a' : '#fff',
+                color: theme === 'dark' ? '#e0e0e0' : '#222',
+                borderRadius: "6px",
+                fontSize: "13px",
+                outline: 'none'
+              }}
+            >
+              <option value="auto">Auto (Prefer Secondary)</option>
+              {displays.filter(d => d.isPrimary).map(d => (
+                <option key={d.id} value={d.id}>Primary — {d.width}×{d.height}</option>
+              ))}
+              {displays.filter(d => !d.isPrimary).map((d, i) => (
+                <option key={d.id} value={d.id}>Secondary{displays.filter(x => !x.isPrimary).length > 1 ? ` (${i+1})` : ''} — {d.width}×{d.height}</option>
+              ))}
+            </select>
+            <div style={{ fontSize: '11px', opacity: 0.55, marginTop: '6px' }}>
+              'Auto' opens on the secondary monitor if available.
             </div>
           </SettingsCard>
         </div>

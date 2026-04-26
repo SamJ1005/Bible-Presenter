@@ -591,7 +591,7 @@ export default function App() {
 
   // ---- bible data + selection state + loaders
   const {
-    kjvData,
+    nkjvData,
     englishBible,
     tamilBookData,
     booksList,
@@ -611,12 +611,28 @@ export default function App() {
     loadTamilForBook,
   } = useBible();
 
+  // Auto-revert font offsets when navigating to a different verse
+  useEffect(() => {
+    setSettings(prev => {
+      if (prev.tamilFontOffset === 0 && prev.englishFontOffset === 0) return prev;
+      return { ...prev, tamilFontOffset: 0, englishFontOffset: 0 };
+    });
+  }, [selectedBook, selectedChapter, selectedVerse]);
+
+  const presentationOpenedRef = useRef(false);
+
   // ---- presentation (IPC) helpers
-  const { sendToPresentation, rePresentWithSettings } =
+  const { sendToPresentation: rawSendToPresentation, rePresentWithSettings } =
     usePresentation({
       getTamilVerse,
       getEnglishVerse,
     });
+
+  // Wrapped sender that marks the presentation as "active" for live updates
+  const sendToPresentation = useCallback((params) => {
+    presentationOpenedRef.current = true;
+    rawSendToPresentation(params);
+  }, [rawSendToPresentation]);
 
 
 
@@ -629,7 +645,7 @@ export default function App() {
     findBook, // from useSearch
     showInputError,
   } = useSearch({
-    getBibleSource: () => kjvData || englishBible,
+    getBibleSource: () => nkjvData || englishBible,
     setSelectedBook,
     setSelectedChapter,
     setSelectedVerse,
@@ -733,8 +749,6 @@ export default function App() {
 
   // Handle live preview: auto-update presentation when visual settings change
   // presentationOpenedRef prevents the window from auto-opening on app start.
-  // It is set to true only after the user explicitly opens a presentation.
-  const presentationOpenedRef = useRef(false);
 
   // Helper: returns settings with font offsets zeroed (used when presenting a new verse)
   const zeroedSettings = useCallback((s) => ({
@@ -774,7 +788,11 @@ export default function App() {
   const handleClosePresentation = useCallback(() => {
     setIsBlankMode(false);
     presentationOpenedRef.current = false;
-    window.api.closePresentation?.();
+    // Send a message to fade out the body before closing
+    window.electron.sendPresentation?.({ fadeOutOnly: true });
+    setTimeout(() => {
+      window.api.closePresentation?.();
+    }, 250);
   }, []);
 
   // Navigation handlers as callbacks so they can be reused by buttons and IPC
@@ -785,7 +803,7 @@ export default function App() {
     }
     if (isBlankMode) return;
     
-    const source = kjvData || englishBible;
+    const source = nkjvData || englishBible;
     if (!source) return;
     const book = source.books.find((b) => b.name === selectedBook);
     if (!book) return;
@@ -822,7 +840,7 @@ export default function App() {
     selectedBook,
     selectedChapter,
     selectedVerse,
-    kjvData,
+    nkjvData,
     englishBible,
     sendToPresentation,
     settings,
@@ -837,7 +855,7 @@ export default function App() {
     }
     if (isBlankMode) return;
 
-    const source = kjvData || englishBible;
+    const source = nkjvData || englishBible;
     if (!source) return;
     const book = source.books.find((b) => b.name === selectedBook);
     if (!book) return;
@@ -873,7 +891,7 @@ export default function App() {
     selectedBook,
     selectedChapter,
     selectedVerse,
-    kjvData,
+    nkjvData,
     englishBible,
     sendToPresentation,
     settings,
@@ -888,7 +906,7 @@ export default function App() {
     selectedVerse,
     setSelectedChapter,
     setSelectedVerse,
-    getBibleSource: () => kjvData || englishBible,
+    getBibleSource: () => nkjvData || englishBible,
     activeTab,
     onNext: handleNext,
     onPrev: handlePrev,
@@ -898,10 +916,10 @@ export default function App() {
   const handleSearchWithFocus = useCallback(() => {
     handleSearch();
     setIsBlankMode(false); // Exit blank mode when searching
-    // Keep focus on search input after search
+    // Move cursor out after successful search
     setTimeout(() => {
-      searchInputRef.current?.focus();
-    }, 100);
+      searchInputRef.current?.blur();
+    }, 50);
   }, [handleSearch]);
 
   // Handler for adding to prelist queue (passed to useSearch's handleSearch)
@@ -909,20 +927,8 @@ export default function App() {
     // 1. Fetch Tamil text for this verse specifically
     let tamilText = "";
     try {
-      const filename = encodeURIComponent(book) + ".json";
-      const res = await fetch(`./bible/tamil/${filename}`);
-      if (res.ok) {
-        const data = await res.json();
-        // data structure match useBible's getTamilVerse logic
-        if (Array.isArray(data.chapters)) {
-          const ch = data.chapters.find((c) => Number(c.chapter) === Number(chapter));
-          const v = ch?.verses?.find((vv) => Number(vv.verse) === Number(verse));
-          if (v) tamilText = v.text;
-        } else if (data[chapter] && Array.isArray(data[chapter].verses)) {
-          const v = data[chapter].verses.find((vv) => Number(vv.verse) === Number(verse));
-          if (v) tamilText = v.text;
-        }
-      }
+      const data = await loadTamilForBook(book);
+      tamilText = getTamilVerse(book, chapter, verse, data);
     } catch (err) {
       console.error("Failed to fetch Tamil for queue:", err);
     }
@@ -959,19 +965,8 @@ export default function App() {
   const updateQueueReference = useCallback(async (id, book, chapter, verse) => {
     let tamilText = "";
     try {
-      const filename = encodeURIComponent(book) + ".json";
-      const res = await fetch(`./bible/tamil/${filename}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.chapters)) {
-          const ch = data.chapters.find((c) => Number(c.chapter) === Number(chapter));
-          const v = ch?.verses?.find((vv) => Number(vv.verse) === Number(verse));
-          if (v) tamilText = v.text;
-        } else if (data[chapter] && Array.isArray(data[chapter].verses)) {
-          const v = data[chapter].verses.find((vv) => Number(vv.verse) === Number(verse));
-          if (v) tamilText = v.text;
-        }
-      }
+      const data = await loadTamilForBook(book);
+      tamilText = getTamilVerse(book, chapter, verse, data);
     } catch (err) {
       console.error("Failed to fetch Tamil for queue update:", err);
     }
@@ -1150,6 +1145,8 @@ export default function App() {
         setActiveTab={setActiveTab}
         openBlankPresentation={handleBlankPresentation}
         closePresentation={handleClosePresentation}
+        settings={settings}
+        setSettings={setSettings}
       />
 
       {/* MAIN CONTENT */}
@@ -1223,7 +1220,7 @@ export default function App() {
                   <input
                     ref={searchInputRef}
                     className="search-input"
-                    placeholder="Refer 2sam 21 1" // Shortened placeholder
+                    placeholder="Reference jn03 16" // Shortened placeholder
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     // Remove default outline to avoid double focus visual
@@ -1437,7 +1434,7 @@ export default function App() {
                 }}
               >
                 <ChapterTable
-                  kjvSource={kjvData || englishBible}
+                  nkjvSource={nkjvData || englishBible}
                   tamilBookData={tamilBookData}
                   selectedBook={selectedBook}
                   selectedChapter={selectedChapter}
@@ -1453,6 +1450,7 @@ export default function App() {
                   settings={settings}
                   resetFontOffsets={resetFontOffsets}
                   zeroedSettings={zeroedSettings}
+                  getTamilVerse={getTamilVerse}
                 />
               </div>
             </div>
@@ -1475,7 +1473,10 @@ export default function App() {
           handlePrev={handlePrev}
           searchInputRef={searchInputRef}
           prelistedItems={prelistedItems}
-          bibleData={kjvData || englishBible}
+          bibleData={nkjvData || englishBible}
+          tamilBookData={tamilBookData}
+          getTamilVerse={getTamilVerse}
+          getEnglishVerse={getEnglishVerse}
           settings={settings}
           removeFromQueue={removeFromQueue}
           clearQueue={clearQueue}

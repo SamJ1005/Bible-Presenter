@@ -27,6 +27,12 @@
         background: var(--bg);
         color: var(--text);
         font-family: Arial, sans-serif;
+        animation: windowFadeIn 0.15s ease-in forwards;
+      }
+
+      @keyframes windowFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
 
       @font-face {
@@ -90,18 +96,25 @@
         font-family: "TamilBibleFont", Arial, sans-serif;
         font-weight: 900;
         line-height: 1.28;
-        white-space: pre-wrap;
-        overflow-wrap: break-word; /* Prevent overflow */
-        word-break: break-word;   /* Ensure long words break */
+        /* keep-all: never break mid-grapheme-cluster; anywhere: break URLs/long runs if needed */
+        word-break: keep-all;
+        overflow-wrap: anywhere;
         max-width: 100%;
       }
 
       #englishText {
         font-weight: 600;
         line-height: 1.35;
-        white-space: pre-wrap;
-        overflow-wrap: break-word; /* Prevent overflow */
-        word-break: break-word;   /* Ensure long words break */
+        word-break: keep-all;
+        overflow-wrap: anywhere;
+      }
+
+      /* Shrink individual oversized words without breaking the whole line */
+      .word-shrink {
+        display: inline-block;
+        max-width: 100%;
+        overflow: visible;
+        white-space: nowrap; /* Prevent individual words from wrapping internally */
       }
 
       /* ---------- WATERMARK ---------- */
@@ -124,6 +137,14 @@
         background-position: center;
         background-repeat: no-repeat;
         transition: background-image 0.5s ease, background-color 0.5s ease;
+      }
+      /* GLOBAL FADE-IN ON OPEN */
+      body {
+        opacity: 0;
+        transition: opacity 0.3s ease-in;
+      }
+      body.ready {
+        opacity: 1;
       }
     </style>
   </head>
@@ -258,12 +279,23 @@
         const verseArea = document.getElementById("verseArea");
         const refArea = document.getElementById("referenceArea");
 
+        if (data && data.fadeOutOnly) {
+          document.body.style.transition = 'opacity 0.25s ease-out';
+          document.body.style.opacity = '0';
+          return;
+        }
+
         if (!data) {
           ref.innerText = "";
           tamil.innerText = "";
           eng.innerText = "";
           return;
         }
+
+        document.body.classList.add('ready');
+        document.body.style.opacity = ''; // reset if it was faded out
+        document.body.style.transition = ''; 
+
 
         // ----- APPLY SETTINGS -----
 
@@ -322,42 +354,89 @@
         }
 
         // Transition
-        const container = document.getElementById('container');
+        const contentLayers = [document.getElementById('referenceArea'), document.getElementById('verseArea')];
+        
+        // Interrupt any existing transition
+        if (window.activeTransition) {
+          clearTimeout(window.activeTransition);
+          window.activeTransition = null;
+        }
+
         if (data.enableTransition) {
-          // Step 1: fade OUT — set transition + opacity 0
-          container.style.transition = 'opacity 0.28s ease-out';
-          container.style.opacity = '0';
+          // Fade OUT content only
+          contentLayers.forEach(l => {
+            l.style.transition = 'opacity 0.04s ease-out';
+            l.style.opacity = '0';
+          });
 
-          // Step 2: wait for fade-out to fully complete, then swap content
-          container.addEventListener('transitionend', function onFadeOut() {
-            container.removeEventListener('transitionend', onFadeOut);
-
-            // Update content while invisible
+          window.activeTransition = setTimeout(() => {
             applyBibleContent(data, ref, refArea, tamil, eng, box, verseArea);
-
-            // Step 3: double-rAF guarantees the browser renders opacity:0
-            // before starting the fade-in paint cycle
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                container.style.transition = 'opacity 0.35s ease-in';
-                container.style.opacity = '1';
-              });
+            
+            contentLayers.forEach(l => {
+              l.style.transition = 'opacity 0.06s ease-in';
+              l.style.opacity = '1';
             });
-          }, { once: true });
+            window.activeTransition = null;
+          }, 50);
         } else {
-          // No transition: clear any lingering inline styles and update
-          container.style.transition = '';
-          container.style.opacity = '1';
+          contentLayers.forEach(l => {
+            l.style.transition = '';
+            l.style.opacity = '1';
+          });
           applyBibleContent(data, ref, refArea, tamil, eng, box, verseArea);
         }
       }
 
       /* ---------- APPLY BIBLE CONTENT ---------- */
+      /* ---------- WORD OVERFLOW FIX ---------- */
+      /* Wraps each word in a span; shrinks only words that overflow their container */
+      function fixWordOverflow(el, containerWidth) {
+        const words = el.querySelectorAll('.word-shrink');
+        words.forEach(span => {
+          // Reset any previous shrink
+          span.style.fontSize = '';
+          if (span.scrollWidth > containerWidth) {
+            let fs = parseFloat(window.getComputedStyle(span).fontSize);
+            while (span.scrollWidth > containerWidth && fs > 5) {
+              fs -= 0.3; // Smaller decrements for smoother fit
+              span.style.fontSize = fs + 'px';
+            }
+          }
+        });
+      }
+
+      /* Converts plain text to HTML with each word wrapped in .word-shrink span */
+      function wrapWords(text) {
+        if (!text) return '';
+        
+        // 1. Glue punctuations (.,:;!?) to the preceding word if they have a leading space in JSON
+        // This ensures they stay in the same .word-shrink span and don't wrap alone
+        const glued = text.replace(/\s+([.,:;!?])/g, '$1');
+
+        // Split on whitespace, preserve line breaks
+        return glued
+          .split(/(\n)/)
+          .map(segment => {
+            if (segment === '\n') return '<br>';
+            return segment
+              .split(/\s+/)
+              .filter(w => w.length > 0)
+              .map(w => `<span class="word-shrink">${w}</span>`)
+              .join(' ');
+          })
+          .join('');
+      }
+
       function applyBibleContent(data, ref, refArea, tamil, eng, box, verseArea) {
         const indexStr = data.index || "";
         ref.innerText = indexStr;
-        tamil.innerHTML = data.tamilText || "";
-        eng.innerHTML = data.englishText || "";
+        // Use wrapWords to wrap each word for per-word overflow shrink
+        tamil.innerHTML = data.tamilText ? wrapWords(data.tamilText) : '';
+        eng.innerHTML = data.englishText ? wrapWords(data.englishText) : '';
+
+        // Respect visibility toggles
+        tamil.style.display = data.tamilEnabled === false ? 'none' : 'block';
+        eng.style.display = data.englishEnabled === false ? 'none' : 'block';
 
         fitReference(ref);
 
@@ -409,6 +488,16 @@
 
         const verseCount = getVerseCount(indexStr);
         fitVerseBox(tamil, eng, box, type, isSingle, verseCount, data);
+
+        // Swap display order based on primary language
+        const primaryIsEnglish = data.primaryTranslation === "English";
+        tamil.style.order = primaryIsEnglish ? "2" : "1";
+        eng.style.order = primaryIsEnglish ? "1" : "2";
+
+        // After fitting, fix any individual words that still overflow
+        const boxWidth = box.clientWidth;
+        fixWordOverflow(tamil, boxWidth);
+        fixWordOverflow(eng, boxWidth);
       }
 
       /* ---------- ELECTRON API ---------- */
@@ -423,7 +512,13 @@
       /* ---------- KEYS ---------- */
       document.addEventListener("keydown", (e) => {
         if (!window.presentationAPI) return;
-        if (e.key === "Escape") window.presentationAPI.close?.();
+        if (e.key === "Escape") {
+            document.body.style.transition = "opacity 0.15s ease-out";
+            document.body.style.opacity = "0";
+            setTimeout(() => {
+                window.presentationAPI.close?.();
+            }, 150);
+        }
         if (e.key === "ArrowRight") window.presentationAPI.nextVerse?.();
         if (e.key === "ArrowLeft") window.presentationAPI.previousVerse?.();
       });

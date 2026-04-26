@@ -21,7 +21,7 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
       };
     }
 
-    const finalTamil = tamilText ?? (getTamilVerse?.(selectedChapter, selectedVerse, tamilDataOverride) || "");
+    const finalTamil = tamilText ?? (getTamilVerse?.(selectedBook, selectedChapter, selectedVerse, tamilDataOverride) || "");
     const finalEnglish = englishText ?? (getEnglishVerse?.(selectedBook, selectedChapter, selectedVerse) || "");
     
     // Use pre-built index if provided (e.g. from Prelist), otherwise generate
@@ -42,6 +42,7 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
       indexFontOffset: settings.indexFontOffset ?? 0,
       tamilEnabled: settings.isTamilEnabled ?? true,
       englishEnabled: settings.isEnglishEnabled ?? true,
+      primaryTranslation: settings.primaryTranslation ?? "Tamil",
       presentationBgType: settings.presentationBgType ?? "color",
       presentationBgImage: settings.presentationBgImage ?? "",
       presentationBgColor: settings.presentationBgColor ?? "black",
@@ -67,9 +68,8 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
     lastPayloadParamsRef.current = { selectedBook, selectedChapter, selectedVerse, tamilDataOverride, englishText, tamilText, viewMode, type, fileData, fontSizeOffset, index };
 
     try {
-      // Ensure presentation window exists (Option A behavior: clicking a verse opens it)
-      await window.electron.openBlankPresentation?.();
-      window.electron.sendPresentation?.(payload);
+      // Send payload to Electron; it will auto-open the window if not already present.
+      window.electron?.sendPresentation?.(payload);
     } catch (e) {
       console.error("sendToPresentation error", e);
     }

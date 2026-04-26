@@ -24,13 +24,14 @@ export default function useSearch({
   // Add more if you use other abbreviations
   const commonAbbr = {
     pp: "Philippians",
-    phil: "Philemon",
+    phl: "Philemon",
     jd: "Jude",
     jn: "John",
     mt: "Matthew",
     mk: "Mark",
     lk: "Luke",
     ps: "Psalm",
+
     "1cor": "1 Corinthians",
     "2cor": "2 Corinthians",
     "1chr": "1 Chronicles",

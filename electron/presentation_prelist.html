@@ -17,6 +17,11 @@
         background: var(--bg);
         color: var(--text);
         font-family: Arial, sans-serif;
+        animation: windowFadeIn 0.15s ease-in forwards;
+      }
+      @keyframes windowFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
       @font-face {
         font-family: "TamilBibleFont";
@@ -76,14 +81,20 @@
         font-family: "TamilBibleFont", Arial, sans-serif;
         font-weight: 900;
         line-height: 1.28;
-        white-space: pre-wrap;
-        word-break: break-word;
+        word-break: keep-all;
+        overflow-wrap: anywhere;
       }
       #englishText {
         font-weight: 600;
         line-height: 1.35;
-        white-space: pre-wrap;
-        word-break: break-word;
+        word-break: keep-all;
+        overflow-wrap: anywhere;
+      }
+      .word-shrink {
+        display: inline-block;
+        max-width: 100%;
+        overflow: visible;
+        white-space: nowrap; /* Prevent individual words from wrapping internally */
       }
       #watermark {
         position: absolute;
@@ -105,6 +116,14 @@
         background-position: center;
         background-repeat: no-repeat;
         transition: background-image 0.5s ease, background-color 0.5s ease;
+      }
+      /* GLOBAL FADE-IN ON OPEN */
+      body {
+        opacity: 0;
+        transition: opacity 0.3s ease-in;
+      }
+      body.ready {
+        opacity: 1;
       }
     </style>
   </head>
@@ -148,6 +167,39 @@
       <div id="watermark"></div>
     </div>
     <script>
+      /* ---------- WORD OVERFLOW FIX ---------- */
+      function fixWordOverflow(el, containerWidth) {
+        const words = el.querySelectorAll('.word-shrink');
+        words.forEach(span => {
+          span.style.fontSize = '';
+          if (span.scrollWidth > containerWidth) {
+            let fs = parseFloat(window.getComputedStyle(span).fontSize);
+            while (span.scrollWidth > containerWidth && fs > 5) {
+              fs -= 0.3; // Smaller decrements for smoother fit
+              span.style.fontSize = fs + 'px';
+            }
+          }
+        });
+      }
+
+      function wrapWords(text) {
+        if (!text) return '';
+        // 1. Glue punctuations (.,:;!?) to the preceding word if they have a leading space in JSON
+        const glued = text.replace(/\s+([.,:;!?])/g, '$1');
+
+        return glued
+          .split(/(\n)/)
+          .map(segment => {
+            if (segment === '\n') return '<br>';
+            return segment
+              .split(/\s+/)
+              .filter(w => w.length > 0)
+              .map(w => `<span class="word-shrink">${w}</span>`)
+              .join(' ');
+          })
+          .join('');
+      }
+
       function getVerseCount(indexStr) {
         if (!indexStr) return 1;
         const tamilText = document.getElementById("tamilText").innerHTML || "";
@@ -167,6 +219,15 @@
       }
 
       function updateDisplay(data) {
+        if (data && data.fadeOutOnly) {
+          document.body.style.transition = 'opacity 0.25s ease-out';
+          document.body.style.opacity = '0';
+          return;
+        }
+        document.body.classList.add('ready');
+        document.body.style.opacity = ''; 
+        document.body.style.transition = '';
+
         if (!data) return;
         const bgLayer = document.getElementById("bgLayer");
         const container = document.getElementById("container");
@@ -307,8 +368,15 @@
           ref.innerText = indexStr;
           refArea.style.display = indexStr ? "flex" : "none";
 
-          tamil.innerHTML = data.tamilText || "";
-          eng.innerHTML = data.englishText || "";
+          // Wrap words for per-word overflow fix
+          tamil.innerHTML = data.tamilText ? wrapWords(data.tamilText) : '';
+          eng.innerHTML = data.englishText ? wrapWords(data.englishText) : '';
+
+          // Respect visibility toggles
+          const tamilEnabled = data.tamilEnabled !== false;
+          const englishEnabled = data.englishEnabled !== false;
+          tamil.style.display = tamilEnabled ? 'block' : 'none';
+          eng.style.display = englishEnabled ? 'block' : 'none';
 
           // --- MATCH presentation.html LOGIC ---
           const type = getVerseType(
@@ -425,18 +493,46 @@
           }
           
           refArea.style.paddingTop = layout.indexPaddingTop !== undefined ? `${layout.indexPaddingTop}vh` : "2.5vh";
+
+          // Swap display order based on primary language
+          const primaryIsEnglish = data.primaryTranslation === "English";
+          tamil.style.order = primaryIsEnglish ? "2" : "1";
+          eng.style.order = primaryIsEnglish ? "1" : "2";
+
+          // After fitting, fix any individual words that still overflow
+          const boxWidth = box.clientWidth;
+          fixWordOverflow(tamil, boxWidth);
+          fixWordOverflow(eng, boxWidth);
         };
 
+        // Transition
+        const contentLayers = [document.getElementById('referenceArea'), document.getElementById('verseArea')];
+        
+        if (window.activeTransition) {
+          clearTimeout(window.activeTransition);
+          window.activeTransition = null;
+        }
+
         if (settings.enableTransition) {
-          container.style.opacity = "0";
-          setTimeout(() => {
+          contentLayers.forEach(l => {
+            l.style.transition = "opacity 0.04s ease-out";
+            l.style.opacity = "0";
+          });
+
+          window.activeTransition = setTimeout(() => {
             applyContent();
-            container.style.transition = "opacity 0.3s";
-            container.style.opacity = "1";
-          }, 200);
+            contentLayers.forEach(l => {
+              l.style.transition = "opacity 0.06s ease-in";
+              l.style.opacity = "1";
+            });
+            window.activeTransition = null;
+          }, 50);
         } else {
+          contentLayers.forEach(l => {
+            l.style.transition = "";
+            l.style.opacity = "1";
+          });
           applyContent();
-          container.style.opacity = "1";
         }
       }
 
@@ -456,7 +552,13 @@
       /* ---------- PHYSICAL KEYBOARD NAVIGATION ---------- */
       document.addEventListener("keydown", (e) => {
         if (!window.presentationAPI) return;
-        if (e.key === "Escape") window.presentationAPI.close?.();
+        if (e.key === "Escape") {
+            document.body.style.transition = "opacity 0.15s ease-out";
+            document.body.style.opacity = "0";
+            setTimeout(() => {
+                window.presentationAPI.close?.();
+            }, 150);
+        }
         if (e.key === "ArrowRight" || e.key === "ArrowDown")
           window.presentationAPI.nextVerse?.();
         if (e.key === "ArrowLeft" || e.key === "ArrowUp")

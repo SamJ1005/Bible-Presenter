@@ -2,7 +2,7 @@
 import React, { useEffect, useRef } from "react";
 
 export default function ChapterTable({
-  kjvSource,
+  nkjvSource,
   tamilBookData,
   selectedBook,
   selectedChapter,
@@ -14,28 +14,41 @@ export default function ChapterTable({
   settings,
   resetFontOffsets,
   zeroedSettings,
+  getTamilVerse,
 }) {
+  const primaryIsEnglish = (settings?.primaryTranslation ?? "Tamil") === "English";
+
   // english verses for chapter
   const englishVerses =
-    kjvSource?.books?.find((b) => b.name === selectedBook)?.chapters?.find(
+    nkjvSource?.books?.find((b) => b.name === selectedBook)?.chapters?.find(
       (c) => Number(c.chapter) === Number(selectedChapter)
     )?.verses ?? [];
 
-  const tamilVerses =
-    tamilBookData?.chapters?.find((c) => Number(c.chapter) === Number(selectedChapter))?.verses ?? [];
-
   const engMap = Object.fromEntries(englishVerses.map((v) => [String(v.verse), v.text]));
-  const tamilMap = Object.fromEntries(tamilVerses.map((v) => [String(v.verse), v.text]));
+
+  // Tamil verse numbers from legacy JSON; XML tamil uses verse numbers from english
+  const tamilVerses = tamilBookData?.chapters?.find((c) => Number(c.chapter) === Number(selectedChapter))?.verses ?? [];
+  const oldTamilVerseNums = tamilVerses.map((v) => Number(v.verse));
 
   const verseNums = Array.from(
-    new Set([...englishVerses.map((v) => Number(v.verse)), ...tamilVerses.map((v) => Number(v.verse))])
+    new Set([...englishVerses.map((v) => Number(v.verse)), ...oldTamilVerseNums])
   ).sort((a, b) => a - b);
 
+  const tamilMap = {};
+  if (getTamilVerse) {
+    verseNums.forEach((vn) => {
+      tamilMap[String(vn)] = getTamilVerse(selectedBook, selectedChapter, vn);
+    });
+  } else {
+    tamilVerses.forEach((v) => {
+      tamilMap[String(v.verse)] = v.text;
+    });
+  }
+
   const rowRefs = useRef({});
+
   function handleRowClick(vn) {
-    // update selection in App
     setSelectedVerse(Number(vn));
-    // Reset per-verse font offset, then send with zeroed settings
     resetFontOffsets?.();
     sendToPresentation({
       selectedBook,
@@ -45,19 +58,40 @@ export default function ChapterTable({
     });
   }
 
-  // Auto-scroll to selected verse instantly
   useEffect(() => {
     if (selectedVerse && rowRefs.current[selectedVerse]) {
       setTimeout(() => {
-        if (rowRefs.current[selectedVerse]) {
-          rowRefs.current[selectedVerse].scrollIntoView({
-            behavior: 'instant',
-            block: 'center',
-          });
-        }
+        rowRefs.current[selectedVerse]?.scrollIntoView({ behavior: "instant", block: "center" });
       }, 100);
     }
   }, [selectedVerse]);
+
+  const selColor = theme === "dark" ? "#00ff99" : "#003399";
+  const borderColor = theme === "dark" ? "#ffffff22" : "#dddddd";
+
+  // Column definitions — order swaps based on primaryTranslation
+  const tamilCol = (vn, isSel) => (
+    <td style={{ padding: "14px 18px", borderBottom: `1px solid ${borderColor}`, fontFamily: "TamilBibleFont, sans-serif" }}>
+      <div style={{ display: "flex", alignItems: "flex-start" }}>
+        <div style={{ marginRight: 8, fontWeight: 600, flexShrink: 0 }}>{vn}.</div>
+        <div style={{ fontSize: 15, lineHeight: 1.5, color: isSel ? selColor : "inherit" }}>
+          {tamilMap[String(vn)] ?? <span style={{ opacity: 0.5 }}>—</span>}
+        </div>
+      </div>
+    </td>
+  );
+
+  const englishCol = (vn, isSel) => (
+    <td style={{ padding: "14px 18px", borderBottom: `1px solid ${borderColor}` }}>
+      <div style={{ display: "flex", alignItems: "flex-start" }}>
+        <div style={{ marginRight: 8, fontWeight: 600, flexShrink: 0 }}>{vn}.</div>
+        <div style={{ fontSize: 15, lineHeight: 1.5, color: isSel ? selColor : "inherit" }}>
+          {engMap[String(vn)] ?? <span style={{ opacity: 0.5 }}>—</span>}
+        </div>
+      </div>
+    </td>
+  );
+
   return (
     <table
       ref={verseTableRef}
@@ -65,8 +99,17 @@ export default function ChapterTable({
     >
       <thead>
         <tr>
-          <th style={{ padding: 10, borderBottom: "1px solid #ddd" }}>Tamil</th>
-          <th style={{ padding: 10, borderBottom: "1px solid #ddd" }}>English (KJV)</th>
+          {primaryIsEnglish ? (
+            <>
+              <th style={{ padding: 10, borderBottom: "1px solid #ddd", textAlign: "left" }}>English (NKJV)</th>
+              <th style={{ padding: 10, borderBottom: "1px solid #ddd", textAlign: "left" }}>Tamil</th>
+            </>
+          ) : (
+            <>
+              <th style={{ padding: 10, borderBottom: "1px solid #ddd", textAlign: "left" }}>Tamil</th>
+              <th style={{ padding: 10, borderBottom: "1px solid #ddd", textAlign: "left" }}>English (NKJV)</th>
+            </>
+          )}
         </tr>
       </thead>
       <tbody>
@@ -75,7 +118,7 @@ export default function ChapterTable({
           return (
             <tr
               key={vn}
-              ref={el => rowRefs.current[vn] = el}
+              ref={(el) => (rowRefs.current[vn] = el)}
               data-vn={vn}
               onClick={() => handleRowClick(vn)}
               style={{
@@ -84,23 +127,11 @@ export default function ChapterTable({
                 transition: "background 0.15s",
               }}
             >
-              <td style={{ padding: "14px 18px", borderBottom: "1px solid #ffffff55", fontFamily: "TamilBibleFont" }}>
-                <div style={{ display: "flex", alignItems: "flex-start" }}>
-                  <div style={{ marginRight: 8, fontWeight: 600 }}>{vn}.</div>
-                  <div style={{ fontSize: 15, lineHeight: 1.5, color: isSel ? (theme === "dark" ? "#00ff99" : "#003399") : "inherit" }}>
-                    {tamilMap[String(vn)] ?? <span style={{ opacity: 0.5 }}>—</span>}
-                  </div>
-                </div>
-              </td>
-
-              <td style={{ padding: "14px 18px", borderBottom: "1px solid #ffffff55", fontWeight: "bold" }}>
-                <div style={{ display: "flex", alignItems: "flex-start" }}>
-                  <div style={{ marginRight: 8, fontWeight: 600 }}>{vn}.</div>
-                  <div style={{ fontSize: 15, lineHeight: 1.5, color: isSel ? (theme === "dark" ? "#00ff99" : "#003399") : "inherit" }}>
-                    {engMap[String(vn)] ?? <span style={{ opacity: 0.5 }}>—</span>}
-                  </div>
-                </div>
-              </td>
+              {primaryIsEnglish ? (
+                <>{englishCol(vn, isSel)}{tamilCol(vn, isSel)}</>
+              ) : (
+                <>{tamilCol(vn, isSel)}{englishCol(vn, isSel)}</>
+              )}
             </tr>
           );
         })}

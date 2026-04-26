@@ -17,6 +17,7 @@ dist/
 build/
 versions/
 out/
+public/bible/
 release/
 Theme codes/
 *.exe

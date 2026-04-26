@@ -26,6 +26,9 @@ const Prelist = React.forwardRef((
     sendToPresentation,
     activeId,      // Lifted State
     setActiveId,   // Lifted State
+    tamilBookData, // newly added
+    getTamilVerse, // newly added
+    getEnglishVerse, // newly added
     // Queue Management
     queueMeta,
     activeQueueInfo,
@@ -208,39 +211,8 @@ const Prelist = React.forwardRef((
     let tamilText = item.tamilHtml || item.tamilText || "";
 
     // FAILSAFE: If Tamil Text is missing (e.g. data corruption or legacy item), fetch it NOW
-    if (!tamilText) {
-      try {
-        // We can't use existing 'tamilBook' state as that might correspond to Bible tab
-        // We must fetch independent of everything else
-        const res = await fetch(
-          `./bible/tamil/${encodeURIComponent(item.book)}.json`
-        );
-        if (res.ok) {
-          const data = await res.json();
-          // Confirm book name again to be paranoid
-          if (
-            data?.book?.english?.toLowerCase() === item.book.toLowerCase()
-          ) {
-            // Extract verse
-            let foundVerse = null;
-            if (Array.isArray(data.chapters)) {
-              const ch = data.chapters.find(
-                (c) => Number(c.chapter) === Number(item.chapter)
-              );
-              foundVerse = ch?.verses?.find(
-                (v) => Number(v.verse) === Number(item.verse)
-              );
-            } else if (data[item.chapter] && data[item.chapter].verses) {
-              foundVerse = data[item.chapter].verses.find(
-                (v) => Number(v.verse) === Number(item.verse)
-              );
-            }
-            if (foundVerse) tamilText = foundVerse.text;
-          }
-        }
-      } catch (e) {
-        console.error("Ad-hoc fetch failed in handlePresent", e);
-      }
+    if (!tamilText && getTamilVerse) {
+        tamilText = getTamilVerse(item.book, item.chapter, item.verse);
     }
 
     sendToPresentation({
@@ -370,56 +342,15 @@ const Prelist = React.forwardRef((
       return;
     }
 
-    // Fetch Tamil Content (Async)
-    let tamilBook = null;
-    try {
-      const res = await fetch(
-        `./bible/tamil/${encodeURIComponent(bookName)}.json`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const loadedName = data?.book?.english;
-        if (loadedName && loadedName.toLowerCase() === bookName.toLowerCase()) {
-          tamilBook = data;
-        }
-      }
-    } catch (e) {
-      console.error("Tamil fetch failed in edit", e);
-    }
-
     const versesPayload = [];
     let isValid = true;
 
     for (const v of versesToFetch) {
-      const engBook = bibleData?.books?.find((b) => b.name === bookName);
-      if (!engBook) { isValid = false; break; }
-
-      const engChap = engBook?.chapters?.find(
-        (c) => Number(c.chapter) === parsed.chapter
-      );
-      if (!engChap) {
-        toast.error(`Chapter ${parsed.chapter} not found in ${bookName}`);
-        isValid = false; break;
-      }
-
-      const engVerseFunc = engChap?.verses?.find((vv) => Number(vv.verse) === v);
-      if (!engVerseFunc) {
+      const engText = getEnglishVerse ? getEnglishVerse(bookName, parsed.chapter, v) : "";
+      const tamText = getTamilVerse ? getTamilVerse(bookName, parsed.chapter, v) : "";
+      if (!engText && !tamText) {
         toast.error(`Verse ${v} not found`);
         isValid = false; break;
-      }
-
-      const engText = engVerseFunc.text;
-      let tamText = "";
-      
-      if (tamilBook) {
-        if (Array.isArray(tamilBook.chapters)) {
-           const c = tamilBook.chapters.find(ch => Number(ch.chapter) === parsed.chapter);
-           const ve = c?.verses?.find(vv => Number(vv.verse) === v);
-           if (ve) tamText = ve.text;
-        } else if (tamilBook[parsed.chapter]?.verses) {
-           const ve = tamilBook[parsed.chapter].verses.find(vv => Number(vv.verse) === v);
-           if (ve) tamText = ve.text;
-        }
       }
       versesPayload.push({ v, eng: engText, tam: tamText });
     }
@@ -612,38 +543,12 @@ const Prelist = React.forwardRef((
       const multiUpdates = [];  // { id, versesPayload }
 
       for (const [bookName, items] of Object.entries(bookGroups)) {
-        try {
-          const res = await fetch(
-            `./bible/tamil/${encodeURIComponent(bookName)}.json`
-          );
-          if (!res.ok) continue;
-          const data = await res.json();
-
-          // Helper to find Tamil verse text
-          const findTamilVerse = (chapter, verse) => {
-            if (Array.isArray(data.chapters)) {
-              const ch = data.chapters.find(
-                (c) => Number(c.chapter) === Number(chapter)
-              );
-              const ve = ch?.verses?.find(
-                (vv) => Number(vv.verse) === Number(verse)
-              );
-              return ve ? ve.text : "";
-            } else if (data[chapter]?.verses) {
-              const v = data[chapter].verses.find(
-                (vv) => Number(vv.verse) === Number(verse)
-              );
-              return v ? v.text : "";
-            }
-            return "";
-          };
-
           for (const item of items) {
             if (item.isMulti && item.versesPayload) {
               // Multi-verse: fill in missing tam fields
               const updatedPayload = item.versesPayload.map((vp) => {
                 if (!vp.tam) {
-                  const tamText = findTamilVerse(item.chapter, vp.v);
+                  const tamText = getTamilVerse ? getTamilVerse(bookName, item.chapter, vp.v) : "";
                   return { ...vp, tam: tamText };
                 }
                 return vp;
@@ -653,15 +558,12 @@ const Prelist = React.forwardRef((
               multiUpdates.push({ id: item.id, versesPayload: updatedPayload, tamilText: firstTam });
             } else {
               // Single verse
-              const tamilText = findTamilVerse(item.chapter, item.verse);
+              const tamilText = getTamilVerse ? getTamilVerse(bookName, item.chapter, item.verse) : "";
               if (tamilText) {
                 singleUpdates.push({ id: item.id, tamilText });
               }
             }
           }
-        } catch (e) {
-          console.error(`Tamil backfill fetch failed for ${bookName}:`, e);
-        }
       }
 
       // Apply all updates at once
@@ -678,9 +580,9 @@ const Prelist = React.forwardRef((
         );
       }
     })();
-    // Only run on mount
+    // Run whenever tamilBookData changes (e.g. initial load finished)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [tamilBookData]);
 
   // Local Search State (independent of Bible Tab)
   const [localSearch, setLocalSearch] = useState("");
@@ -726,76 +628,17 @@ const Prelist = React.forwardRef((
     const versesToFetch = parsed.verseList;
     if (versesToFetch.length > 5) return toast.error("Max 5 verses allowed");
 
-    // Fetch Tamil Content
-    let tamilBook = null;
-    try {
-      const res = await fetch(
-        `./bible/tamil/${encodeURIComponent(bookName)}.json`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        // Validate data matches bookName to prevent "Genesis default" bug
-        const loadedName = data?.book?.english;
-        if (loadedName && loadedName.toLowerCase() === bookName.toLowerCase()) {
-          tamilBook = data;
-        } else {
-          console.warn(
-            `Tamil content mismatch: Requested '${bookName}' but got '${loadedName}'`
-          );
-          // If mismatch, try fetching without encoding or exact match?
-          // Validating prevents showing wrong text.
-        }
-      }
-    } catch (e) {
-      console.error("Tamil fetch failed", e);
-    }
-
     const versesPayload = [];
     // Validation Flag
     let isValid = true;
 
     for (const v of versesToFetch) {
-      // Get English (from prop) to validate existence
-      const engBook = bibleData?.books?.find((b) => b.name === bookName);
-      // We already checked bookName, but double check
-      if (!engBook) {
-        isValid = false;
-        break;
-      }
-
-      const engChap = engBook?.chapters?.find(
-        (c) => Number(c.chapter) === parsed.chapter
-      );
-      if (!engChap) {
-        toast.error(`Chapter ${parsed.chapter} not found in ${bookName}`);
-        isValid = false;
-        break;
-      }
-
-      const engVerseFunc = engChap?.verses?.find((vv) => Number(vv.verse) === v);
-      if (!engVerseFunc) {
+      const engText = getEnglishVerse ? getEnglishVerse(bookName, parsed.chapter, v) : "";
+      const tamText = getTamilVerse ? getTamilVerse(bookName, parsed.chapter, v) : "";
+      if (!engText && !tamText) {
         toast.error(`Verse ${v} not found in ${bookName} ${parsed.chapter}`);
         isValid = false;
         break;
-      }
-
-      const engText = engVerseFunc.text;
-
-      // Get Tamil
-      let tamText = "";
-      if (tamilBook) {
-        if (Array.isArray(tamilBook.chapters)) {
-          const c = tamilBook.chapters.find(
-            (ch) => Number(ch.chapter) === parsed.chapter
-          );
-          const ve = c?.verses?.find((vv) => Number(vv.verse) === v);
-          if (ve) tamText = ve.text;
-        } else if (tamilBook[parsed.chapter] && tamilBook[parsed.chapter].verses) {
-          const ve = tamilBook[parsed.chapter].verses.find(
-            (vv) => Number(vv.verse) === v
-          );
-          if (ve) tamText = ve.text;
-        }
       }
       versesPayload.push({ v, eng: engText, tam: tamText });
     }

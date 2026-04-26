@@ -47,7 +47,7 @@ const PrelistSearch = ({
         <input
           ref={searchInputRef}
           className="search-input"
-          placeholder={isEditing ? "Edit Reference..." : "Reference 1chr 33 12"}
+          placeholder={isEditing ? "Edit Reference..." : "Reference jn03 16"}
           value={localSearch}
           onChange={(e) => setLocalSearch(e.target.value)}
           onKeyDown={(e) => {
