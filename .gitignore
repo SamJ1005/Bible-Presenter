@@ -18,6 +18,7 @@ build/
 versions/
 out/
 public/bible/
+public/bible/kjv.json
 release/
 Theme codes/
 *.exe
@@ -25,6 +26,8 @@ Theme codes/
 *.AppImage
 *.png
 *.ico
+*.json
+*.xml
 
 # Editor directories and files
 .vscode/*
@@ -40,4 +43,3 @@ Theme codes/
 *.sln
 *.sw?
 firebase.js
-
