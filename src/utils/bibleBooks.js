@@ -26,7 +26,7 @@ export const bibleBooks = [
   { english: "Job", tamil: "யோபு" },
   { english: "Psalm", tamil: "சங்கீதம்" },
   { english: "Proverbs", tamil: "நீதிமொழிகள்" },
-  { english: "Ecclesiastes", tamil: "சபைஉபதேசகர்" },
+  { english: "Ecclesiastes", tamil: "பிரசங்கி" },
   { english: "Song of Solomon", tamil: "உன்னதப்பாட்டு" },
 
   { english: "Isaiah", tamil: "எசாயா" },
