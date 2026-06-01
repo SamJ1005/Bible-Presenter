@@ -1,0 +1,61 @@
+{
+  "name": "scripture-screen",
+  "productName": "Scripture Screen",
+  "version": "4.1.1",
+  "main": "electron/main.js",
+  "build": {
+    "appId": "com.scripturescreen.app",
+    "productName": "Scripture Screen",
+    "asar": true,
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "extraResources": [
+      {
+        "from": "public/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
+    "files": [
+      "dist/**",
+      "electron/**",
+      "public/icon.ico",
+      "public/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "icon": "public/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName} Setup ${version}.${ext}"
+    }
+  },
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"cross-env NODE_ENV=development electron .\"",
+    "build": "vite build && electron-builder",
+    "browser-build": "vite build",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "firebase": "^12.8.0",
+    "framer-motion": "^12.24.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hot-toast": "^2.6.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.0",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^29.4.6",
+    "electron-builder": "^26.0.12",
+    "vite": "^5.0.0"
+  }
+}

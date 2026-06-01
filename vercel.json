@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/browser.html" },
+    { "source": "/(.*)", "destination": "/browser.html" }
+  ]
+}

@@ -17,8 +17,9 @@ dist/
 build/
 versions/
 out/
+electron/assets/bible
 public/bible/
-public/bible/kjv.json
+cors.json
 release/
 Theme codes/
 *.exe
@@ -26,7 +27,6 @@ Theme codes/
 *.AppImage
 *.png
 *.ico
-*.json
 *.xml
 
 # Editor directories and files
