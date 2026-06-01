@@ -22,6 +22,7 @@ import ChapterTable from "./components/ChapterTable";
 import Prelist from "./components/Prelist";
 
 export default function App() {
+  
   const [settings, setSettings] = useState(() =>
     loadMemory("settings", {
       presentationBgType: "solid",
