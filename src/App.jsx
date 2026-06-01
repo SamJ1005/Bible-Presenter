@@ -1000,10 +1000,8 @@ export default function App() {
   }, []);
 
   const addFileToQueue = useCallback(async (fileObj, insertAfterId = null) => {
-    if (!user) {
-      toast.error("You must be logged in to upload and sync files.");
-      return;
-    }
+    // Guest/offline mode: allow local presentation, skip cloud upload
+    const isGuest = !user;
 
     const newItemId = Date.now() + Math.random();
     const cleanName = fileObj.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
@@ -1043,6 +1041,13 @@ export default function App() {
         // Fallback: append to end
         return [...prev, newItem];
       });
+
+      // For guests: item is already added with localPreview (base64) — no cloud upload
+      if (isGuest) {
+        // Mark as local-only so it's clear no cloud sync will happen
+        updateQueueItem(newItemId, { url: immediateLocalUrl || '[local-only]', cloudUploadStatus: 'local-only' });
+        return;
+      }
 
       try {
         const cloudName = "dojyn0gux"; // User's Cloud Name

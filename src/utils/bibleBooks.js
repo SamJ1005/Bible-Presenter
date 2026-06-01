@@ -19,7 +19,7 @@ export const bibleBooks = [
   { english: "1 Chronicles", tamil: "1 நாளாகமம்" },
   { english: "2 Chronicles", tamil: "2 நாளாகமம்" },
 
-  { english: "Ezra", tamil: "எஸ்ரா" },
+  { english: "Ezra", tamil: "எஸ்றா" },
   { english: "Nehemiah", tamil: "நெகேமியா" },
   { english: "Esther", tamil: "எஸ்தர்" },
 
@@ -27,9 +27,9 @@ export const bibleBooks = [
   { english: "Psalm", tamil: "சங்கீதம்" },
   { english: "Proverbs", tamil: "நீதிமொழிகள்" },
   { english: "Ecclesiastes", tamil: "பிரசங்கி" },
-  { english: "Song of Solomon", tamil: "உன்னதப்பாட்டு" },
+  { english: "Song of Songs", tamil: "உன்னதப்பாட்டு" },
 
-  { english: "Isaiah", tamil: "எசாயா" },
+  { english: "Isaiah", tamil: "ஏசாயா" },
   { english: "Jeremiah", tamil: "எரேமியா" },
   { english: "Lamentations", tamil: "புலம்பல்" },
 
@@ -41,7 +41,7 @@ export const bibleBooks = [
   { english: "Amos", tamil: "ஆமோஸ்" },
   { english: "Obadiah", tamil: "ஒபதியா" },
   { english: "Jonah", tamil: "யோனா" },
-  { english: "Micah", tamil: "மீக்கா" },
+  { english: "Micah", tamil: "மீகா" },
   { english: "Nahum", tamil: "நாகூம்" },
   { english: "Habakkuk", tamil: "ஆபகூக்" },
   { english: "Zephaniah", tamil: "செப்பனியா" },
@@ -73,7 +73,7 @@ export const bibleBooks = [
 
   { english: "Titus", tamil: "தீத்து" },
   { english: "Philemon", tamil: "பிலேமோன்" },
-  { english: "Hebrews", tamil: "எபிரேயர்" },
+  { english: "Hebrews", tamil: "எபிரெயர்" },
 
   { english: "James", tamil: "யாக்கோபு" },
   { english: "1 Peter", tamil: "1 பேதுரு" },

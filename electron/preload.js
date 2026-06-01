@@ -9,6 +9,9 @@ contextBridge.exposeInMainWorld("electron", {
   setPreferredDisplay: (id) => ipcRenderer.send("set-preferred-display", id),
   saveMediaFile: (path) => ipcRenderer.invoke("save-media-file", path),
   downloadMediaFile: (url, uniqueId) => ipcRenderer.invoke("download-media-file", url, uniqueId),
+  // WYSIWYG iframe preview — expose electron path and HTML content
+  getElectronPath: () => ipcRenderer.invoke("get-electron-path"),
+  getPrelistHtml: () => ipcRenderer.invoke("get-prelist-html"),
 });
 
 contextBridge.exposeInMainWorld("api", {

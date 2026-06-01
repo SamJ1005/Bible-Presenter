@@ -1,0 +1,655 @@
+/* ── Bible Browser Global Styles ─────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Base / Dark Theme (default) ─────────────────────────────────────────── */
+:root, html.dark, .dark {
+  --bb-bg:          #0f0e0e;
+  --bb-surface:     #1e1e1e;
+  --bb-surface-2:   #2a2a2a;
+  --bb-surface-3:   #333333;
+  --bb-border:      rgba(255,255,255,0.1);
+  --bb-border-acc:  rgba(0,255,153,0.3);
+  --bb-accent:      #00ff99;
+  --bb-accent-h:    #3acc92;
+  --bb-accent-dim:  rgba(0,255,153,0.12);
+  --bb-accent-glow: rgba(0,255,153,0.06);
+  --bb-text:        #ffffff;
+  --bb-text-2:      rgba(255,255,255,0.6);
+  --bb-text-3:      rgba(255,255,255,0.4);
+  --bb-verse-num:   #3acc92;
+  --bb-gold:        #f59e0b;
+  --bb-danger:      #ef4444;
+  
+  /* Layout */
+  --bb-header-h:    56px;
+  --bb-version-h:   48px;
+  --bb-sidebar-w:   268px;
+  /* Safe area (iPhone notch / home bar) */
+  --safe-top:    env(safe-area-inset-top,    0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left,   0px);
+  --safe-right:  env(safe-area-inset-right,  0px);
+}
+
+/* ── Light Theme ─────────────────────────────────────────────────────────── */
+html.light, .light {
+  --bb-bg:          #ffffff;
+  --bb-surface:     #f5f5f5;
+  --bb-surface-2:   #eeeeee;
+  --bb-surface-3:   #e0e0e0;
+  --bb-border:      rgba(0,0,0,0.1);
+  --bb-border-acc:  rgba(0,51,153,0.3);
+  --bb-accent:      #003399;
+  --bb-accent-h:    #002266;
+  --bb-accent-dim:  rgba(0,51,153,0.08);
+  --bb-accent-glow: rgba(0,51,153,0.04);
+  --bb-text:        #000000;
+  --bb-text-2:      rgba(0,0,0,0.65);
+  --bb-text-3:      rgba(0,0,0,0.45);
+  --bb-verse-num:   #003399;
+}
+
+html, body, #bible-browser-root {
+  height: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bb-bg);
+  color: var(--bb-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+/* ── App Shell ──────────────────────────────────────────────────────────── */
+.bb-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bb-bg);
+}
+
+/* ── Desktop two-panel layout ────────────────────────────────────────────── */
+.bb-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Sidebar (desktop) ───────────────────────────────────────────────────── */
+.bb-sidebar {
+  width: var(--bb-sidebar-w);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bb-surface);
+  border-right: 1px solid var(--bb-border);
+  overflow: hidden;
+}
+
+.bb-sidebar-search {
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid var(--bb-border);
+}
+
+.bb-sidebar-versions {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--bb-border);
+}
+
+.bb-sidebar-books {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139,92,246,0.3) transparent;
+}
+.bb-sidebar-books::-webkit-scrollbar { width: 4px; }
+.bb-sidebar-books::-webkit-scrollbar-track { background: transparent; }
+.bb-sidebar-books::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.3); border-radius: 4px; }
+
+/* ── Main Panel ──────────────────────────────────────────────────────────── */
+.bb-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.bb-header {
+  height: var(--bb-header-h);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  padding-top: var(--safe-top);
+  background: var(--bb-surface);
+  border-bottom: 1px solid var(--bb-border);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.bb-logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--bb-text);
+  white-space: nowrap;
+  user-select: none;
+}
+.bb-logo-img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.bb-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* ── Nav Bar (book + chapter + arrows) ───────────────────────────────────── */
+.bb-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--bb-surface);
+  border-bottom: 1px solid var(--bb-border);
+  flex-shrink: 0;
+}
+
+.bb-nav-book-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bb-surface-2);
+  border: 1px solid var(--bb-border);
+  border-radius: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  color: var(--bb-text);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  transition: border-color 0.2s, background 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bb-nav-book-btn:hover { border-color: var(--bb-border-acc); background: var(--bb-surface-3); }
+
+.bb-nav-ch-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bb-surface-2);
+  border: 1px solid var(--bb-border);
+  border-radius: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  color: var(--bb-text);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: border-color 0.2s, background 0.2s;
+}
+.bb-nav-ch-btn:hover { border-color: var(--bb-border-acc); background: var(--bb-surface-3); }
+
+.bb-nav-arrow {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bb-surface-2);
+  border: 1px solid var(--bb-border);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--bb-text-2);
+  font-size: 18px;
+  flex-shrink: 0;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.bb-nav-arrow:hover:not(:disabled) { border-color: var(--bb-border-acc); color: var(--bb-accent); background: var(--bb-accent-dim); }
+.bb-nav-arrow:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* ── Version Selector (Dropdown) ─────────────────────────────────────────── */
+.bb-version-select-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.bb-version-select-wrap.mobile {
+  max-width: 140px; /* Reduced width for mobile header */
+}
+.bb-version-select-wrap.mobile .bb-version-select {
+  padding: 4px 28px 4px 10px;
+  font-size: 12px;
+  height: 28px;
+}
+.bb-version-select {
+  width: 100%;
+  appearance: none;
+  background: var(--bb-surface-3);
+  border: 1px solid var(--bb-border);
+  border-radius: 20px;
+  padding: 6px 32px 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bb-text);
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.bb-version-select:hover, .bb-version-select:focus {
+  border-color: var(--bb-accent);
+}
+.bb-version-select option {
+  background: var(--bb-surface);
+  color: var(--bb-text);
+}
+.bb-version-select-icon {
+  position: absolute;
+  right: 12px;
+  pointer-events: none;
+  color: var(--bb-text-2);
+}
+
+/* ── Search Bar ───────────────────────────────────────────────────────────── */
+.bb-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.bb-search-wrap svg {
+  position: absolute;
+  left: 11px;
+  color: var(--bb-text-3);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+.bb-search-input {
+  width: 100%;
+  background: var(--bb-surface-3);
+  border: 1px solid var(--bb-border);
+  border-radius: 9px;
+  padding: 9px 38px 9px 36px;
+  font-size: 14px;
+  color: var(--bb-text);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.bb-search-input::placeholder { color: var(--bb-text-3); }
+.bb-search-input:focus { border-color: var(--bb-border-acc); box-shadow: 0 0 0 3px var(--bb-accent-glow); }
+.bb-search-clear {
+  position: absolute;
+  right: 9px;
+  background: none;
+  border: none;
+  color: var(--bb-text-3);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: 50%;
+  transition: color 0.15s;
+}
+.bb-search-clear:hover { color: var(--bb-text); }
+
+/* ── Book List ────────────────────────────────────────────────────────────── */
+.bb-book-section-label {
+  padding: 10px 16px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--bb-text-3);
+  user-select: none;
+}
+
+.bb-book-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  cursor: pointer;
+  color: var(--bb-text-2);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+  border-radius: 0;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.bb-book-item:hover { background: var(--bb-surface-2); color: var(--bb-text); }
+.bb-book-item.active {
+  background: var(--bb-accent-dim);
+  color: var(--bb-accent);
+  font-weight: 700;
+}
+.bb-book-item .bb-book-num {
+  font-size: 11px;
+  color: var(--bb-text-3);
+  font-weight: 600;
+  min-width: 20px;
+  text-align: right;
+}
+.bb-book-item.active .bb-book-num { color: var(--bb-accent); opacity: 0.7; }
+
+/* ── Chapter Grid ─────────────────────────────────────────────────────────── */
+.bb-chapter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  gap: 6px;
+  padding: 14px;
+}
+
+.bb-ch-num {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bb-surface-2);
+  border: 1px solid var(--bb-border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bb-text-2);
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.bb-ch-num:hover { border-color: var(--bb-border-acc); color: var(--bb-accent); background: var(--bb-accent-dim); }
+.bb-ch-num.active {
+  background: var(--bb-accent);
+  border-color: var(--bb-accent);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(139,92,246,0.4);
+}
+
+/* ── Verse Display ────────────────────────────────────────────────────────── */
+.bb-verse-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139,92,246,0.25) transparent;
+  padding-bottom: calc(24px + var(--safe-bottom));
+}
+.bb-verse-scroll::-webkit-scrollbar { width: 4px; }
+.bb-verse-scroll::-webkit-scrollbar-track { background: transparent; }
+.bb-verse-scroll::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.3); border-radius: 4px; }
+
+.bb-chapter-title {
+  padding: 20px 20px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bb-text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  user-select: none;
+}
+
+.bb-verse-list {
+  padding: 0 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.bb-verse-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  align-items: flex-start;
+  transition: background 0.15s;
+  border-radius: 4px;
+}
+.bb-verse-item:last-child { border-bottom: none; }
+.bb-verse-item.highlighted {
+  background: var(--bb-accent-dim);
+  border-radius: 8px;
+  padding: 10px 10px;
+  margin: 0 -10px;
+  border-bottom: none;
+  box-shadow: 0 0 0 1px var(--bb-border-acc);
+}
+
+.bb-verse-num {
+  min-width: 28px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bb-verse-num);
+  padding-top: 3px;
+  text-align: right;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.bb-verse-text {
+  flex: 1;
+  font-size: 17px;
+  line-height: 1.75;
+  color: var(--bb-text);
+  font-weight: 400;
+  word-break: break-word;
+  font-family: 'Latha', 'Vijaya', 'Noto Sans Tamil', 'Tamil Sangam MN', 'Inter', system-ui, sans-serif;
+}
+
+.bb-verse-text.en {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* ── Loading / Error States ───────────────────────────────────────────────── */
+.bb-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex: 1;
+  color: var(--bb-text-3);
+  padding: 40px;
+  text-align: center;
+}
+
+.bb-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--bb-accent-dim);
+  border-top-color: var(--bb-accent);
+  border-radius: 50%;
+  animation: bb-spin 0.7s linear infinite;
+}
+@keyframes bb-spin { to { transform: rotate(360deg); } }
+
+.bb-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex: 1;
+  padding: 40px;
+  text-align: center;
+  color: var(--bb-text-3);
+}
+.bb-empty-icon { font-size: 40px; opacity: 0.5; }
+
+/* ── Bottom Drawer (mobile book/chapter selector) ────────────────────────── */
+.bb-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 100;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: bb-fade-in 0.2s ease;
+}
+@keyframes bb-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.bb-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 80dvh;
+  background: var(--bb-surface);
+  border-radius: 20px 20px 0 0;
+  border-top: 1px solid var(--bb-border);
+  z-index: 101;
+  display: flex;
+  flex-direction: column;
+  animation: bb-slide-up 0.25s cubic-bezier(0.32,0.72,0,1);
+  padding-bottom: var(--safe-bottom);
+}
+@keyframes bb-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.bb-drawer-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--bb-border);
+  border-radius: 2px;
+  margin: 12px auto 0;
+  flex-shrink: 0;
+}
+
+.bb-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px 8px;
+  flex-shrink: 0;
+}
+
+.bb-drawer-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bb-text);
+}
+
+.bb-drawer-back {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--bb-text-2);
+  transition: color 0.15s;
+}
+.bb-drawer-back:hover { color: var(--bb-accent); }
+
+.bb-drawer-close {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bb-surface-2);
+  border: 1px solid var(--bb-border);
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--bb-text-2);
+  font-size: 16px;
+  font-family: inherit;
+  transition: color 0.15s;
+}
+.bb-drawer-close:hover { color: var(--bb-text); }
+
+.bb-drawer-search {
+  padding: 0 14px 10px;
+  flex-shrink: 0;
+}
+
+.bb-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Icon buttons ─────────────────────────────────────────────────────────── */
+.bb-icon-btn, .bb-theme-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.bb-icon-btn {
+  background: transparent;
+  border: 1px solid var(--bb-border);
+  color: var(--bb-text-2);
+}
+.bb-icon-btn:hover { border-color: var(--bb-border-acc); color: var(--bb-accent); background: var(--bb-accent-dim); }
+
+.bb-theme-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--bb-text-2);
+}
+.bb-theme-btn:hover, .bb-theme-btn:active {
+  background: var(--bb-surface-2);
+  border: 1px solid var(--bb-border-acc);
+  color: var(--bb-accent);
+  box-shadow: 0 0 10px var(--bb-accent-glow);
+}
+
+/* ── Responsive: hide sidebar on mobile ─────────────────────────────────── */
+@media (max-width: 767px) {
+  .bb-sidebar { display: none; }
+  .bb-mobile-only { display: flex; }
+  .bb-desktop-only { display: none; }
+}
+@media (min-width: 768px) {
+  .bb-mobile-only { display: none; }
+  .bb-desktop-only { display: flex; }
+  /* On desktop, hide hamburger/menu buttons */
+  .bb-nav-book-btn,
+  .bb-nav-ch-btn { display: none; }
+}
+
+/* ── Tablet / desktop verse sizing tweaks ──────────────────────────────── */
+@media (min-width: 768px) {
+  .bb-verse-text { font-size: 18px; }
+  .bb-verse-list { padding: 0 28px 28px; }
+  .bb-chapter-title { padding: 24px 28px 12px; }
+}
+@media (min-width: 1200px) {
+  .bb-verse-text { font-size: 19px; line-height: 1.8; }
+  .bb-verse-list { max-width: 800px; }
+}

@@ -1,480 +1,482 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>Presentation</title>
 
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
-    />
+<head>
+  <meta charset="UTF-8" />
+  <title>Presentation</title>
 
-    <style>
-      :root {
-        --bg: #000;
-        --text: #fff;
-      }
+  <meta http-equiv="Content-Security-Policy"
+    content="script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" />
 
-      html,
-      body {
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        overflow: hidden;
-      }
+  <style>
+    :root {
+      --bg: #000;
+      --text: #fff;
+    }
 
-      body {
-        background: var(--bg);
-        color: var(--text);
-        font-family: Arial, sans-serif;
-        animation: windowFadeIn 0.15s ease-in forwards;
-      }
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
 
-      @keyframes windowFadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+      animation: windowFadeIn 0.15s ease-in forwards;
+    }
 
-      @font-face {
-        font-family: "TamilBibleFont";
-        src: url("fonts/NotoSansTamil-SemiBold.ttf")
-          format("truetype");
-        font-weight: normal;
-        font-style: normal;
-      }
-
-      #container {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-      }
-
-      /* Fade transition — controlled via JS inline styles */
-
-      /* ---------- REFERENCE ---------- */
-      #referenceArea {
-        height: 5%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding-top: 2.5vh;
-        padding-bottom: 0.8vh; /* Permanent gap below reference */
-      }
-
-      #reference {
-        font-weight: bold;
-        font-family: "TamilBibleFont", Arial, sans-serif;
-        text-decoration: underline;
-        text-decoration-color: #b4b4b4ec;
-        text-underline-offset: 5px; /* Push underline down for Tamil descenders */
-        text-decoration-skip-ink: none;
-        color: #fff;
-        white-space: nowrap;
-      }
-
-      /* ---------- VERSE ---------- */
-      #verseArea {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        padding: 0.5vh 1vw 0; /* Added top padding for permanent gap from reference */
-      }
-
-      #verseBox {
-        width: 100%;
-        max-height: 95%; /* Increased for more room */
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 1.2vh;
-        text-align: center;
-        overflow: hidden;
-      }
-      #tamilText {
-        font-family: "TamilBibleFont", Arial, sans-serif;
-        font-weight: 900;
-        line-height: 1.28;
-        /* keep-all: never break mid-grapheme-cluster; anywhere: break URLs/long runs if needed */
-        word-break: keep-all;
-        overflow-wrap: anywhere;
-        max-width: 100%;
-      }
-
-      #englishText {
-        font-weight: 600;
-        line-height: 1.35;
-        word-break: keep-all;
-        overflow-wrap: anywhere;
-      }
-
-      /* Shrink individual oversized words without breaking the whole line */
-      .word-shrink {
-        display: inline-block;
-        max-width: 100%;
-        overflow: visible;
-        white-space: nowrap; /* Prevent individual words from wrapping internally */
-      }
-
-      /* ---------- WATERMARK ---------- */
-      #watermark {
-        position: absolute;
-        bottom: 15px;
-        right: 25px;
-        font-size: 1.2vw;
-        opacity: 0.35;
-      }
-      #bgLayer {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: -1;
-        background-color: #000;
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        transition: background-image 0.5s ease, background-color 0.5s ease;
-      }
-      /* GLOBAL FADE-IN ON OPEN */
-      body {
+    @keyframes windowFadeIn {
+      from {
         opacity: 0;
-        transition: opacity 0.3s ease-in;
       }
-      body.ready {
+
+      to {
         opacity: 1;
       }
-    </style>
-  </head>
+    }
 
-  <body>
-    <div id="bgLayer"></div>
-    <div id="container">
-      <div id="referenceArea">
-        <div id="reference"></div>
-      </div>
+    @font-face {
+      font-family: "TamilBibleFont";
+      src: url("fonts/NotoSansTamil-SemiBold.ttf") format("truetype");
+      font-weight: normal;
+      font-style: normal;
+    }
 
-      <div id="verseArea">
-        <div id="verseBox">
-          <div id="tamilText"></div>
-          <div id="englishText"></div>
-        </div>
-      </div>
+    #container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
 
-      <div id="watermark"></div>
+    /* Fade transition — controlled via JS inline styles */
+
+    /* ---------- REFERENCE ---------- */
+    #referenceArea {
+      height: 5%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-top: 2.5vh;
+      padding-bottom: 0.8vh;
+      /* Permanent gap below reference */
+    }
+
+    #reference {
+      font-weight: bold;
+      font-family: "TamilBibleFont", Arial, sans-serif;
+      text-decoration: underline;
+      text-decoration-color: #b4b4b4ec;
+      text-underline-offset: 5px;
+      /* Push underline down for Tamil descenders */
+      text-decoration-skip-ink: none;
+      color: #fff;
+      white-space: nowrap;
+    }
+
+    /* ---------- VERSE ---------- */
+    #verseArea {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0.5vh 1vw 0;
+      /* Added top padding for permanent gap from reference */
+    }
+
+    #verseBox {
+      width: 100%;
+      max-height: 95%;
+      /* Increased for more room */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.2vh;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    #tamilText {
+      font-family: "TamilBibleFont", Arial, sans-serif;
+      font-weight: 900;
+      line-height: 1.28;
+      /* keep-all: never break mid-grapheme-cluster; anywhere: break URLs/long runs if needed */
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+      max-width: 100%;
+    }
+
+    #englishText {
+      font-weight: 600;
+      line-height: 1.35;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+    }
+
+    /* Shrink individual oversized words without breaking the whole line */
+    .word-shrink {
+      display: inline-block;
+      max-width: 100%;
+      overflow: visible;
+      white-space: nowrap;
+      /* Prevent individual words from wrapping internally */
+    }
+
+    /* ---------- WATERMARK ---------- */
+    #watermark {
+      position: absolute;
+      bottom: 15px;
+      right: 25px;
+      font-size: 1.5vw;
+      opacity: 0.50;
+    }
+
+    #bgLayer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      background-color: #000;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transition: background-image 0.5s ease, background-color 0.5s ease;
+    }
+
+    /* GLOBAL FADE-IN ON OPEN */
+    body {
+      opacity: 0;
+      transition: opacity 0.3s ease-in;
+    }
+
+    body.ready {
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="bgLayer"></div>
+  <div id="container">
+    <div id="referenceArea">
+      <div id="reference"></div>
     </div>
-    <script>
-      /* ---------- VERSE TYPE ---------- */
-      function getVerseType(tamil, english) {
-        const len = (tamil?.length || 0) * 1.2 + (english?.length || 0);
-        if (len < 80) return "small";
-        if (len > 250) return "large";
-        return "medium";
+
+    <div id="verseArea">
+      <div id="verseBox">
+        <div id="tamilText"></div>
+        <div id="englishText"></div>
+      </div>
+    </div>
+
+    <div id="watermark"></div>
+  </div>
+  <script>
+    /* ---------- VERSE TYPE ---------- */
+    function getVerseType(tamil, english) {
+      const len = (tamil?.length || 0) * 1.2 + (english?.length || 0);
+      if (len < 80) return "small";
+      if (len > 250) return "large";
+      return "medium";
+    }
+
+    /* ---------- VERSE CHECK ---------- */
+    function isSingleVerse(indexStr) {
+      if (!indexStr) return true;
+      return !indexStr.includes(",") && !indexStr.includes("-");
+    }
+
+    function getVerseCount(indexStr) {
+      if (!indexStr) return 1;
+      const tamilText = document.getElementById("tamilText").innerHTML || "";
+      const lines = tamilText.split("<br>").filter((l) => l.trim()).length;
+      if (lines > 1) return lines;
+      const rangeMatch = indexStr.match(/:(\d+)-(\d+)/);
+      if (rangeMatch)
+        return parseInt(rangeMatch[2]) - parseInt(rangeMatch[1]) + 1;
+      return 1;
+    }
+
+    /* ---------- FONT PRESETS ---------- */
+    const FONT_PRESETS = {
+      small: { tamil: 9.2, eng: 7.0, min: 0 },
+      medium: { tamil: 7.2, eng: 5.8, min: 3.5 },
+      large: { tamil: 4.7, eng: 3.9, min: 2.8 },
+      huge: { tamil: 9.8, eng: 7.8, min: 3.0 },
+      multi2: { tamil: 5.5, eng: 4.5, min: 3.0 }, // For exactly 2 verses
+      multi: { tamil: 4.2, eng: 3.5, min: 2.0 }, // For >2 verses
+    };
+
+    /* ---------- SAFE FIT ---------- */
+    function fitVerseBox(tamilEl, engEl, box, type, isSingle, verseCount, data = {}) {
+      let effectiveType = type;
+      if (isSingle && (type === "small" || type === "medium")) {
+        effectiveType = "huge";
+      } else if (!isSingle) {
+        effectiveType = verseCount === 2 ? "multi2" : "multi";
       }
 
-      /* ---------- VERSE CHECK ---------- */
-      function isSingleVerse(indexStr) {
-        if (!indexStr) return true;
-        return !indexStr.includes(",") && !indexStr.includes("-");
-      }
+      const preset = FONT_PRESETS[effectiveType];
 
-      function getVerseCount(indexStr) {
-        if (!indexStr) return 1;
-        const tamilText = document.getElementById("tamilText").innerHTML || "";
-        const lines = tamilText.split("<br>").filter((l) => l.trim()).length;
-        if (lines > 1) return lines;
-        const rangeMatch = indexStr.match(/:(\d+)-(\d+)/);
-        if (rangeMatch)
-          return parseInt(rangeMatch[2]) - parseInt(rangeMatch[1]) + 1;
-        return 1;
-      }
+      // Apply settings offsets (from Bible Tab Font Size settings)
+      // Each offset unit = 0.15vw adjustment
+      const tamilOffset = (data.tamilFontOffset || 0) * 0.15;
+      const engOffset = (data.englishFontOffset || 0) * 0.12;
 
-      /* ---------- FONT PRESETS ---------- */
-      const FONT_PRESETS = {
-        small: { tamil: 9.2, eng: 7.0, min: 0 },
-        medium: { tamil: 7.2, eng: 5.8, min: 3.5 },
-        large: { tamil: 4.7, eng: 3.9, min: 2.8 },
-        huge: { tamil: 9.8, eng: 7.8, min: 3.0 },
-        multi2: { tamil: 5.5, eng: 4.5, min: 3.0 }, // For exactly 2 verses
-        multi: { tamil: 4.2, eng: 3.5, min: 2.0 }, // For >2 verses
-      };
+      let tamilVW = preset.tamil;
+      let engVW = preset.eng;
 
-      /* ---------- SAFE FIT ---------- */
-      function fitVerseBox(tamilEl, engEl, box, type, isSingle, verseCount, data = {}) {
-        let effectiveType = type;
-        if (isSingle && (type === "small" || type === "medium")) {
-          effectiveType = "huge";
-        } else if (!isSingle) {
-          effectiveType = verseCount === 2 ? "multi2" : "multi";
-        }
+      // Clamp minimums
+      if (tamilVW < 1.5) tamilVW = 1.5;
+      if (engVW < 1.2) engVW = 1.2;
 
-        const preset = FONT_PRESETS[effectiveType];
+      tamilEl.style.fontSize = tamilVW + "vw";
+      engEl.style.fontSize = engVW + "vw";
 
-        // Apply settings offsets (from Bible Tab Font Size settings)
-        // Each offset unit = 0.15vw adjustment
-        const tamilOffset = (data.tamilFontOffset || 0) * 0.15;
-        const engOffset = (data.englishFontOffset || 0) * 0.12;
-
-        let tamilVW = preset.tamil;
-        let engVW = preset.eng;
-
-        // Clamp minimums
-        if (tamilVW < 1.5) tamilVW = 1.5;
-        if (engVW < 1.2) engVW = 1.2;
+      // Always auto-shrink to fit screen - Bible tab must fit all text
+      let safety = 0;
+      while (
+        (box.scrollHeight > box.clientHeight ||
+          tamilEl.scrollWidth > box.clientWidth ||
+          engEl.scrollWidth > box.clientWidth) &&
+        tamilVW > preset.min &&
+        safety < 120
+      ) {
+        tamilVW -= 0.1;
+        engVW -= 0.08;
 
         tamilEl.style.fontSize = tamilVW + "vw";
         engEl.style.fontSize = engVW + "vw";
 
-        // Always auto-shrink to fit screen - Bible tab must fit all text
-        let safety = 0;
-        while (
-          (box.scrollHeight > box.clientHeight ||
-            tamilEl.scrollWidth > box.clientWidth ||
-            engEl.scrollWidth > box.clientWidth) &&
-          tamilVW > preset.min &&
-          safety < 120
-        ) {
-          tamilVW -= 0.1;
-          engVW -= 0.08;
-
-          tamilEl.style.fontSize = tamilVW + "vw";
-          engEl.style.fontSize = engVW + "vw";
-
-          safety++;
-        }
-
-        // Apply offset AFTER auto-shrink has found the container bounds
-        tamilVW += tamilOffset;
-        engVW += engOffset;
-        tamilEl.style.fontSize = tamilVW + "vw";
-        engEl.style.fontSize = engVW + "vw";
+        safety++;
       }
 
-      /* ---------- REF FIT ---------- */
-      function fitReference(el) {
-        const text = (el.innerText || "").toLowerCase();
-        const isSmallRef =
-          text.includes("revelation") ||
-          text.includes("வெளிப்படுத்தின") ||
-          text.includes("thessalonians") ||
-          text.includes("தெச");
+      // Apply offset AFTER auto-shrink has found the container bounds
+      tamilVW += tamilOffset;
+      engVW += engOffset;
+      tamilEl.style.fontSize = tamilVW + "vw";
+      engEl.style.fontSize = engVW + "vw";
+    }
 
-        let vw = isSmallRef ? 4.2 : 5.5;
+    /* ---------- REF FIT ---------- */
+    function fitReference(el) {
+      const text = (el.innerText || "").toLowerCase();
+      const isSmallRef =
+        text.includes("revelation") ||
+        text.includes("வெளிப்படுத்தின") ||
+        text.includes("thessalonians") ||
+        text.includes("தெச");
 
+      let vw = isSmallRef ? 4.2 : 5.5;
+
+      el.style.fontSize = vw + "vw";
+      while (el.scrollWidth > el.clientWidth && vw > 2.5) {
+        vw -= 0.1;
         el.style.fontSize = vw + "vw";
-        while (el.scrollWidth > el.clientWidth && vw > 2.5) {
-          vw -= 0.1;
-          el.style.fontSize = vw + "vw";
+      }
+    }
+
+    /* ---------- UPDATE ---------- */
+    function updateVerse(data) {
+      const ref = document.getElementById("reference");
+      const tamil = document.getElementById("tamilText");
+      const eng = document.getElementById("englishText");
+      const box = document.getElementById("verseBox");
+      const verseArea = document.getElementById("verseArea");
+      const refArea = document.getElementById("referenceArea");
+
+      if (data && data.fadeOutOnly) {
+        document.body.style.transition = 'opacity 0.25s ease-out';
+        document.body.style.opacity = '0';
+        return;
+      }
+
+      if (!data) {
+        ref.innerText = "";
+        tamil.innerText = "";
+        eng.innerText = "";
+        return;
+      }
+
+      document.body.classList.add('ready');
+      document.body.style.opacity = ''; // reset if it was faded out
+      document.body.style.transition = '';
+
+
+      // ----- APPLY SETTINGS -----
+
+      // Background - Cached
+      const bgLayer = document.getElementById('bgLayer');
+      const bgType = data.presentationBgType || 'black';
+
+      // Initialize cache if needed
+      if (!window.bgCache) {
+        window.bgCache = { type: null, val: null };
+        bgLayer.style.backgroundColor = "black";
+        bgLayer.style.backgroundImage = "none";
+      }
+
+      if (bgType === 'image' && data.presentationBgImage) {
+        // Compare with cache
+        if (window.bgCache.type !== 'image' || window.bgCache.val !== data.presentationBgImage) {
+          bgLayer.style.backgroundImage = `url(${data.presentationBgImage})`;
+          bgLayer.style.backgroundColor = 'transparent';
+          window.bgCache = { type: 'image', val: data.presentationBgImage };
+        }
+      } else if (bgType === 'white') {
+        if (window.bgCache.type !== 'white') {
+          bgLayer.style.backgroundImage = 'none';
+          bgLayer.style.backgroundColor = '#ffffff';
+          window.bgCache = { type: 'white', val: null };
+        }
+      } else if (bgType === 'custom' && data.presentationBgColor) {
+        if (window.bgCache.type !== 'custom' || window.bgCache.val !== data.presentationBgColor) {
+          bgLayer.style.backgroundImage = 'none';
+          bgLayer.style.backgroundColor = data.presentationBgColor;
+          window.bgCache = { type: 'custom', val: data.presentationBgColor };
+        }
+      } else {
+        // Default black
+        if (window.bgCache.type !== 'black') {
+          bgLayer.style.backgroundImage = 'none';
+          bgLayer.style.backgroundColor = '#000000';
+          window.bgCache = { type: 'black', val: null };
         }
       }
 
-      /* ---------- UPDATE ---------- */
-      function updateVerse(data) {
-        const ref = document.getElementById("reference");
-        const tamil = document.getElementById("tamilText");
-        const eng = document.getElementById("englishText");
-        const box = document.getElementById("verseBox");
-        const verseArea = document.getElementById("verseArea");
-        const refArea = document.getElementById("referenceArea");
+      // Text color
+      const textColor = data.presentationTextColor || '#fff';
+      document.body.style.color = textColor;
+      ref.style.color = textColor;
+      ref.style.textDecorationColor = textColor === 'black' || textColor === '#000000' ? '#444' : '#b4b4b4ec';
+      tamil.style.color = textColor;
+      eng.style.color = textColor;
 
-        if (data && data.fadeOutOnly) {
-          document.body.style.transition = 'opacity 0.25s ease-out';
-          document.body.style.opacity = '0';
-          return;
-        }
+      // Watermark
+      const watermark = document.getElementById('watermark');
+      if (watermark) {
+        watermark.innerText = data.customWatermark || '';
+        watermark.style.color = textColor;
+      }
 
-        if (!data) {
-          ref.innerText = "";
-          tamil.innerText = "";
-          eng.innerText = "";
-          return;
-        }
+      // Transition
+      const contentLayers = [document.getElementById('referenceArea'), document.getElementById('verseArea')];
 
-        document.body.classList.add('ready');
-        document.body.style.opacity = ''; // reset if it was faded out
-        document.body.style.transition = ''; 
+      // Interrupt any existing transition
+      if (window.activeTransition) {
+        clearTimeout(window.activeTransition);
+        window.activeTransition = null;
+      }
 
+      if (data.enableTransition) {
+        // Fade OUT content only
+        contentLayers.forEach(l => {
+          l.style.transition = 'opacity 0.04s ease-out';
+          l.style.opacity = '0';
+        });
 
-        // ----- APPLY SETTINGS -----
+        window.activeTransition = setTimeout(() => {
+          applyBibleContent(data, ref, refArea, tamil, eng, box, verseArea);
 
-        // Background - Cached
-        const bgLayer = document.getElementById('bgLayer');
-        const bgType = data.presentationBgType || 'black';
-        
-        // Initialize cache if needed
-        if (!window.bgCache) {
-           window.bgCache = { type: null, val: null };
-           bgLayer.style.backgroundColor = "black";
-           bgLayer.style.backgroundImage = "none";
-        }
-
-        if (bgType === 'image' && data.presentationBgImage) {
-          // Compare with cache
-          if (window.bgCache.type !== 'image' || window.bgCache.val !== data.presentationBgImage) {
-             bgLayer.style.backgroundImage = `url(${data.presentationBgImage})`;
-             bgLayer.style.backgroundColor = 'transparent'; 
-             window.bgCache = { type: 'image', val: data.presentationBgImage };
-          }
-        } else if (bgType === 'white') {
-           if (window.bgCache.type !== 'white') {
-             bgLayer.style.backgroundImage = 'none';
-             bgLayer.style.backgroundColor = '#ffffff';
-             window.bgCache = { type: 'white', val: null };
-           }
-        } else if (bgType === 'custom' && data.presentationBgColor) {
-           if (window.bgCache.type !== 'custom' || window.bgCache.val !== data.presentationBgColor) {
-             bgLayer.style.backgroundImage = 'none';
-             bgLayer.style.backgroundColor = data.presentationBgColor;
-             window.bgCache = { type: 'custom', val: data.presentationBgColor };
-           }
-        } else {
-           // Default black
-           if (window.bgCache.type !== 'black') {
-             bgLayer.style.backgroundImage = 'none';
-             bgLayer.style.backgroundColor = '#000000';
-             window.bgCache = { type: 'black', val: null };
-           }
-        }
-
-        // Text color
-        const textColor = data.presentationTextColor || '#fff';
-        document.body.style.color = textColor;
-        ref.style.color = textColor;
-        ref.style.textDecorationColor = textColor === 'black' || textColor === '#000000' ? '#444' : '#b4b4b4ec';
-        tamil.style.color = textColor;
-        eng.style.color = textColor;
-
-        // Watermark
-        const watermark = document.getElementById('watermark');
-        if (watermark) {
-          watermark.innerText = data.customWatermark || '';
-          watermark.style.color = textColor;
-        }
-
-        // Transition
-        const contentLayers = [document.getElementById('referenceArea'), document.getElementById('verseArea')];
-        
-        // Interrupt any existing transition
-        if (window.activeTransition) {
-          clearTimeout(window.activeTransition);
-          window.activeTransition = null;
-        }
-
-        if (data.enableTransition) {
-          // Fade OUT content only
           contentLayers.forEach(l => {
-            l.style.transition = 'opacity 0.04s ease-out';
-            l.style.opacity = '0';
-          });
-
-          window.activeTransition = setTimeout(() => {
-            applyBibleContent(data, ref, refArea, tamil, eng, box, verseArea);
-            
-            contentLayers.forEach(l => {
-              l.style.transition = 'opacity 0.06s ease-in';
-              l.style.opacity = '1';
-            });
-            window.activeTransition = null;
-          }, 50);
-        } else {
-          contentLayers.forEach(l => {
-            l.style.transition = '';
+            l.style.transition = 'opacity 0.06s ease-in';
             l.style.opacity = '1';
           });
-          applyBibleContent(data, ref, refArea, tamil, eng, box, verseArea);
-        }
-      }
-
-      /* ---------- APPLY BIBLE CONTENT ---------- */
-      /* ---------- WORD OVERFLOW FIX ---------- */
-      /* Wraps each word in a span; shrinks only words that overflow their container */
-      function fixWordOverflow(el, containerWidth) {
-        const words = el.querySelectorAll('.word-shrink');
-        words.forEach(span => {
-          // Reset any previous shrink
-          span.style.fontSize = '';
-          if (span.scrollWidth > containerWidth) {
-            let fs = parseFloat(window.getComputedStyle(span).fontSize);
-            while (span.scrollWidth > containerWidth && fs > 5) {
-              fs -= 0.3; // Smaller decrements for smoother fit
-              span.style.fontSize = fs + 'px';
-            }
-          }
+          window.activeTransition = null;
+        }, 50);
+      } else {
+        contentLayers.forEach(l => {
+          l.style.transition = '';
+          l.style.opacity = '1';
         });
+        applyBibleContent(data, ref, refArea, tamil, eng, box, verseArea);
       }
+    }
 
-      /* Converts plain text to HTML with each word wrapped in .word-shrink span */
-      function wrapWords(text) {
-        if (!text) return '';
-        
-        // 1. Glue punctuations (.,:;!?) to the preceding word if they have a leading space in JSON
-        // This ensures they stay in the same .word-shrink span and don't wrap alone
-        const glued = text.replace(/\s+([.,:;!?])/g, '$1');
-
-        // Split on whitespace, preserve line breaks
-        return glued
-          .split(/(\n)/)
-          .map(segment => {
-            if (segment === '\n') return '<br>';
-            return segment
-              .split(/\s+/)
-              .filter(w => w.length > 0)
-              .map(w => `<span class="word-shrink">${w}</span>`)
-              .join(' ');
-          })
-          .join('');
-      }
-
-      function applyBibleContent(data, ref, refArea, tamil, eng, box, verseArea) {
-        const indexStr = data.index || "";
-        ref.innerText = indexStr;
-        // Use wrapWords to wrap each word for per-word overflow shrink
-        tamil.innerHTML = data.tamilText ? wrapWords(data.tamilText) : '';
-        eng.innerHTML = data.englishText ? wrapWords(data.englishText) : '';
-
-        // Respect visibility toggles
-        tamil.style.display = data.tamilEnabled === false ? 'none' : 'block';
-        eng.style.display = data.englishEnabled === false ? 'none' : 'block';
-
-        fitReference(ref);
-
-        const type = getVerseType(
-          data.tamilText ? data.tamilText.replace(/<[^>]*>/g, "") : "",
-          data.englishText ? data.englishText.replace(/<[^>]*>/g, "") : "",
-        );
-        const isSingle = isSingleVerse(indexStr);
-
-        if (!isSingle) {
-          tamil.style.lineHeight = "1.35";
-          eng.style.lineHeight = "1.35";
-        } else {
-          tamil.style.lineHeight = "1.28";
-          eng.style.lineHeight = "1.35";
-        }
-
-        if (type === "small" || type === "medium") {
-          box.style.marginTop = "0";
-
-          if (isSingle) {
-            verseArea.style.padding = "1vh 3vw 0";
-            box.style.gap = "0";
-            box.style.justifyContent = "center";
-            verseArea.style.justifyContent = "center";
-            box.style.overflow = "hidden";
-            box.style.maxHeight = "94%";
-            refArea.style.height = "6%";
-          } else {
-            verseArea.style.padding = "1vh 1vw 0";
-            box.style.marginTop = "0";
-            box.style.gap = "0";
-            box.style.overflow = "hidden";
-            box.style.justifyContent = "flex-start";
-            verseArea.style.justifyContent = "flex-start";
-            box.style.maxHeight = "94%";
-            refArea.style.height = "5%";
+    /* ---------- APPLY BIBLE CONTENT ---------- */
+    /* ---------- WORD OVERFLOW FIX ---------- */
+    /* Wraps each word in a span; shrinks only words that overflow their container */
+    function fixWordOverflow(el, containerWidth) {
+      const words = el.querySelectorAll('.word-shrink');
+      words.forEach(span => {
+        // Reset any previous shrink
+        span.style.fontSize = '';
+        if (span.scrollWidth > containerWidth) {
+          let fs = parseFloat(window.getComputedStyle(span).fontSize);
+          while (span.scrollWidth > containerWidth && fs > 5) {
+            fs -= 0.3; // Smaller decrements for smoother fit
+            span.style.fontSize = fs + 'px';
           }
+        }
+      });
+    }
+
+    /* Converts plain text to HTML with each word wrapped in .word-shrink span */
+    function wrapWords(text) {
+      if (!text) return '';
+
+      // 1. Glue punctuations (.,:;!?) to the preceding word if they have a leading space in JSON
+      // This ensures they stay in the same .word-shrink span and don't wrap alone
+      const glued = text.replace(/\s+([.,:;!?])/g, '$1');
+
+      // Split on whitespace, preserve line breaks
+      return glued
+        .split(/(\n)/)
+        .map(segment => {
+          if (segment === '\n') return '<br>';
+          return segment
+            .split(/\s+/)
+            .filter(w => w.length > 0)
+            .map(w => `<span class="word-shrink">${w}</span>`)
+            .join(' ');
+        })
+        .join('');
+    }
+
+    function applyBibleContent(data, ref, refArea, tamil, eng, box, verseArea) {
+      const indexStr = data.index || "";
+      ref.innerText = indexStr;
+      // Use wrapWords to wrap each word for per-word overflow shrink
+      tamil.innerHTML = data.tamilText ? wrapWords(data.tamilText) : '';
+      eng.innerHTML = data.englishText ? wrapWords(data.englishText) : '';
+
+      // Respect visibility toggles
+      tamil.style.display = data.tamilEnabled === false ? 'none' : 'block';
+      eng.style.display = data.englishEnabled === false ? 'none' : 'block';
+
+      fitReference(ref);
+
+      const type = getVerseType(
+        data.tamilText ? data.tamilText.replace(/<[^>]*>/g, "") : "",
+        data.englishText ? data.englishText.replace(/<[^>]*>/g, "") : "",
+      );
+      const isSingle = isSingleVerse(indexStr);
+
+      if (!isSingle) {
+        tamil.style.lineHeight = "1.35";
+        eng.style.lineHeight = "1.35";
+      } else {
+        tamil.style.lineHeight = "1.28";
+        eng.style.lineHeight = "1.35";
+      }
+
+      if (type === "small" || type === "medium") {
+        box.style.marginTop = "0";
+
+        if (isSingle) {
+          verseArea.style.padding = "1vh 3vw 0";
+          box.style.gap = "0";
+          box.style.justifyContent = "center";
+          verseArea.style.justifyContent = "center";
+          box.style.overflow = "hidden";
+          box.style.maxHeight = "94%";
+          refArea.style.height = "6%";
         } else {
           verseArea.style.padding = "1vh 1vw 0";
           box.style.marginTop = "0";
@@ -485,43 +487,54 @@
           box.style.maxHeight = "94%";
           refArea.style.height = "5%";
         }
-
-        const verseCount = getVerseCount(indexStr);
-        fitVerseBox(tamil, eng, box, type, isSingle, verseCount, data);
-
-        // Swap display order based on primary language
-        const primaryIsEnglish = data.primaryTranslation === "English";
-        tamil.style.order = primaryIsEnglish ? "2" : "1";
-        eng.style.order = primaryIsEnglish ? "1" : "2";
-
-        // After fitting, fix any individual words that still overflow
-        const boxWidth = box.clientWidth;
-        fixWordOverflow(tamil, boxWidth);
-        fixWordOverflow(eng, boxWidth);
+      } else {
+        verseArea.style.padding = "1vh 1vw 0";
+        box.style.marginTop = "0";
+        box.style.gap = "0";
+        box.style.overflow = "hidden";
+        box.style.justifyContent = "flex-start";
+        verseArea.style.justifyContent = "flex-start";
+        box.style.maxHeight = "94%";
+        refArea.style.height = "5%";
       }
 
-      /* ---------- ELECTRON API ---------- */
-      (function waitAPI() {
-        if (window.presentationAPI?.onVerse) {
-          window.presentationAPI.onVerse(updateVerse);
-        } else {
-          setTimeout(waitAPI, 50);
-        }
-      })();
+      const verseCount = getVerseCount(indexStr);
+      fitVerseBox(tamil, eng, box, type, isSingle, verseCount, data);
 
-      /* ---------- KEYS ---------- */
-      document.addEventListener("keydown", (e) => {
-        if (!window.presentationAPI) return;
-        if (e.key === "Escape") {
-            document.body.style.transition = "opacity 0.15s ease-out";
-            document.body.style.opacity = "0";
-            setTimeout(() => {
-                window.presentationAPI.close?.();
-            }, 150);
-        }
-        if (e.key === "ArrowRight") window.presentationAPI.nextVerse?.();
-        if (e.key === "ArrowLeft") window.presentationAPI.previousVerse?.();
-      });
-    </script>
-  </body>
+      // Swap display order based on primary language
+      const primaryIsEnglish = data.primaryTranslation === "English";
+      tamil.style.order = primaryIsEnglish ? "2" : "1";
+      eng.style.order = primaryIsEnglish ? "1" : "2";
+
+      // After fitting, fix any individual words that still overflow
+      const boxWidth = box.clientWidth;
+      fixWordOverflow(tamil, boxWidth);
+      fixWordOverflow(eng, boxWidth);
+    }
+
+    /* ---------- ELECTRON API ---------- */
+    (function waitAPI() {
+      if (window.presentationAPI?.onVerse) {
+        window.presentationAPI.onVerse(updateVerse);
+      } else {
+        setTimeout(waitAPI, 50);
+      }
+    })();
+
+    /* ---------- KEYS ---------- */
+    document.addEventListener("keydown", (e) => {
+      if (!window.presentationAPI) return;
+      if (e.key === "Escape") {
+        document.body.style.transition = "opacity 0.15s ease-out";
+        document.body.style.opacity = "0";
+        setTimeout(() => {
+          window.presentationAPI.close?.();
+        }, 150);
+      }
+      if (e.key === "ArrowRight") window.presentationAPI.nextVerse?.();
+      if (e.key === "ArrowLeft") window.presentationAPI.previousVerse?.();
+    });
+  </script>
+</body>
+
 </html>

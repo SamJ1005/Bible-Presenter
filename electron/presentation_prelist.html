@@ -1,145 +1,170 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>Playlist Presentation</title>
-    <style>
-      :root {
-        --bg: #000;
-        --text: #fff;
-      }
-      html,
-      body {
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        overflow: hidden;
-        background: var(--bg);
-        color: var(--text);
-        font-family: Arial, sans-serif;
-        animation: windowFadeIn 0.15s ease-in forwards;
-      }
-      @keyframes windowFadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      @font-face {
-        font-family: "TamilBibleFont";
-        src: url("fonts/NotoSansTamil-SemiBold.ttf") format("truetype");
-      }
-      #container {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-      }
-      #container.fade-out {
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Playlist Presentation</title>
+  <style>
+    :root {
+      --bg: #000;
+      --text: #fff;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+      animation: windowFadeIn 0.15s ease-in forwards;
+    }
+
+    @keyframes windowFadeIn {
+      from {
         opacity: 0;
-        transition: opacity 0.2s ease-out;
       }
-      #container.fade-in {
-        opacity: 1;
-        transition: opacity 0.3s ease-in;
-      }
-      #referenceArea {
-        min-height: 5%;
-        display: flex;
-        align-items: flex-start;
-        justify-content: center;
-        padding-top: 2.5vh;
-        padding-bottom: 0.8vh;
-      }
-      #reference {
-        font-weight: bold;
-        font-family: "TamilBibleFont", Arial, sans-serif;
-        text-decoration: underline;
-        text-decoration-color: #b4b4b4ec;
-        text-underline-offset: 2px;
-        text-decoration-skip-ink: none;
-        color: #fff;
-        text-align: center;
-      }
-      #verseArea {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0.5vh 1vw 0;
-      }
-      #verseBox {
-        width: 100%;
-        max-height: 95%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 1.2vh;
-        text-align: center;
-        overflow: hidden;
-      }
-      #tamilText {
-        font-family: "TamilBibleFont", Arial, sans-serif;
-        font-weight: 900;
-        line-height: 1.28;
-        word-break: keep-all;
-        overflow-wrap: anywhere;
-      }
-      #englishText {
-        font-weight: 600;
-        line-height: 1.35;
-        word-break: keep-all;
-        overflow-wrap: anywhere;
-      }
-      .word-shrink {
-        display: inline-block;
-        max-width: 100%;
-        overflow: visible;
-        white-space: nowrap; /* Prevent individual words from wrapping internally */
-      }
-      #watermark {
-        position: absolute;
-        bottom: 15px;
-        right: 25px;
-        font-size: 16px;
-        opacity: 0.35;
-        z-index: 100;
-      }
-      #bgLayer {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: -1;
-        background-color: #000;
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        transition: background-image 0.5s ease, background-color 0.5s ease;
-      }
-      /* GLOBAL FADE-IN ON OPEN */
-      body {
-        opacity: 0;
-        transition: opacity 0.3s ease-in;
-      }
-      body.ready {
+
+      to {
         opacity: 1;
       }
-    </style>
-  </head>
-  <body>
-    <div id="bgLayer"></div>
-    <div id="container">
-      <div id="referenceArea"><div id="reference"></div></div>
-      <div id="verseArea">
-        <div id="verseBox">
-          <div id="tamilText"></div>
-          <div id="englishText"></div>
-        </div>
+    }
+
+    @font-face {
+      font-family: "TamilBibleFont";
+      src: url("fonts/NotoSansTamil-SemiBold.ttf") format("truetype");
+    }
+
+    #container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #container.fade-out {
+      opacity: 0;
+      transition: opacity 0.2s ease-out;
+    }
+
+    #container.fade-in {
+      opacity: 1;
+      transition: opacity 0.3s ease-in;
+    }
+
+    #referenceArea {
+      min-height: 5%;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 2.5vh;
+      padding-bottom: 0.8vh;
+    }
+
+    #reference {
+      font-weight: bold;
+      font-family: "TamilBibleFont", Arial, sans-serif;
+      text-decoration: underline;
+      text-decoration-color: #b4b4b4ec;
+      text-underline-offset: 2px;
+      text-decoration-skip-ink: none;
+      color: #fff;
+      text-align: center;
+    }
+
+    #verseArea {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5vh 1vw 0;
+    }
+
+    #verseBox {
+      width: 100%;
+      max-height: 95%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.2vh;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    #tamilText {
+      font-family: "TamilBibleFont", Arial, sans-serif;
+      font-weight: 900;
+      line-height: 1.28;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+    }
+
+    #englishText {
+      font-weight: 600;
+      line-height: 1.35;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+    }
+
+    .word-shrink {
+      display: inline-block;
+      max-width: 100%;
+      overflow: visible;
+      white-space: nowrap;
+      /* Prevent individual words from wrapping internally */
+    }
+
+    #watermark {
+      position: absolute;
+      bottom: 15px;
+      right: 25px;
+      font-size: 1.5vw;
+      opacity: 0.50;
+      z-index: 100;
+    }
+
+    #bgLayer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      background-color: #000;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transition: background-image 0.5s ease, background-color 0.5s ease;
+    }
+
+    /* GLOBAL FADE-IN ON OPEN */
+    body {
+      opacity: 0;
+      transition: opacity 0.3s ease-in;
+    }
+
+    body.ready {
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="bgLayer"></div>
+  <div id="container">
+    <div id="referenceArea">
+      <div id="reference"></div>
+    </div>
+    <div id="verseArea">
+      <div id="verseBox">
+        <div id="tamilText"></div>
+        <div id="englishText"></div>
       </div>
-      <div
-        id="mediaArea"
-        style="
+    </div>
+    <div id="mediaArea" style="
           display: none;
           width: 100%;
           height: 100%;
@@ -150,337 +175,334 @@
           justify-content: center;
           background: black;
           z-index: 10;
-        "
-      >
-        <img
-          id="mediaImg"
-          style="width: 100%; height: 100%; object-fit: contain; display: none"
-        />
-        <video
-          id="mediaVideo"
-          style="width: 100%; height: 100%; object-fit: contain; display: none"
-          autoplay
-          controls
-          loop
-        ></video>
-      </div>
-      <div id="watermark"></div>
+        ">
+      <img id="mediaImg" style="width: 100%; height: 100%; object-fit: contain; display: none" />
+      <video id="mediaVideo" style="width: 100%; height: 100%; object-fit: contain; display: none" autoplay controls
+        loop></video>
     </div>
-    <script>
-      /* ---------- WORD OVERFLOW FIX ---------- */
-      function fixWordOverflow(el, containerWidth) {
-        const words = el.querySelectorAll('.word-shrink');
-        words.forEach(span => {
-          span.style.fontSize = '';
-          if (span.scrollWidth > containerWidth) {
-            let fs = parseFloat(window.getComputedStyle(span).fontSize);
-            while (span.scrollWidth > containerWidth && fs > 5) {
-              fs -= 0.3; // Smaller decrements for smoother fit
-              span.style.fontSize = fs + 'px';
-            }
+    <div id="watermark"></div>
+  </div>
+  <script>
+    /* ---------- WORD OVERFLOW FIX ---------- */
+    function fixWordOverflow(el, containerWidth) {
+      const words = el.querySelectorAll('.word-shrink');
+      words.forEach(span => {
+        span.style.fontSize = '';
+        if (span.scrollWidth > containerWidth) {
+          let fs = parseFloat(window.getComputedStyle(span).fontSize);
+          while (span.scrollWidth > containerWidth && fs > 5) {
+            fs -= 0.3; // Smaller decrements for smoother fit
+            span.style.fontSize = fs + 'px';
           }
-        });
-      }
+        }
+      });
+    }
 
-      function wrapWords(text) {
-        if (!text) return '';
-        // 1. Glue punctuations (.,:;!?) to the preceding word if they have a leading space in JSON
-        const glued = text.replace(/\s+([.,:;!?])/g, '$1');
+    function wrapWords(text) {
+      if (!text) return '';
+
+      // Split by HTML tags. Capturing group ensures tags are kept in the split array.
+      const tokens = text.split(/(<[^>]+>)/g);
+
+      return tokens.map(token => {
+        // If it's an HTML tag, return it untouched
+        if (token.startsWith('<') && token.endsWith('>')) {
+          return token;
+        }
+
+        // It's a text segment. Glue punctuation and wrap words.
+        const glued = token.replace(/\s+([.,:;!?])/g, '$1');
 
         return glued
           .split(/(\n)/)
           .map(segment => {
             if (segment === '\n') return '<br>';
+
+            // Split by whitespace characters, preserving them
             return segment
-              .split(/\s+/)
-              .filter(w => w.length > 0)
-              .map(w => `<span class="word-shrink">${w}</span>`)
-              .join(' ');
+              .split(/(\s+)/)
+              .map(part => {
+                if (!part) return '';
+                if (/^\s+$/.test(part)) return part; // Keep whitespace as-is
+                return `<span class="word-shrink">${part}</span>`;
+              })
+              .join('');
           })
           .join('');
+      }).join('');
+    }
+
+    function getVerseCount(indexStr) {
+      if (!indexStr) return 1;
+      const tamilText = document.getElementById("tamilText").innerHTML || "";
+      const lines = tamilText.split("<br>").filter((l) => l.trim()).length;
+      if (lines > 1) return lines;
+      const rangeMatch = indexStr.match(/:(\d+)-(\d+)/);
+      if (rangeMatch)
+        return parseInt(rangeMatch[2]) - parseInt(rangeMatch[1]) + 1;
+      return 1;
+    }
+
+    function getVerseType(tamil, english) {
+      const len = (tamil?.length || 0) * 1.2 + (english?.length || 0);
+      if (len < 80) return "small";
+      if (len > 250) return "large";
+      return "medium";
+    }
+
+    function updateDisplay(data) {
+      if (data && data.fadeOutOnly) {
+        document.body.style.transition = 'opacity 0.25s ease-out';
+        document.body.style.opacity = '0';
+        return;
+      }
+      document.body.classList.add('ready');
+      document.body.style.opacity = '';
+      document.body.style.transition = '';
+
+      if (!data) return;
+      const bgLayer = document.getElementById("bgLayer");
+      const container = document.getElementById("container");
+      const ref = document.getElementById("reference");
+      const tamil = document.getElementById("tamilText");
+      const eng = document.getElementById("englishText");
+      const watermark = document.getElementById("watermark");
+      const box = document.getElementById("verseBox");
+      const verseArea = document.getElementById("verseArea");
+      const refArea = document.getElementById("referenceArea");
+      const mediaArea = document.getElementById("mediaArea");
+      const mediaImg = document.getElementById("mediaImg");
+      const mediaVideo = document.getElementById("mediaVideo");
+
+      // Handle inconsistent payload structures (nested vs flat from Prelist.jsx)
+      const settings = data.settings || data;
+
+      // Styles
+      const textColor = settings.presentationTextColor || "#fff";
+      document.body.style.color = textColor;
+      ref.style.color = textColor;
+      tamil.style.color = textColor;
+      eng.style.color = textColor;
+      if (watermark) {
+        watermark.innerText = settings.customWatermark || "";
+        watermark.style.color = textColor;
       }
 
-      function getVerseCount(indexStr) {
-        if (!indexStr) return 1;
-        const tamilText = document.getElementById("tamilText").innerHTML || "";
-        const lines = tamilText.split("<br>").filter((l) => l.trim()).length;
-        if (lines > 1) return lines;
-        const rangeMatch = indexStr.match(/:(\d+)-(\d+)/);
-        if (rangeMatch)
-          return parseInt(rangeMatch[2]) - parseInt(rangeMatch[1]) + 1;
-        return 1;
+      // Background - Cached logic from presentation.html
+      if (!window.bgCache) {
+        window.bgCache = { type: null, val: null };
       }
 
-      function getVerseType(tamil, english) {
-        const len = (tamil?.length || 0) * 1.2 + (english?.length || 0);
-        if (len < 80) return "small";
-        if (len > 250) return "large";
-        return "medium";
+      const bgType = settings.presentationBgType || "black";
+      const bgImage = settings.presentationBgImage;
+
+      if (bgType === "image" && bgImage) {
+        if (window.bgCache.type !== "image" || window.bgCache.val !== bgImage) {
+          bgLayer.style.backgroundImage = `url("${bgImage.replace(/\\/g, '/')}")`;
+          bgLayer.style.backgroundColor = "transparent";
+          window.bgCache = { type: "image", val: bgImage };
+        }
+      } else if (bgType === "white") {
+        if (window.bgCache.type !== "white") {
+          bgLayer.style.backgroundImage = "none";
+          bgLayer.style.backgroundColor = "#ffffff";
+          window.bgCache = { type: "white", val: null };
+        }
+      } else if (bgType === "custom" && settings.presentationBgColor) {
+        if (window.bgCache.type !== "custom" || window.bgCache.val !== settings.presentationBgColor) {
+          bgLayer.style.backgroundImage = "none";
+          bgLayer.style.backgroundColor = settings.presentationBgColor;
+          window.bgCache = { type: "custom", val: settings.presentationBgColor };
+        }
+      } else {
+        if (window.bgCache.type !== "black") {
+          bgLayer.style.backgroundImage = "none";
+          bgLayer.style.backgroundColor = "#000";
+          window.bgCache = { type: "black", val: null };
+        }
       }
 
-      function updateDisplay(data) {
-        if (data && data.fadeOutOnly) {
-          document.body.style.transition = 'opacity 0.25s ease-out';
-          document.body.style.opacity = '0';
-          return;
-        }
-        document.body.classList.add('ready');
-        document.body.style.opacity = ''; 
-        document.body.style.transition = '';
-
-        if (!data) return;
-        const bgLayer = document.getElementById("bgLayer");
-        const container = document.getElementById("container");
-        const ref = document.getElementById("reference");
-        const tamil = document.getElementById("tamilText");
-        const eng = document.getElementById("englishText");
-        const watermark = document.getElementById("watermark");
-        const box = document.getElementById("verseBox");
-        const verseArea = document.getElementById("verseArea");
-        const refArea = document.getElementById("referenceArea");
-        const mediaArea = document.getElementById("mediaArea");
-        const mediaImg = document.getElementById("mediaImg");
-        const mediaVideo = document.getElementById("mediaVideo");
-
-        // Handle inconsistent payload structures (nested vs flat from Prelist.jsx)
-        const settings = data.settings || data;
-
-        // Styles
-        const textColor = settings.presentationTextColor || "#fff";
-        document.body.style.color = textColor;
-        ref.style.color = textColor;
-        tamil.style.color = textColor;
-        eng.style.color = textColor;
-        if (watermark) {
-          watermark.innerText = settings.customWatermark || "";
-          watermark.style.color = textColor;
-        }
-
-        // Background - Cached logic from presentation.html
-        if (!window.bgCache) {
-          window.bgCache = { type: null, val: null };
-        }
-
-        const bgType = settings.presentationBgType || "black";
-        const bgImage = settings.presentationBgImage;
-
-        if (bgType === "image" && bgImage) {
-          if (window.bgCache.type !== "image" || window.bgCache.val !== bgImage) {
-            bgLayer.style.backgroundImage = `url("${bgImage.replace(/\\/g, '/')}")`;
-            bgLayer.style.backgroundColor = "transparent";
-            window.bgCache = { type: "image", val: bgImage };
-          }
-        } else if (bgType === "white") {
-          if (window.bgCache.type !== "white") {
-            bgLayer.style.backgroundImage = "none";
-            bgLayer.style.backgroundColor = "#ffffff";
-            window.bgCache = { type: "white", val: null };
-          }
-        } else if (bgType === "custom" && settings.presentationBgColor) {
-          if (window.bgCache.type !== "custom" || window.bgCache.val !== settings.presentationBgColor) {
-            bgLayer.style.backgroundImage = "none";
-            bgLayer.style.backgroundColor = settings.presentationBgColor;
-            window.bgCache = { type: "custom", val: settings.presentationBgColor };
-          }
-        } else {
-          if (window.bgCache.type !== "black") {
-            bgLayer.style.backgroundImage = "none";
-            bgLayer.style.backgroundColor = "#000";
-            window.bgCache = { type: "black", val: null };
-          }
-        }
-
-        const applyContent = () => {
-          // Check if it's a file
-          if (data.type === "file") {
-            console.log(
-              "[PRESENTATION PRELIST] Handling file:",
-              data.url,
-              data.fileType,
-            );
-
-            // Hide Verse layers
-            refArea.style.display = "none";
-            verseArea.style.display = "none";
-
-            // Show Media Area
-            mediaArea.style.display = "flex";
-
-            const isImage = data.fileType && data.fileType.startsWith("image");
-            const isVideo = data.fileType && data.fileType.startsWith("video");
-
-            if (isImage) {
-              const displayUrl =
-                data.url &&
-                ![
-                  "[uploading]",
-                  "[upload-failed]",
-                  "[offline-or-failed-upload]",
-                  "[local-file]",
-                ].includes(data.url)
-                  ? data.url
-                  : data.localPreview;
-
-              if (displayUrl) {
-                mediaImg.src = displayUrl;
-                mediaImg.style.display = "block";
-              } else {
-                mediaImg.style.display = "none";
-              }
-              mediaVideo.style.display = "none";
-              mediaVideo.pause();
-            } else if (isVideo) {
-              const displayUrl =
-                data.url &&
-                ![
-                  "[uploading]",
-                  "[upload-failed]",
-                  "[offline-or-failed-upload]",
-                  "[local-file]",
-                ].includes(data.url)
-                  ? data.url
-                  : data.localPreview;
-
-              if (displayUrl) {
-                mediaVideo.src = displayUrl;
-                mediaVideo.style.display = "block";
-                mediaVideo
-                  .play()
-                  .catch((e) => console.error("Auto-play failed:", e));
-              } else {
-                mediaVideo.style.display = "none";
-              }
-              mediaImg.style.display = "none";
-            } else {
-              // Unknown type
-              mediaImg.style.display = "none";
-              mediaVideo.style.display = "none";
-            }
-            return;
-          }
-
-          // Otherwise, it's a bible/verse
-          mediaArea.style.display = "none";
-          mediaVideo.pause();
-          verseArea.style.display = "flex";
-
-          const indexStr = data.index || "";
-          ref.innerText = indexStr;
-          refArea.style.display = indexStr ? "flex" : "none";
-
-          // Wrap words for per-word overflow fix
-          tamil.innerHTML = data.tamilText ? wrapWords(data.tamilText) : '';
-          eng.innerHTML = data.englishText ? wrapWords(data.englishText) : '';
-
-          // Respect visibility toggles
-          const tamilEnabled = data.tamilEnabled !== false;
-          const englishEnabled = data.englishEnabled !== false;
-          tamil.style.display = tamilEnabled ? 'block' : 'none';
-          eng.style.display = englishEnabled ? 'block' : 'none';
-
-          // --- MATCH presentation.html LOGIC ---
-          const type = getVerseType(
-            data.tamilText ? data.tamilText.replace(/<[^>]*>/g, "") : "",
-            data.englishText ? data.englishText.replace(/<[^>]*>/g, "") : "",
+      const applyContent = () => {
+        // Check if it's a file
+        if (data.type === "file") {
+          console.log(
+            "[PRESENTATION PRELIST] Handling file:",
+            data.url,
+            data.fileType,
           );
 
-          const isSingle = !indexStr.includes(",") && !indexStr.includes("-");
-          const verseCount = getVerseCount(indexStr);
+          // Hide Verse layers
+          refArea.style.display = "none";
+          verseArea.style.display = "none";
 
-          const FONT_PRESETS = {
-            small: { tamil: 9.2, eng: 7.0, min: 0.0 },
-            medium: { tamil: 7.2, eng: 5.8, min: 3.5 },
-            large: { tamil: 4.7, eng: 3.9, min: 2.8 },
-            huge: { tamil: 9.8, eng: 7.8, min: 3.0 },
-            multi2: { tamil: 5.5, eng: 4.5, min: 3.0 },
-            multi: { tamil: 4.2, eng: 3.5, min: 2.0 },
-          };
+          // Show Media Area
+          mediaArea.style.display = "flex";
 
-          let effectiveType = type;
-          if (isSingle && (type === "small" || type === "medium")) {
-            effectiveType = "huge";
-          } else if (!isSingle) {
-            effectiveType = verseCount === 2 ? "multi2" : "multi";
-          }
-          const preset = FONT_PRESETS[effectiveType];
+          const isImage = data.fileType && data.fileType.startsWith("image");
+          const isVideo = data.fileType && data.fileType.startsWith("video");
 
-          // Line height adjustments with support for layoutOverrides
-          const layout = data.layoutOverrides || {};
-          let tLineHeight = layout.tamilLineHeight !== undefined ? layout.tamilLineHeight : (!isSingle ? "1.35" : "1.28");
-          let eLineHeight = layout.englishLineHeight !== undefined ? layout.englishLineHeight : "1.35";
-          tamil.style.lineHeight = tLineHeight;
-          eng.style.lineHeight = eLineHeight;
+          if (isImage) {
+            const displayUrl =
+              data.url &&
+                ![
+                  "[uploading]",
+                  "[upload-failed]",
+                  "[offline-or-failed-upload]",
+                  "[local-file]",
+                ].includes(data.url)
+                ? data.url
+                : data.localPreview;
 
-          let tamilVW = preset.tamil;
-          let engVW = preset.eng;
-
-          // Clamp minimums
-          if (tamilVW < 1.5) tamilVW = 1.5;
-          if (engVW < 1.2) engVW = 1.2;
-
-          tamil.style.fontSize = tamilVW + "vw";
-          eng.style.fontSize = engVW + "vw";
-
-          // Always auto-shrink to fit screen 
-          let safety = 0;
-          while (
-            (box.scrollHeight > box.clientHeight ||
-              tamil.scrollWidth > box.clientWidth ||
-              eng.scrollWidth > box.clientWidth) &&
-            tamilVW > preset.min &&
-            safety < 120
-          ) {
-            tamilVW -= 0.1;
-            engVW -= 0.08;
-
-            tamil.style.fontSize = tamilVW + "vw";
-            eng.style.fontSize = engVW + "vw";
-
-            safety++;
-          }
-
-          // Apply font size offsets AFTER auto-shrink
-          const offset = data.fontSizeOffset || 0;
-          const globalTamilOffset = (data.tamilFontOffset || 0) * 0.15;
-          const globalEngOffset = (data.englishFontOffset || 0) * 0.12;
-          const indexOffset = (data.indexFontOffset || 0) * 0.12;
-
-          tamilVW += offset * 0.15 + globalTamilOffset;
-          engVW += offset * 0.12 + globalEngOffset;
-
-          tamil.style.fontSize = tamilVW + "vw";
-          eng.style.fontSize = engVW + "vw";
-
-          // Reference font size — length-based
-          const refLen = indexStr.length;
-          let refVW =
-            (refLen > 38 ? 3.8 : refLen > 26 ? 6.5 : 5.5) + indexOffset;
-          if (refVW < 2.0) refVW = 2.0;
-
-          ref.style.fontSize = refVW + "vw";
-
-          // Exact Layout blocks from presentation.html
-          if (type === "small" || type === "medium") {
-            box.style.marginTop = "0";
-
-            if (isSingle) {
-              verseArea.style.padding = layout.versePaddingTop !== undefined ? `${layout.versePaddingTop}vh 3vw 0` : "0.5vh 3vw 0";
-              box.style.gap = "0";
-              box.style.justifyContent = "center";
-              verseArea.style.justifyContent = "center";
-              box.style.overflow = "hidden";
-              box.style.maxHeight = "94%";
-              refArea.style.height = "6%";
+            if (displayUrl) {
+              mediaImg.src = displayUrl;
+              mediaImg.style.display = "block";
             } else {
-              verseArea.style.padding = layout.versePaddingTop !== undefined ? `${layout.versePaddingTop}vh 1vw 0` : "1vh 1vw 0";
-              box.style.marginTop = "0";
-              box.style.gap = "0";
-              box.style.overflow = "hidden";
-              box.style.justifyContent = "flex-start";
-              verseArea.style.justifyContent = "flex-start";
-              box.style.maxHeight = "94%";
-              refArea.style.height = "5%";
+              mediaImg.style.display = "none";
             }
+            mediaVideo.style.display = "none";
+            mediaVideo.pause();
+          } else if (isVideo) {
+            const displayUrl =
+              data.url &&
+                ![
+                  "[uploading]",
+                  "[upload-failed]",
+                  "[offline-or-failed-upload]",
+                  "[local-file]",
+                ].includes(data.url)
+                ? data.url
+                : data.localPreview;
+
+            if (displayUrl) {
+              mediaVideo.src = displayUrl;
+              mediaVideo.style.display = "block";
+              mediaVideo
+                .play()
+                .catch((e) => console.error("Auto-play failed:", e));
+            } else {
+              mediaVideo.style.display = "none";
+            }
+            mediaImg.style.display = "none";
+          } else {
+            // Unknown type
+            mediaImg.style.display = "none";
+            mediaVideo.style.display = "none";
+          }
+          return;
+        }
+
+        // Otherwise, it's a bible/verse
+        mediaArea.style.display = "none";
+        mediaVideo.pause();
+        verseArea.style.display = "flex";
+
+        const indexStr = data.index || "";
+        ref.innerText = indexStr;
+        refArea.style.display = indexStr ? "flex" : "none";
+
+        // Wrap words for per-word overflow fix
+        tamil.innerHTML = data.tamilText ? wrapWords(data.tamilText) : '';
+        eng.innerHTML = data.englishText ? wrapWords(data.englishText) : '';
+
+        // Respect visibility toggles
+        const tamilEnabled = data.tamilEnabled !== false;
+        const englishEnabled = data.englishEnabled !== false;
+        tamil.style.display = tamilEnabled ? 'block' : 'none';
+        eng.style.display = englishEnabled ? 'block' : 'none';
+
+        // --- MATCH presentation.html LOGIC ---
+        const type = getVerseType(
+          data.tamilText ? data.tamilText.replace(/<[^>]*>/g, "") : "",
+          data.englishText ? data.englishText.replace(/<[^>]*>/g, "") : "",
+        );
+
+        const isSingle = !indexStr.includes(",") && !indexStr.includes("-");
+        const verseCount = getVerseCount(indexStr);
+
+        const FONT_PRESETS = {
+          small: { tamil: 9.2, eng: 7.0, min: 0.0 },
+          medium: { tamil: 7.2, eng: 5.8, min: 3.5 },
+          large: { tamil: 4.7, eng: 3.9, min: 2.8 },
+          huge: { tamil: 9.8, eng: 7.8, min: 3.0 },
+          multi2: { tamil: 5.5, eng: 4.5, min: 3.0 },
+          multi: { tamil: 4.2, eng: 3.5, min: 2.0 },
+        };
+
+        let effectiveType = type;
+        if (isSingle && (type === "small" || type === "medium")) {
+          effectiveType = "huge";
+        } else if (!isSingle) {
+          effectiveType = verseCount === 2 ? "multi2" : "multi";
+        }
+        const preset = FONT_PRESETS[effectiveType];
+
+        // Line height adjustments with support for layoutOverrides
+        const layout = data.layoutOverrides || {};
+        let tLineHeight = layout.tamilLineHeight !== undefined ? layout.tamilLineHeight : (!isSingle ? "1.35" : "1.28");
+        let eLineHeight = layout.englishLineHeight !== undefined ? layout.englishLineHeight : "1.35";
+        tamil.style.lineHeight = tLineHeight;
+        eng.style.lineHeight = eLineHeight;
+
+        let tamilVW = preset.tamil;
+        let engVW = preset.eng;
+
+        // Clamp minimums
+        if (tamilVW < 1.5) tamilVW = 1.5;
+        if (engVW < 1.2) engVW = 1.2;
+
+        tamil.style.fontSize = tamilVW + "vw";
+        eng.style.fontSize = engVW + "vw";
+
+        // Always auto-shrink to fit screen 
+        let safety = 0;
+        while (
+          (box.scrollHeight > box.clientHeight ||
+            tamil.scrollWidth > box.clientWidth ||
+            eng.scrollWidth > box.clientWidth) &&
+          tamilVW > preset.min &&
+          safety < 120
+        ) {
+          tamilVW -= 0.1;
+          engVW -= 0.08;
+
+          tamil.style.fontSize = tamilVW + "vw";
+          eng.style.fontSize = engVW + "vw";
+
+          safety++;
+        }
+
+        // Apply font size offsets AFTER auto-shrink
+        const offset = data.fontSizeOffset || 0;
+        const globalTamilOffset = (data.tamilFontOffset || 0) * 0.15;
+        const globalEngOffset = (data.englishFontOffset || 0) * 0.12;
+        const indexOffset = (data.indexFontOffset || 0) * 0.12;
+
+        tamilVW += offset * 0.15 + globalTamilOffset;
+        engVW += offset * 0.12 + globalEngOffset;
+
+        tamil.style.fontSize = tamilVW + "vw";
+        eng.style.fontSize = engVW + "vw";
+
+        // Reference font size — length-based
+        const refLen = indexStr.length;
+        let refVW =
+          (refLen > 38 ? 3.8 : refLen > 26 ? 6.5 : 5.5) + indexOffset;
+        if (refVW < 2.0) refVW = 2.0;
+
+        ref.style.fontSize = refVW + "vw";
+
+        // Exact Layout blocks from presentation.html
+        if (type === "small" || type === "medium") {
+          box.style.marginTop = "0";
+
+          if (isSingle) {
+            verseArea.style.padding = layout.versePaddingTop !== undefined ? `${layout.versePaddingTop}vh 3vw 0` : "0.5vh 3vw 0";
+            box.style.gap = "0";
+            box.style.justifyContent = "center";
+            verseArea.style.justifyContent = "center";
+            box.style.overflow = "hidden";
+            box.style.maxHeight = "94%";
+            refArea.style.height = "6%";
           } else {
             verseArea.style.padding = layout.versePaddingTop !== undefined ? `${layout.versePaddingTop}vh 1vw 0` : "1vh 1vw 0";
             box.style.marginTop = "0";
@@ -491,79 +513,93 @@
             box.style.maxHeight = "94%";
             refArea.style.height = "5%";
           }
-          
-          refArea.style.paddingTop = layout.indexPaddingTop !== undefined ? `${layout.indexPaddingTop}vh` : "2.5vh";
-
-          // Swap display order based on primary language
-          const primaryIsEnglish = data.primaryTranslation === "English";
-          tamil.style.order = primaryIsEnglish ? "2" : "1";
-          eng.style.order = primaryIsEnglish ? "1" : "2";
-
-          // After fitting, fix any individual words that still overflow
-          const boxWidth = box.clientWidth;
-          fixWordOverflow(tamil, boxWidth);
-          fixWordOverflow(eng, boxWidth);
-        };
-
-        // Transition
-        const contentLayers = [document.getElementById('referenceArea'), document.getElementById('verseArea')];
-        
-        if (window.activeTransition) {
-          clearTimeout(window.activeTransition);
-          window.activeTransition = null;
-        }
-
-        if (settings.enableTransition) {
-          contentLayers.forEach(l => {
-            l.style.transition = "opacity 0.04s ease-out";
-            l.style.opacity = "0";
-          });
-
-          window.activeTransition = setTimeout(() => {
-            applyContent();
-            contentLayers.forEach(l => {
-              l.style.transition = "opacity 0.06s ease-in";
-              l.style.opacity = "1";
-            });
-            window.activeTransition = null;
-          }, 50);
         } else {
-          contentLayers.forEach(l => {
-            l.style.transition = "";
-            l.style.opacity = "1";
-          });
-          applyContent();
+          verseArea.style.padding = layout.versePaddingTop !== undefined ? `${layout.versePaddingTop}vh 1vw 0` : "1vh 1vw 0";
+          box.style.marginTop = "0";
+          box.style.gap = "0";
+          box.style.overflow = "hidden";
+          box.style.justifyContent = "flex-start";
+          verseArea.style.justifyContent = "flex-start";
+          box.style.maxHeight = "94%";
+          refArea.style.height = "5%";
         }
+
+        refArea.style.paddingTop = layout.indexPaddingTop !== undefined ? `${layout.indexPaddingTop}vh` : "2.5vh";
+
+        // Swap display order based on primary language
+        const primaryIsEnglish = data.primaryTranslation === "English";
+        tamil.style.order = primaryIsEnglish ? "2" : "1";
+        eng.style.order = primaryIsEnglish ? "1" : "2";
+
+        // After fitting, fix any individual words that still overflow
+        const boxWidth = box.clientWidth;
+        fixWordOverflow(tamil, boxWidth);
+        fixWordOverflow(eng, boxWidth);
+      };
+
+      // Transition
+      const contentLayers = [document.getElementById('referenceArea'), document.getElementById('verseArea')];
+
+      if (window.activeTransition) {
+        clearTimeout(window.activeTransition);
+        window.activeTransition = null;
       }
 
-      (function waitAPI() {
-        if (window.presentationAPI?.onVerse)
-          window.presentationAPI.onVerse(updateDisplay);
-        else setTimeout(waitAPI, 50);
-      })();
+      if (settings.enableTransition) {
+        contentLayers.forEach(l => {
+          l.style.transition = "opacity 0.04s ease-out";
+          l.style.opacity = "0";
+        });
 
-      // Support for iframe preview integration via postMessage
-      window.addEventListener("message", (event) => {
-        if (event.data && event.data.type === "SHOW_VERSE") {
-          updateDisplay(event.data.payload);
-        }
-      });
+        window.activeTransition = setTimeout(() => {
+          applyContent();
+          contentLayers.forEach(l => {
+            l.style.transition = "opacity 0.06s ease-in";
+            l.style.opacity = "1";
+          });
+          window.activeTransition = null;
+        }, 50);
+      } else {
+        contentLayers.forEach(l => {
+          l.style.transition = "";
+          l.style.opacity = "1";
+        });
+        applyContent();
+      }
+    }
 
-      /* ---------- PHYSICAL KEYBOARD NAVIGATION ---------- */
-      document.addEventListener("keydown", (e) => {
-        if (!window.presentationAPI) return;
-        if (e.key === "Escape") {
-            document.body.style.transition = "opacity 0.15s ease-out";
-            document.body.style.opacity = "0";
-            setTimeout(() => {
-                window.presentationAPI.close?.();
-            }, 150);
-        }
-        if (e.key === "ArrowRight" || e.key === "ArrowDown")
-          window.presentationAPI.nextVerse?.();
-        if (e.key === "ArrowLeft" || e.key === "ArrowUp")
-          window.presentationAPI.previousVerse?.();
-      });
-    </script>
-  </body>
+    (function waitAPI() {
+      // When running inside an iframe (WYSIWYG preview), presentationAPI is never injected.
+      // postMessage listener below handles all data updates instead — so skip the IPC setup.
+      if (window.self !== window.top) return;
+      if (window.presentationAPI?.onVerse)
+        window.presentationAPI.onVerse(updateDisplay);
+      else setTimeout(waitAPI, 50);
+    })();
+
+    // Support for iframe preview integration via postMessage
+    window.addEventListener("message", (event) => {
+      if (event.data && event.data.type === "SHOW_VERSE") {
+        updateDisplay(event.data.payload);
+      }
+    });
+
+    /* ---------- PHYSICAL KEYBOARD NAVIGATION ---------- */
+    document.addEventListener("keydown", (e) => {
+      if (!window.presentationAPI) return;
+      if (e.key === "Escape") {
+        document.body.style.transition = "opacity 0.15s ease-out";
+        document.body.style.opacity = "0";
+        setTimeout(() => {
+          window.presentationAPI.close?.();
+        }, 150);
+      }
+      if (e.key === "ArrowRight" || e.key === "ArrowDown")
+        window.presentationAPI.nextVerse?.();
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp")
+        window.presentationAPI.previousVerse?.();
+    });
+  </script>
+</body>
+
 </html>

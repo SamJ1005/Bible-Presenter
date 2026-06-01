@@ -33,7 +33,7 @@ const SettingsCard = ({ title, children, style = {} }) => (
 // Font Offset Control with A+/a- buttons (matches playlist style)
 const FontOffsetControl = ({ label, value, onChange, theme }) => {
   const offset = value || 0;
-  
+
   const btnBase = {
     cursor: 'pointer',
     background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
@@ -351,7 +351,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
           )}
         </div>
       </div>
-      
+
       <Login isOpen={showLogin} onClose={() => setShowLogin(false)} />
 
       {/* Cloud Sync Card (full width, premium design) */}
@@ -866,7 +866,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
               <input
                 type="text"
                 value={settings.customWatermark || ""}
-                placeholder="e.g. Church Name"
+                placeholder="your watermark"
                 onChange={(e) => setSettings((prev) => ({ ...prev, customWatermark: e.target.value }))}
                 style={{
                   width: "100%",
@@ -907,7 +907,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                 <option key={d.id} value={d.id}>Primary — {d.width}×{d.height}</option>
               ))}
               {displays.filter(d => !d.isPrimary).map((d, i) => (
-                <option key={d.id} value={d.id}>Secondary{displays.filter(x => !x.isPrimary).length > 1 ? ` (${i+1})` : ''} — {d.width}×{d.height}</option>
+                <option key={d.id} value={d.id}>Secondary{displays.filter(x => !x.isPrimary).length > 1 ? ` (${i + 1})` : ''} — {d.width}×{d.height}</option>
               ))}
             </select>
             <div style={{ fontSize: '11px', opacity: 0.55, marginTop: '6px' }}>

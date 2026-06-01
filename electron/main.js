@@ -327,6 +327,20 @@ ipcMain.handle("download-media-file", async (_, fileUrl, uniqueId) => {
   }
 });
 
+// Expose the electron directory path so the renderer can build file:// URLs for iframe src
+ipcMain.handle("get-electron-path", () => __dirname.replace(/\\/g, "/"));
+
+// Read presentation_prelist.html as a string for blob URL generation (WYSIWYG preview)
+ipcMain.handle("get-prelist-html", () => {
+  try {
+    const htmlPath = path.join(__dirname, "presentation_prelist.html");
+    return fs.readFileSync(htmlPath, "utf-8");
+  } catch (err) {
+    console.error("[MAIN] Failed to read presentation_prelist.html:", err);
+    return null;
+  }
+});
+
 ipcMain.handle("get-displays", () => {
   return screen.getAllDisplays().map(d => ({
     id: d.id.toString(),

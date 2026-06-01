@@ -6,6 +6,33 @@ import { getTamilBookName } from "../../utils/bibleBooks";
 const VIRTUAL_W = 1920;
 const VIRTUAL_H = 1080;
 
+// ── Module-level blob URL cache ──────────────────────────────────────────────
+// All card instances share the same loaded HTML (one fetch per app session).
+let _prelistIframeSrc = null;
+async function getPrelistIframeSrc() {
+  if (_prelistIframeSrc) return _prelistIframeSrc;
+  try {
+    if (!window.electron?.getElectronPath || !window.electron?.getPrelistHtml) return null;
+    const [electronPath, htmlContent] = await Promise.all([
+      window.electron.getElectronPath(),
+      window.electron.getPrelistHtml(),
+    ]);
+    if (!htmlContent) return null;
+    // Patch font url() references to absolute file:// paths so they load inside the blob
+    const pathNormalized = electronPath.replace(/\\/g, "/");
+    const patchedHtml = htmlContent.replace(
+      /url\("fonts\//g,
+      `url("file:///${pathNormalized}/fonts/`
+    );
+    const blob = new Blob([patchedHtml], { type: "text/html" });
+    _prelistIframeSrc = URL.createObjectURL(blob);
+    return _prelistIframeSrc;
+  } catch (err) {
+    console.error("[PrelistVerseCard] Failed to init iframe src:", err);
+    return null;
+  }
+}
+
 const PrelistVerseCard = ({
   item,
   theme,
@@ -42,15 +69,15 @@ const PrelistVerseCard = ({
   const engTextRef = useRef(null);
   const indexTextRef = useRef(null);
 
+  // Iframe state for WYSIWYG preview
+  const iframeRef = useRef(null);
+  const [iframeSrc, setIframeSrc] = useState(null);
+  const [iframeReady, setIframeReady] = useState(false);
+
   useEffect(() => {
     setLocalFontOffset(item.fontSizeOffset || 0);
   }, [item.fontSizeOffset]);
 
-  useEffect(() => {
-    if (isEditing && onLivePreviewUpdate) {
-      onLivePreviewUpdate(item, localFontOffset);
-    }
-  }, [localFontOffset, isEditing, item, onLivePreviewUpdate]);
 
   // ── Use ResizeObserver to track ACTUAL container width (not window width).
   //    window.resize does NOT fire when sidebar toggles or panel layout shifts.
@@ -66,6 +93,55 @@ const PrelistVerseCard = ({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // ── Initialize iframe src on mount (uses module-level cache) ─────────────────
+  useEffect(() => {
+    getPrelistIframeSrc().then((src) => {
+      if (src) setIframeSrc(src);
+    });
+  }, []);
+
+  // ── Send current verse data to iframe via postMessage ─────────────────────────
+  // Fires when iframe becomes ready OR whenever verse data / settings change.
+  useEffect(() => {
+    if (!iframeReady || !iframeRef.current?.contentWindow) return;
+    const payload = {
+      type: "bible",
+      index: `${getTamilBookName(item.book)} ${item.chapter}:${item.verse}   ${item.book}`,
+      tamilText: displayTamil || "",
+      englishText: displayEnglish || "",
+      fontSizeOffset: localFontOffset,
+      tamilFontOffset: settings?.tamilFontOffset ?? 0,
+      englishFontOffset: settings?.englishFontOffset ?? 0,
+      indexFontOffset: settings?.indexFontOffset ?? 0,
+      tamilEnabled: settings?.isTamilEnabled !== false,
+      englishEnabled: settings?.isEnglishEnabled !== false,
+      primaryTranslation: settings?.primaryTranslation ?? "Tamil",
+      presentationBgType: settings?.presentationBgType ?? "color",
+      presentationBgImage: settings?.presentationBgImage ?? "",
+      presentationBgColor: settings?.presentationBgColor ?? "black",
+      presentationTextColor: settings?.presentationTextColor ?? "white",
+      enableTransition: false, // No animation in preview
+      customWatermark: settings?.customWatermark ?? "",
+      layoutOverrides: pendingLayoutOverrides || item.layoutOverrides || {},
+    };
+    try {
+      iframeRef.current.contentWindow.postMessage({ type: "SHOW_VERSE", payload }, "*");
+    } catch (err) {
+      console.error("[PrelistVerseCard] postMessage failed:", err);
+    }
+  }, [
+    iframeReady,
+    displayTamil,
+    displayEnglish,
+    item.book,
+    item.chapter,
+    item.verse,
+    localFontOffset,
+    settings,
+    item.layoutOverrides,
+    pendingLayoutOverrides,
+  ]);
 
   // ─── Reference string
   const tamilBook = getTamilBookName(item.book);
@@ -87,11 +163,11 @@ const PrelistVerseCard = ({
   // ─── FONT_PRESETS — MUST match presentation_prelist.html exactly
   const FONT_PRESETS = {
     small: { tamil: 9.2, eng: 7.0, min: 0.0 },
-    medium: { tamil: 6.2, eng: 5.8, min: 3.5 },
-    large: { tamil: 4.5, eng: 3.8, min: 1.8 },
-    huge: { tamil: 6.0, eng: 6.8, min: 3.0 },
-    multi2: { tamil: 5.5, eng: 0.0, min: 3.0 },
-    multi: { tamil: 4.2, eng: 0.0, min: 2.0 },
+    medium: { tamil: 7.2, eng: 5.8, min: 3.5 },
+    large: { tamil: 4.7, eng: 3.9, min: 2.8 },
+    huge: { tamil: 9.8, eng: 7.8, min: 3.0 },
+    multi2: { tamil: 5.5, eng: 4.5, min: 3.0 },
+    multi: { tamil: 4.2, eng: 3.5, min: 2.0 },
   };
 
   let effectiveType = type;
@@ -122,29 +198,34 @@ const PrelistVerseCard = ({
       engTextRef.current.style.fontSize = `${engVW * vwUnit}px`;
     }
 
-    // Always auto-shrink to fit screen 
-    let safety = 0;
-    while (
-      (boxRef.current.scrollHeight > boxRef.current.clientHeight ||
-        tamilTextRef.current.scrollWidth > boxRef.current.clientWidth ||
-        (engTextRef.current && engTextRef.current.scrollWidth > boxRef.current.clientWidth)) &&
-      tamilVW > preset.min &&
-      safety < 120
-    ) {
-      tamilVW -= 0.1;
-      engVW -= 0.08;
+    const boxWidth = boxRef.current.clientWidth;
+    const boxHeight = boxRef.current.clientHeight;
 
-      tamilTextRef.current.style.fontSize = `${tamilVW * vwUnit}px`;
-      if (engTextRef.current) {
-        engTextRef.current.style.fontSize = `${engVW * vwUnit}px`;
+    const globalTamilOffset = (settings?.tamilFontOffset || 0) * 0.15;
+    const globalEngOffset = (settings?.englishFontOffset || 0) * 0.12;
+
+    if (boxWidth > 0 && boxHeight > 0) {
+      // Always auto-shrink to fit screen 
+      let safety = 0;
+      while (
+        (boxRef.current.scrollHeight > boxRef.current.clientHeight ||
+          tamilTextRef.current.scrollWidth > boxRef.current.clientWidth ||
+          (engTextRef.current && engTextRef.current.scrollWidth > boxRef.current.clientWidth)) &&
+        tamilVW > preset.min &&
+        safety < 120
+      ) {
+        tamilVW -= 0.1;
+        engVW -= 0.08;
+
+        tamilTextRef.current.style.fontSize = `${tamilVW * vwUnit}px`;
+        if (engTextRef.current) {
+          engTextRef.current.style.fontSize = `${engVW * vwUnit}px`;
+        }
+        safety++;
       }
-      safety++;
     }
 
     // Apply manual sizing offsets AFTER auto-shrink has found the container bounds
-    const globalTamilOffset = (settings?.tamilFontOffset || 0) * 0.15;
-    const globalEngOffset = (settings?.englishFontOffset || 0) * 0.12;
-    
     tamilVW += offset * 0.15 + globalTamilOffset;
     engVW += offset * 0.12 + globalEngOffset;
 
@@ -152,7 +233,7 @@ const PrelistVerseCard = ({
     if (engTextRef.current) {
       engTextRef.current.style.fontSize = `${Math.max(0, engVW) * vwUnit}px`;
     }
-  }, [displayTamil, displayEnglish, localFontOffset, preset, settings]);
+  }, [displayTamil, displayEnglish, localFontOffset, preset, settings, isEditing]);
 
   // Reference sizing logic exactly mirroring presentation_prelist.html
   useLayoutEffect(() => {
@@ -166,7 +247,7 @@ const PrelistVerseCard = ({
     const vwUnit = VIRTUAL_W / 100;
     indexTextRef.current.style.fontSize = `${vw * vwUnit}px`;
     // Auto-shrink removed to guarantee 1:1 view
-  }, [indexStr, settings?.indexFontOffset]);
+  }, [indexStr, settings?.indexFontOffset, isEditing]);
 
   const handleFontSizeClick = (delta, e) => {
     if (e) {
@@ -213,8 +294,17 @@ const PrelistVerseCard = ({
   const vhUnit = VIRTUAL_H / 100;
   const vwUnit = VIRTUAL_W / 100;
 
-  // ─── Layout
   const isSmallMedium = type === "small" || type === "medium";
+  const refAreaHeight = (isSmallMedium && isSingle ? 6 : 5) * vhUnit;
+
+  const primaryIsEnglish = settings?.primaryTranslation === "English";
+  const tamilOrder = primaryIsEnglish ? 2 : 1;
+  const englishOrder = primaryIsEnglish ? 1 : 2;
+
+  const tamilEnabled = settings?.isTamilEnabled !== false;
+  const englishEnabled = settings?.isEnglishEnabled !== false;
+
+  // ─── Layout
   // Verse area padding default
   let verseAreaPaddingTop =
     isSmallMedium && isSingle ? 0.5 * vhUnit : 1 * vhUnit;
@@ -400,153 +490,219 @@ const PrelistVerseCard = ({
         }}
         ref={containerRef}
       >
-        {/* The Scaled 1920x1080 "Virtual" Screen */}
+        {/* Transparent click capture overlay (normal mode only) */}
+        {!isEditing && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0, left: 0,
+              width: "100%", height: "100%",
+              zIndex: 2,
+              cursor: editingRefId ? "default" : "pointer",
+            }}
+            onClick={!editingRefId ? handlePresentClick : undefined}
+          />
+        )}
+
+        {/* 1920×1080 Scale Container */}
         <div
-          onClick={!isEditing ? handlePresentClick : undefined}
           style={{
             position: "absolute",
-            top: 0,
-            left: 0,
+            top: 0, left: 0,
             width: `${VIRTUAL_W}px`,
             height: `${VIRTUAL_H}px`,
             transform: `scale(${scale})`,
             transformOrigin: "top left",
-            background: slideBg,
-            display: "flex",
-            flexDirection: "column",
           }}
         >
-          {/* ── Reference Area ── */}
-          <div
-            style={{
-              minHeight: "5cqb",
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "center",
-              paddingTop: `${REF_PAD_TOP}px`,
-              paddingBottom: `${REF_PAD_BOTTOM}px`,
-              boxSizing: "border-box",
-            }}
-          >
-            <div
-              ref={indexTextRef}
-              style={{
-                fontWeight: "bold",
-                fontFamily: '"TamilBibleFont", Arial, sans-serif',
-                color: textColor,
-                textDecoration: "underline",
-                textDecorationColor: "#b4b4b4ec",
-                textUnderlineOffset: "5px",
-                textDecorationSkipInk: "none",
-                textAlign: "center",
-                whiteSpace: "nowrap",
-                maxWidth: "96%",
-                overflow: "hidden",
-                lineHeight: 1.1,
-              }}
-            >
-              {indexStr}
-            </div>
-          </div>
-
-          {/* ── Verse Area (Flex Parent) ── */}
-          <div
-            ref={verseAreaRef}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "flex-start",
-              padding: verseAreaPadding,
-              boxSizing: "border-box",
-            }}
-          >
-            {/* ── Verse Box (Constrained Container) ── */}
-            <div
-              ref={boxRef}
+          {/* ── WYSIWYG Iframe — always mounted so data stays fresh ── */}
+          {iframeSrc ? (
+            <iframe
+              ref={iframeRef}
+              src={iframeSrc}
+              title="verse-preview"
               style={{
                 width: "100%",
-                maxHeight: "94%",
-                overflow: "hidden",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: verseBoxJustify,
-                gap: "0",
-                textAlign: "center",
+                height: "100%",
+                border: "none",
+                display: "block",
+                pointerEvents: "none",
+                // Hidden behind edit overlay, but still running & receiving postMessages
+                visibility: isEditing ? "hidden" : "visible",
+              }}
+              onLoad={() => {
+                // Brief delay ensures the iframe's inline scripts are fully initialised
+                setTimeout(() => setIframeReady(true), 50);
+              }}
+            />
+          ) : !isEditing && (
+            /* Loading placeholder while blob URL is being created */
+            <div
+              style={{
+                width: "100%", height: "100%",
+                background: "#111",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "#555", fontSize: "24px",
               }}
             >
-              {displayTamil && (
-                <div
-                  ref={(node) => {
-                    tamilTextRef.current = node;
-                    if (isEditing) tamilContentRef.current = node;
-                  }}
-                  contentEditable={isEditing}
-                  suppressContentEditableWarning={true}
-                  dangerouslySetInnerHTML={{ __html: displayTamil }}
-                  style={{
-                    fontFamily: '"TamilBibleFont", Arial, sans-serif',
-                    fontWeight: 900,
-                    lineHeight: tamilLineHeight,
-                    color: textColor,
-                    whiteSpace: "pre-wrap",
-                    width: "100%",
-                    outline: "none",
-                    border: isEditing ? "2px dashed #007bff" : "none",
-                    padding: isEditing ? "10px" : "0",
-                    textDecorationSkipInk: "none",
-                    WebkitTextDecorationSkipInk: "none",
-                    wordBreak: "break-word",
-                  }}
-                />
-              )}
-              {preset.eng > 0 && (
-                <div
-                  ref={(node) => {
-                    engTextRef.current = node;
-                    if (isEditing) englishContentRef.current = node;
-                  }}
-                  contentEditable={isEditing}
-                  suppressContentEditableWarning={true}
-                  dangerouslySetInnerHTML={{ __html: displayEnglish }}
-                  style={{
-                    fontWeight: 600,
-                    lineHeight: englishLineHeight,
-                    color: textColor,
-                    whiteSpace: "pre-wrap",
-                    width: "100%",
-                    opacity: 0.95,
-                    outline: "none",
-                    border: isEditing ? "2px dashed #007bff" : "none",
-                    padding: isEditing ? "10px" : "0",
-                    textDecorationSkipInk: "none",
-                    WebkitTextDecorationSkipInk: "none",
-                  }}
-                />
-              )}
+              Loading preview…
             </div>
-          </div>
+          )}
 
-          {/* Watermark */}
-          {settings?.customWatermark && (
+          {/* ── Edit Mode Overlay — React virtual slide for contentEditable ── */}
+          {isEditing && (
             <div
               style={{
                 position: "absolute",
-                bottom: "25px",
-                right: "40px",
-                fontSize: "18px",
-                color: textColor,
-                opacity: 0.35,
+                top: 0, left: 0,
+                width: `${VIRTUAL_W}px`,
+                height: `${VIRTUAL_H}px`,
+                background: slideBg,
+                display: "flex",
+                flexDirection: "column",
               }}
             >
-              {settings.customWatermark}
+              {/* ── Reference Area ── */}
+              <div
+                style={{
+                  height: `${refAreaHeight}px`,
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "center",
+                  paddingTop: `${REF_PAD_TOP}px`,
+                  paddingBottom: `${REF_PAD_BOTTOM}px`,
+                  boxSizing: "border-box",
+                }}
+              >
+                <div
+                  ref={indexTextRef}
+                  style={{
+                    fontWeight: "bold",
+                    fontFamily: '"TamilBibleFont", Arial, sans-serif',
+                    color: textColor,
+                    textDecoration: "underline",
+                    textDecorationColor: "#b4b4b4ec",
+                    textUnderlineOffset: "5px",
+                    textDecorationSkipInk: "none",
+                    textAlign: "center",
+                    whiteSpace: "nowrap",
+                    maxWidth: "96%",
+                    overflow: "hidden",
+                    lineHeight: 1.1,
+                  }}
+                >
+                  {indexStr}
+                </div>
+              </div>
+
+              {/* ── Verse Area (Flex Parent) ── */}
+              <div
+                ref={verseAreaRef}
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "flex-start",
+                  padding: verseAreaPadding,
+                  boxSizing: "border-box",
+                }}
+              >
+                {/* ── Verse Box (Constrained Container) ── */}
+                <div
+                  ref={boxRef}
+                  style={{
+                    width: "100%",
+                    maxHeight: "94%",
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: verseBoxJustify,
+                    gap: "0",
+                    textAlign: "center",
+                  }}
+                >
+                  {displayTamil && (
+                    <div
+                      ref={(node) => {
+                        tamilTextRef.current = node;
+                        if (isEditing) tamilContentRef.current = node;
+                      }}
+                      contentEditable={isEditing}
+                      suppressContentEditableWarning={true}
+                      dangerouslySetInnerHTML={{ __html: displayTamil }}
+                      style={{
+                        display: tamilEnabled ? "block" : "none",
+                        order: tamilOrder,
+                        fontFamily: '"TamilBibleFont", Arial, sans-serif',
+                        fontWeight: 900,
+                        lineHeight: tamilLineHeight,
+                        color: textColor,
+                        whiteSpace: "pre-wrap",
+                        width: "100%",
+                        outline: "none",
+                        border: isEditing ? "2px dashed #007bff" : "none",
+                        padding: isEditing ? "10px" : "0",
+                        textDecorationSkipInk: "none",
+                        WebkitTextDecorationSkipInk: "none",
+                        wordBreak: "keep-all",
+                        overflowWrap: "anywhere",
+                      }}
+                    />
+                  )}
+                  {preset.eng > 0 && (
+                    <div
+                      ref={(node) => {
+                        engTextRef.current = node;
+                        if (isEditing) englishContentRef.current = node;
+                      }}
+                      contentEditable={isEditing}
+                      suppressContentEditableWarning={true}
+                      dangerouslySetInnerHTML={{ __html: displayEnglish }}
+                      style={{
+                        display: englishEnabled ? "block" : "none",
+                        order: englishOrder,
+                        fontWeight: 600,
+                        lineHeight: englishLineHeight,
+                        color: textColor,
+                        whiteSpace: "pre-wrap",
+                        width: "100%",
+                        opacity: 0.95,
+                        outline: "none",
+                        border: isEditing ? "2px dashed #007bff" : "none",
+                        padding: isEditing ? "10px" : "0",
+                        textDecorationSkipInk: "none",
+                        WebkitTextDecorationSkipInk: "none",
+                        wordBreak: "keep-all",
+                        overflowWrap: "anywhere",
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Watermark (edit mode) */}
+              {settings?.customWatermark && (
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: "25px",
+                    right: "40px",
+                    fontSize: "18px",
+                    color: textColor,
+                    opacity: 0.35,
+                  }}
+                >
+                  {settings.customWatermark}
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
       {/* ── Slide Properties Panel (Edit Mode Only) ── */}
+
       {isEditing && (
         <div style={{
           padding: '12px 15px',
