@@ -45,7 +45,10 @@ const Prelist = React.forwardRef((
     syncStatus,
     loadCloudPlaylist,
     fetchCloudPlaylists,
-    syncQueueNow
+    syncQueueNow,
+    // Issue Reporting
+    verseIssues = {},
+    onReportVerse,
   },
   ref
 ) => {
@@ -786,6 +789,9 @@ const Prelist = React.forwardRef((
         onLivePreviewUpdate={handleLivePreviewUpdate}
         activeQueueName={activeQueueInfo?.name}
         settings={settings}
+        verseIssues={verseIssues}
+        onReportVerse={onReportVerse}
+        user={user}
       />
     </div>
   );

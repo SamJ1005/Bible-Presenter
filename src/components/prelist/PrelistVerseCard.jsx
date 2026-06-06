@@ -33,6 +33,12 @@ async function getPrelistIframeSrc() {
   }
 }
 
+const ISSUE_DOT_COLORS = {
+  reported:  '#ffc107',
+  reviewing: '#42a5f5',
+  resolved:  '#66bb6a',
+};
+
 const PrelistVerseCard = ({
   item,
   theme,
@@ -55,7 +61,11 @@ const PrelistVerseCard = ({
   settings,
   pendingLayoutOverrides,
   setPendingLayoutOverrides,
-  applyCustomFontSize
+  applyCustomFontSize,
+  // Issue reporting
+  verseIssues = {},
+  onReportVerse,
+  user,
 }) => {
   const [localFontOffset, setLocalFontOffset] = useState(
     item.fontSizeOffset || 0,
@@ -394,17 +404,90 @@ const PrelistVerseCard = ({
           borderRadius: "10px 10px 0 0",
         }}
       >
-        <div
-          style={{
-            fontSize: "13px",
-            fontWeight: 700,
-            color: theme === "dark" ? "#00ff99" : "#003399",
-            opacity: 0.9,
-          }}
-        >
-          {item.book} {item.chapter}:{item.verse}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div
+            style={{
+              fontSize: "13px",
+              fontWeight: 700,
+              color: theme === "dark" ? "#00ff99" : "#003399",
+              opacity: 0.9,
+            }}
+          >
+            {item.book} {item.chapter}:{item.verse}
+          </div>
+          {/* Issue indicator dot */}
+          {(() => {
+            const verseKey = String(item.verse);
+            const issueData = verseIssues[verseKey];
+            if (issueData && issueData.count > 0) {
+              const dotColor = ISSUE_DOT_COLORS[issueData.status] || '#ffc107';
+              return (
+                <span
+                  title={`${issueData.count} issue(s) — ${issueData.status}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '18px',
+                    height: '18px',
+                    borderRadius: '50%',
+                    background: dotColor,
+                    color: '#000',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                  }}
+                >
+                  {issueData.count}
+                </span>
+              );
+            }
+            return null;
+          })()}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+          {/* Report buttons */}
+          {(onReportVerse && !isEditing && user) && (
+            <>
+              <button
+                type="button"
+                title="Report issue with Tamil verse"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReportVerse(item.book, item.chapter, item.verse, "Tamil (BSI)");
+                }}
+                style={{
+                  cursor: 'pointer', background: 'transparent',
+                  border: `1px solid ${theme === 'dark' ? '#444' : '#bbb'}`,
+                  borderRadius: '4px', padding: '3px 4px',
+                  color: '#ffc107', fontSize: '11px', fontWeight: 'bold',
+                  lineHeight: 1, transition: 'opacity 0.15s', opacity: 0.6,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.6'; }}
+              >
+                ⚠ TA
+              </button>
+              <button
+                type="button"
+                title="Report issue with English verse"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReportVerse(item.book, item.chapter, item.verse, "NKJV");
+                }}
+                style={{
+                  cursor: 'pointer', background: 'transparent',
+                  border: `1px solid ${theme === 'dark' ? '#444' : '#bbb'}`,
+                  borderRadius: '4px', padding: '3px 4px',
+                  color: '#ffc107', fontSize: '11px', fontWeight: 'bold',
+                  lineHeight: 1, transition: 'opacity 0.15s', opacity: 0.6,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.6'; }}
+              >
+                ⚠ EN
+              </button>
+            </>
+          )}
           <button
             type="button"
             onClick={(e) => handleFontSizeClick(-1, e)}

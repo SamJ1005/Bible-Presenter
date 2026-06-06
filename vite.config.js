@@ -12,7 +12,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: "./index.html",
-        browser: "./browser.html",
       },
     },
   },

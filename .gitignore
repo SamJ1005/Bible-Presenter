@@ -22,12 +22,15 @@ public/bible/
 cors.json
 release/
 Theme codes/
+package-lock.json
+package.json
 *.exe
 *.dmg
 *.AppImage
 *.png
 *.ico
 *.xml
+
 
 # Editor directories and files
 .vscode/*

@@ -1,0 +1,264 @@
+/* ── Report Verse Dialog ─────────────────────────────────────── */
+
+.rvd-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: rvd-fadeIn 0.2s ease;
+}
+
+@keyframes rvd-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.rvd-dialog {
+  width: 90%;
+  max-width: 460px;
+  border-radius: 16px;
+  padding: 0;
+  overflow: hidden;
+  animation: rvd-slideUp 0.25s ease;
+  box-shadow: 0 16px 60px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes rvd-slideUp {
+  from { transform: translateY(20px); opacity: 0.5; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.rvd-dialog.dark {
+  background: #1e1e1e;
+  color: #e0e0e0;
+  border: 1px solid #333;
+}
+
+.rvd-dialog.light {
+  background: #ffffff;
+  color: #222;
+  border: 1px solid #ddd;
+}
+
+/* ── Header ── */
+.rvd-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+}
+
+.rvd-header-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.rvd-header-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.rvd-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.rvd-subtitle {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rvd-close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #888;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.rvd-close-btn:hover {
+  background: rgba(128, 128, 128, 0.15);
+  color: #ff5555;
+}
+
+/* ── Sections ── */
+.rvd-section {
+  padding: 16px 24px;
+}
+
+.rvd-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  opacity: 0.8;
+}
+
+/* ── Issue Type Grid ── */
+.rvd-issue-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rvd-issue-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(128, 128, 128, 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  user-select: none;
+}
+
+.rvd-issue-option:hover {
+  border-color: rgba(128, 128, 128, 0.4);
+}
+
+.rvd-issue-option.selected {
+  border-width: 2px;
+}
+
+.rvd-issue-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.rvd-issue-label {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.rvd-check {
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ── Textarea ── */
+.rvd-textarea {
+  width: 100%;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 70px;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+  outline: none;
+}
+
+.rvd-textarea.dark {
+  background: #2a2a2a;
+  border: 1.5px solid #444;
+  color: #e0e0e0;
+}
+
+.rvd-textarea.dark:focus {
+  border-color: #00ff99;
+}
+
+.rvd-textarea.light {
+  background: #f8f8f8;
+  border: 1.5px solid #ddd;
+  color: #222;
+}
+
+.rvd-textarea.light:focus {
+  border-color: #003399;
+}
+
+.rvd-char-count {
+  text-align: right;
+  font-size: 11px;
+  opacity: 0.5;
+  margin-top: 4px;
+}
+
+/* ── Auth Warning ── */
+.rvd-auth-warning {
+  margin: 0 24px 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  font-size: 13px;
+  color: #ffc107;
+  line-height: 1.4;
+}
+
+/* ── Actions ── */
+.rvd-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 16px 24px 20px;
+  border-top: 1px solid rgba(128, 128, 128, 0.1);
+}
+
+.rvd-btn {
+  padding: 10px 22px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.rvd-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rvd-btn-cancel {
+  background: transparent;
+}
+
+.rvd-btn-cancel.dark {
+  border: 1px solid #444;
+  color: #ccc;
+}
+
+.rvd-btn-cancel.dark:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.rvd-btn-cancel.light {
+  border: 1px solid #ddd;
+  color: #555;
+}
+
+.rvd-btn-cancel.light:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.rvd-btn-submit {
+  color: #000;
+  font-weight: 700;
+}
+
+.rvd-btn-submit:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}

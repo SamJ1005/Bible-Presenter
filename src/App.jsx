@@ -13,6 +13,7 @@ import useBible from "./hooks/useBible";
 import usePresentation from "./hooks/usePresentation";
 import useNavigation from "./hooks/useNavigation";
 import useSearch from "./hooks/useSearch";
+import useVerseIssues from "./hooks/useVerseIssues";
 
 import BookList from "./components/BookList";
 import ChapterList from "./components/ChapterList";
@@ -20,6 +21,8 @@ import VerseList from "./components/VerseList";
 import RecentList from "./components/RecentList";
 import ChapterTable from "./components/ChapterTable";
 import Prelist from "./components/Prelist";
+import ReportVerseDialog from "./components/ReportVerseDialog";
+import BibleMaintenance from "./components/BibleMaintenance";
 
 export default function App() {
   
@@ -83,6 +86,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("bible");
   const [isBlankMode, setIsBlankMode] = useState(false); // Track if presentation is in blank mode
   const [recent, setRecent] = useState([]); // Session-only recent list
+
+  // ---- Verse Issue Reporting State ----
+  const [reportDialogVerse, setReportDialogVerse] = useState(null); // { book, chapter, verse }
 
   /* ITEM STATE — loaded per active queue */
   const [prelistedItems, setPrelistedItems] = useState(() => {
@@ -586,7 +592,7 @@ export default function App() {
       const ref = `${book} ${chapter}:${verse}`;
       // Remove existing duplication (move to top)
       const filtered = prev.filter((r) => r !== ref);
-      return [ref, ...filtered].slice(0, 20);
+      return [ref, ...filtered].slice(0, 100);
     });
   }, []);
 
@@ -611,6 +617,13 @@ export default function App() {
     loadInitialKJV, // called on mount
     loadTamilForBook,
   } = useBible();
+
+  // ---- Verse Issue Reporting Hook ----
+  const { verseIssueMap, refreshIssues } = useVerseIssues(selectedBook, selectedChapter);
+
+  const handleReportVerse = useCallback((book, chapter, verse, version = 'NKJV') => {
+    setReportDialogVerse({ book, chapter, verse, version });
+  }, []);
 
   // Auto-revert font offsets when navigating to a different verse
   useEffect(() => {
@@ -1153,6 +1166,7 @@ export default function App() {
         closePresentation={handleClosePresentation}
         settings={settings}
         setSettings={setSettings}
+        user={user}
       />
 
       {/* MAIN CONTENT */}
@@ -1457,6 +1471,9 @@ export default function App() {
                   resetFontOffsets={resetFontOffsets}
                   zeroedSettings={zeroedSettings}
                   getTamilVerse={getTamilVerse}
+                  verseIssues={verseIssueMap}
+                  onReportVerse={handleReportVerse}
+                  user={user}
                 />
               </div>
             </div>
@@ -1511,8 +1528,27 @@ export default function App() {
           loadCloudPlaylist={loadCloudPlaylist}
           fetchCloudPlaylists={() => user && fetchCloudPlaylists(user.uid)}
           syncQueueNow={syncQueueNow}
+          verseIssues={verseIssueMap}
+          onReportVerse={handleReportVerse}
         />
       )}
+
+      {activeTab === "maintenance" && user?.email === 'samjac75@gmail.com' && (
+        <BibleMaintenance theme={theme} user={user} />
+      )}
+
+      {/* ── Verse Issue Report Dialog ── */}
+      <ReportVerseDialog
+        isOpen={!!reportDialogVerse}
+        onClose={() => setReportDialogVerse(null)}
+        book={reportDialogVerse?.book}
+        chapter={reportDialogVerse?.chapter}
+        verse={reportDialogVerse?.verse}
+        bibleVersion={reportDialogVerse?.version || "NKJV"}
+        user={user}
+        theme={theme}
+        onReportSubmitted={refreshIssues}
+      />
     </div>
   );
 }

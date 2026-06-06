@@ -684,7 +684,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                   cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px',
                   fontSize: '13px', padding: '6px 12px', borderRadius: '6px',
                   border: `1.5px dashed ${theme === 'dark' ? '#888' : '#666'}`,
-                  color: theme === 'dark' ? '#eee' : '#333',
+                  color: theme === 'dark' ? '#eee' : '#555',
                   fontWeight: '600',
                   transition: 'all 0.2s ease',
                   background: theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',

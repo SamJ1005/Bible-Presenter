@@ -7,6 +7,7 @@ export default function Header({
   closePresentation,
   settings,
   setSettings,
+  user,
 }) {
   // ----- Colors for theme -----
   const bg = theme === "dark" ? "#0f0e0eff" : "#ffffff";
@@ -104,6 +105,15 @@ export default function Header({
           {renderTab(
             "prelisted",
             "Playlist",
+            activeTab,
+            setActiveTab,
+            tabActiveBg,
+            tabHoverBg,
+            text
+          )}
+          {user && user.email === 'samjac75@gmail.com' && renderTab(
+            "maintenance",
+            "Maintenance",
             activeTab,
             setActiveTab,
             tabActiveBg,

@@ -24,7 +24,11 @@ const PrelistMainView = ({
   activeQueueName,
   settings,
   pendingLayoutOverrides,
-  setPendingLayoutOverrides
+  setPendingLayoutOverrides,
+  // Issue reporting
+  verseIssues = {},
+  onReportVerse,
+  user,
 }) => {
   // Helper to lookup verse text
   const getVerseText = (bookName, chapter, verse) => {
@@ -146,6 +150,9 @@ const PrelistMainView = ({
               settings={settings}
               pendingLayoutOverrides={isEditing ? pendingLayoutOverrides : null}
               setPendingLayoutOverrides={setPendingLayoutOverrides}
+              verseIssues={verseIssues}
+              onReportVerse={onReportVerse}
+              user={user}
             />
           );
         })}
