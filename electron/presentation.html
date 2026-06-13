@@ -205,8 +205,8 @@
 
     /* ---------- FONT PRESETS ---------- */
     const FONT_PRESETS = {
-      small: { tamil: 9.2, eng: 7.0, min: 0 },
-      medium: { tamil: 7.2, eng: 5.8, min: 3.5 },
+      small: { tamil: 8.2, eng: 6.5, min: 0 },
+      medium: { tamil: 6.2, eng: 5.2, min: 3.5 },
       large: { tamil: 4.7, eng: 3.9, min: 2.8 },
       huge: { tamil: 9.8, eng: 7.8, min: 3.0 },
       multi2: { tamil: 5.5, eng: 4.5, min: 3.0 }, // For exactly 2 verses
@@ -235,6 +235,12 @@
       // Clamp minimums
       if (tamilVW < 1.5) tamilVW = 1.5;
       if (engVW < 1.2) engVW = 1.2;
+
+      // Force lowerThird to start smaller so it fits well within the 15.5vh box
+      if (data && data.presentationLayout === 'lowerThird') {
+        tamilVW = 4.5;
+        engVW = 3.5;
+      }
 
       tamilEl.style.fontSize = tamilVW + "vw";
       engEl.style.fontSize = engVW + "vw";
@@ -265,7 +271,7 @@
     }
 
     /* ---------- REF FIT ---------- */
-    function fitReference(el) {
+    function fitReference(el, data) {
       const text = (el.innerText || "").toLowerCase();
       const isSmallRef =
         text.includes("revelation") ||
@@ -273,16 +279,38 @@
         text.includes("thessalonians") ||
         text.includes("தெச");
 
-      let vw = isSmallRef ? 4.2 : 5.5;
+      const isMultiVerse = text.includes("-") || text.includes(",");
+      const isLongText = text.length > 20;
+
+      let vw = (isSmallRef || (isMultiVerse && isLongText)) ? 4.2 : 5.5;
+
+      // Apply lower third scaling
+      if (data && data.presentationLayout === 'lowerThird') {
+        vw *= 0.28; // Significantly smaller for bottom right
+      }
 
       el.style.fontSize = vw + "vw";
       while (el.scrollWidth > el.clientWidth && vw > 2.5) {
         vw -= 0.1;
         el.style.fontSize = vw + "vw";
       }
+
+      // Apply index font offset
+      const indexOffset = (data && data.indexFontOffset ? data.indexFontOffset : 0) * 0.15;
+      const localOffset = (data && data.fontSizeOffset ? data.fontSizeOffset : 0) * 0.10;
+      vw += indexOffset + localOffset;
+      el.style.fontSize = vw + "vw";
     }
 
     /* ---------- UPDATE ---------- */
+    function getSafeBgUrl(imgPath) {
+      if (!imgPath) return 'none';
+      const clean = imgPath.replace(/\\/g, '/');
+      if (clean.startsWith('http') || clean.startsWith('data:')) return `url("${clean}")`;
+      if (!clean.startsWith('file:///')) return `url("file:///${clean}")`;
+      return `url("${clean}")`;
+    }
+
     function updateVerse(data) {
       const ref = document.getElementById("reference");
       const tamil = document.getElementById("tamilText");
@@ -313,45 +341,142 @@
 
       // Background - Cached
       const bgLayer = document.getElementById('bgLayer');
+      const container = document.getElementById('container');
       const bgType = data.presentationBgType || 'black';
+      const layout = data.presentationLayout || 'fullscreen';
 
       // Initialize cache if needed
       if (!window.bgCache) {
-        window.bgCache = { type: null, val: null };
+        window.bgCache = { type: null, val: null, layout: null };
         bgLayer.style.backgroundColor = "black";
         bgLayer.style.backgroundImage = "none";
       }
 
-      if (bgType === 'image' && data.presentationBgImage) {
-        // Compare with cache
-        if (window.bgCache.type !== 'image' || window.bgCache.val !== data.presentationBgImage) {
-          bgLayer.style.backgroundImage = `url(${data.presentationBgImage})`;
+      // Handle Layout
+      if (layout === 'lowerThird') {
+        container.style.justifyContent = 'flex-end';
+        container.style.paddingBottom = '3vh'; // Push up from bottom slightly
+        verseArea.style.flex = 'none'; // Disable flex stretch
+        
+        box.style.alignItems = 'flex-start';
+        box.style.textAlign = 'left';
+        
+        // Fade out entirely if not a single verse
+        if (!isSingleVerse(data.index)) {
+          document.body.style.opacity = '0';
+          return;
+        }
+        
+        refArea.style.position = 'absolute';
+        refArea.style.alignSelf = 'auto';
+        refArea.style.bottom = '3.5vh'; // Float just above the 3vh bottom padding
+        refArea.style.right = '2vw'; // Float on the right edge
+        refArea.style.padding = '0';
+        refArea.style.paddingTop = '0';
+        refArea.style.paddingRight = '0'; // No internal padding needed since it's floating
+        refArea.style.minHeight = 'auto';
+        refArea.style.display = 'block';
+
+        const watermark = document.getElementById("watermark");
+        if (watermark) watermark.style.display = 'none';
+        refArea.style.minHeight = 'auto';
+        refArea.style.display = 'block';
+        
+        // Re-order the elements so index appears below the verse
+        verseArea.style.order = '1';
+        refArea.style.order = '2';
+
+        if (data.lowerThirdBgImage) {
+          if (window.bgCache.type !== 'lowerThirdImage' || window.bgCache.val !== data.lowerThirdBgImage || window.bgCache.layout !== layout) {
+            bgLayer.style.backgroundImage = getSafeBgUrl(data.lowerThirdBgImage);
+            bgLayer.style.backgroundColor = 'transparent';
+
+            // Constrain background to the lower-third area
+            bgLayer.style.top = 'auto';
+            bgLayer.style.bottom = '3vh'; // Align exactly with container's paddingBottom
+            bgLayer.style.height = '15.5vh';
+            bgLayer.style.backgroundSize = '100% 100%';
+            
+            window.bgCache = { type: 'lowerThirdImage', val: data.lowerThirdBgImage, layout };
+          }
+        } else {
+          // Force background to transparent
+          bgLayer.style.backgroundImage = 'none';
           bgLayer.style.backgroundColor = 'transparent';
-          window.bgCache = { type: 'image', val: data.presentationBgImage };
+
+          // Constrain background to the lower-third area
+          bgLayer.style.top = 'auto';
+          bgLayer.style.bottom = '3vh'; // Align exactly with container's paddingBottom
+          bgLayer.style.height = '15.5vh';
+          bgLayer.style.backgroundSize = '100% 100%';
+
+          window.bgCache = { type: 'transparent', val: null, layout: 'lowerThird' };
         }
-      } else if (bgType === 'white') {
-        if (window.bgCache.type !== 'white') {
-          bgLayer.style.backgroundImage = 'none';
-          bgLayer.style.backgroundColor = '#ffffff';
-          window.bgCache = { type: 'white', val: null };
-        }
-      } else if (bgType === 'custom' && data.presentationBgColor) {
-        if (window.bgCache.type !== 'custom' || window.bgCache.val !== data.presentationBgColor) {
-          bgLayer.style.backgroundImage = 'none';
-          bgLayer.style.backgroundColor = data.presentationBgColor;
-          window.bgCache = { type: 'custom', val: data.presentationBgColor };
-        }
+        document.body.style.backgroundColor = 'transparent'; // Ensure body is transparent
       } else {
-        // Default black
-        if (window.bgCache.type !== 'black') {
-          bgLayer.style.backgroundImage = 'none';
-          bgLayer.style.backgroundColor = '#000000';
-          window.bgCache = { type: 'black', val: null };
+        container.style.justifyContent = 'flex-start';
+        container.style.paddingBottom = '0';
+        verseArea.style.flex = '1'; // Restore flex stretch
+        
+        box.style.alignItems = 'center';
+        box.style.textAlign = 'center';
+        
+        refArea.style.position = 'static';
+        refArea.style.bottom = 'auto';
+        refArea.style.right = 'auto';
+        refArea.style.padding = '';
+        refArea.style.paddingTop = '3.5vh';
+        refArea.style.minHeight = '5%';
+        refArea.style.display = 'flex';
+        
+        verseArea.style.order = '';
+        refArea.style.order = '';
+
+        document.body.style.backgroundColor = 'var(--bg)'; // Reset body
+
+        // Reset bgLayer to fullscreen
+        bgLayer.style.top = '0';
+        bgLayer.style.bottom = 'auto';
+        bgLayer.style.height = '100%';
+        bgLayer.style.backgroundSize = 'cover';
+
+        const watermark = document.getElementById("watermark");
+        if (watermark) watermark.style.display = 'block';
+
+        if (bgType === 'image' && data.presentationBgImage) {
+          // Compare with cache
+          if (window.bgCache.type !== 'image' || window.bgCache.val !== data.presentationBgImage || window.bgCache.layout !== layout) {
+            bgLayer.style.backgroundImage = getSafeBgUrl(data.presentationBgImage);
+            bgLayer.style.backgroundColor = 'transparent';
+            window.bgCache = { type: 'image', val: data.presentationBgImage, layout };
+          }
+        } else if (bgType === 'white') {
+          if (window.bgCache.type !== 'white' || window.bgCache.layout !== layout) {
+            bgLayer.style.backgroundImage = 'none';
+            bgLayer.style.backgroundColor = '#ffffff';
+            window.bgCache = { type: 'white', val: null, layout };
+          }
+        } else if (bgType === 'custom' && data.presentationBgColor) {
+          if (window.bgCache.type !== 'custom' || window.bgCache.val !== data.presentationBgColor || window.bgCache.layout !== layout) {
+            bgLayer.style.backgroundImage = 'none';
+            bgLayer.style.backgroundColor = data.presentationBgColor;
+            window.bgCache = { type: 'custom', val: data.presentationBgColor, layout };
+          }
+        } else {
+          // Default black
+          if (window.bgCache.type !== 'black' || window.bgCache.layout !== layout) {
+            bgLayer.style.backgroundImage = 'none';
+            bgLayer.style.backgroundColor = '#000000';
+            window.bgCache = { type: 'black', val: null, layout };
+          }
         }
       }
 
       // Text color
-      const textColor = data.presentationTextColor || '#fff';
+      let textColor = data.presentationTextColor || '#fff';
+      if (layout === 'lowerThird' && data.lowerThirdTextColor) {
+        textColor = data.lowerThirdTextColor;
+      }
       document.body.style.color = textColor;
       ref.style.color = textColor;
       ref.style.textDecorationColor = textColor === 'black' || textColor === '#000000' ? '#444' : '#b4b4b4ec';
@@ -446,11 +571,25 @@
       tamil.innerHTML = data.tamilText ? wrapWords(data.tamilText) : '';
       eng.innerHTML = data.englishText ? wrapWords(data.englishText) : '';
 
-      // Respect visibility toggles
-      tamil.style.display = data.tamilEnabled === false ? 'none' : 'block';
-      eng.style.display = data.englishEnabled === false ? 'none' : 'block';
+      // Get verse count from index
+      const getVerseCount = (idxStr) => {
+        const match = idxStr.match(/(\d+):(\d+)(?:-(\d+))?(?:\s*,\s*(\d+))?/);
+        if (!match) return 1;
+        if (match[3]) return parseInt(match[3]) - parseInt(match[2]) + 1;
+        if (match[4]) return 2;
+        return 1;
+      };
+      const verseCount = getVerseCount(indexStr);
 
-      fitReference(ref);
+      // Respect visibility toggles and max verses
+      tamil.style.display = data.tamilEnabled === false ? 'none' : 'block';
+      if (data.presentationLayout === 'lowerThird') {
+        eng.style.display = 'none'; // Force hide English in lower-third
+      } else {
+        eng.style.display = (data.englishEnabled === false || verseCount > 2) ? 'none' : 'block';
+      }
+
+      fitReference(ref, data);
 
       const type = getVerseType(
         data.tamilText ? data.tamilText.replace(/<[^>]*>/g, "") : "",
@@ -466,7 +605,16 @@
         eng.style.lineHeight = "1.35";
       }
 
-      if (type === "small" || type === "medium") {
+      if (data.presentationLayout === 'lowerThird') {
+        verseArea.style.padding = "0 8vw 0 20vw"; // Padding from the left instead of right
+        box.style.marginTop = "0";
+        box.style.gap = "0";
+        box.style.overflow = "hidden";
+        box.style.justifyContent = "center"; // Center the text within the fixed background block!
+        verseArea.style.justifyContent = "center";
+        box.style.minHeight = "15.5vh";
+        box.style.maxHeight = "15.5vh";
+      } else if (type === "small" || type === "medium") {
         box.style.marginTop = "0";
 
         if (isSingle) {
@@ -498,7 +646,6 @@
         refArea.style.height = "5%";
       }
 
-      const verseCount = getVerseCount(indexStr);
       fitVerseBox(tamil, eng, box, type, isSingle, verseCount, data);
 
       // Swap display order based on primary language

@@ -228,8 +228,16 @@
               })
               .join('');
           })
-          .join('');
+            .join('');
       }).join('');
+    }
+
+    function getSafeBgUrl(imgPath) {
+      if (!imgPath) return 'none';
+      const clean = imgPath.replace(/\\/g, '/');
+      if (clean.startsWith('http') || clean.startsWith('data:')) return `url("${clean}")`;
+      if (!clean.startsWith('file:///')) return `url("file:///${clean}")`;
+      return `url("${clean}")`;
     }
 
     function getVerseCount(indexStr) {
@@ -277,8 +285,11 @@
       // Handle inconsistent payload structures (nested vs flat from Prelist.jsx)
       const settings = data.settings || data;
 
-      // Styles
-      const textColor = settings.presentationTextColor || "#fff";
+      // Text color
+      let textColor = settings.presentationTextColor || '#fff';
+      if (layout === 'lowerThird' && settings.lowerThirdTextColor) {
+        textColor = settings.lowerThirdTextColor;
+      }
       document.body.style.color = textColor;
       ref.style.color = textColor;
       tamil.style.color = textColor;
@@ -289,36 +300,131 @@
       }
 
       // Background - Cached logic from presentation.html
+      const layout = settings.presentationLayout || "fullscreen";
+
       if (!window.bgCache) {
-        window.bgCache = { type: null, val: null };
+        window.bgCache = { type: null, val: null, layout: null };
       }
 
-      const bgType = settings.presentationBgType || "black";
-      const bgImage = settings.presentationBgImage;
+      // Handle Layout Structure first
+      if (layout === 'lowerThird') {
+        container.style.justifyContent = 'flex-end';
+        container.style.paddingBottom = '3vh'; // Push up from bottom slightly
+        verseArea.style.flex = 'none'; // Disable flex stretch
+        
+        box.style.alignItems = 'flex-start';
+        box.style.textAlign = 'left';
 
-      if (bgType === "image" && bgImage) {
-        if (window.bgCache.type !== "image" || window.bgCache.val !== bgImage) {
-          bgLayer.style.backgroundImage = `url("${bgImage.replace(/\\/g, '/')}")`;
-          bgLayer.style.backgroundColor = "transparent";
-          window.bgCache = { type: "image", val: bgImage };
+        // Fade out entirely if not a single verse
+        const indexStr = data.index || "";
+        const isSingle = !indexStr.includes(",") && !indexStr.includes("-");
+        if (!isSingle) {
+          document.body.style.opacity = '0';
+          return;
         }
-      } else if (bgType === "white") {
-        if (window.bgCache.type !== "white") {
-          bgLayer.style.backgroundImage = "none";
-          bgLayer.style.backgroundColor = "#ffffff";
-          window.bgCache = { type: "white", val: null };
+        
+        refArea.style.position = 'absolute';
+        refArea.style.alignSelf = 'auto';
+        refArea.style.bottom = '3.5vh'; // Float just above the 3vh bottom padding
+        refArea.style.right = '2vw'; // Float on the right edge
+        refArea.style.padding = '0';
+        refArea.style.paddingTop = '0';
+        refArea.style.paddingRight = '0'; // No internal padding needed since it's floating
+        refArea.style.minHeight = 'auto';
+        refArea.style.display = 'block';
+
+        const watermark = document.getElementById("watermark");
+        if (watermark) watermark.style.display = 'none';
+        refArea.style.minHeight = 'auto';
+        refArea.style.display = 'block';
+
+        // Re-order the elements so index appears below the verse
+        verseArea.style.order = '1';
+        refArea.style.order = '2';
+
+        if (settings.lowerThirdBgImage) {
+          if (window.bgCache.type !== 'lowerThirdImage' || window.bgCache.val !== settings.lowerThirdBgImage || window.bgCache.layout !== layout) {
+            bgLayer.style.backgroundImage = getSafeBgUrl(settings.lowerThirdBgImage);
+            bgLayer.style.backgroundColor = 'transparent';
+
+            // Constrain background to the lower-third area
+            bgLayer.style.top = 'auto';
+            bgLayer.style.bottom = '3vh'; // Align exactly with container's paddingBottom in prelist
+            bgLayer.style.height = '15.5vh';
+            bgLayer.style.backgroundSize = '100% 100%';
+
+            window.bgCache = { type: 'lowerThirdImage', val: settings.lowerThirdBgImage, layout };
+          }
+        } else {
+          bgLayer.style.backgroundImage = 'none';
+          bgLayer.style.backgroundColor = 'transparent';
+
+          // Constrain background to the lower-third area
+          bgLayer.style.top = 'auto';
+          bgLayer.style.bottom = '3vh'; // Align exactly with container's paddingBottom in prelist
+          bgLayer.style.height = '15.5vh';
+          bgLayer.style.backgroundSize = '100% 100%';
+
+          window.bgCache = { type: 'transparent', val: null, layout: 'lowerThird' };
         }
-      } else if (bgType === "custom" && settings.presentationBgColor) {
-        if (window.bgCache.type !== "custom" || window.bgCache.val !== settings.presentationBgColor) {
-          bgLayer.style.backgroundImage = "none";
-          bgLayer.style.backgroundColor = settings.presentationBgColor;
-          window.bgCache = { type: "custom", val: settings.presentationBgColor };
-        }
+        document.body.style.backgroundColor = 'transparent'; // Ensure body is transparent
       } else {
-        if (window.bgCache.type !== "black") {
-          bgLayer.style.backgroundImage = "none";
-          bgLayer.style.backgroundColor = "#000";
-          window.bgCache = { type: "black", val: null };
+        container.style.justifyContent = 'flex-start';
+        container.style.paddingBottom = '0';
+        verseArea.style.flex = '1'; // Restore flex stretch
+        
+        box.style.alignItems = 'center';
+        box.style.textAlign = 'center';
+        
+        refArea.style.position = 'static';
+        refArea.style.bottom = 'auto';
+        refArea.style.right = 'auto';
+        refArea.style.padding = '';
+        refArea.style.paddingTop = '2.5vh';
+        refArea.style.minHeight = '5%';
+        refArea.style.display = 'flex';
+
+        // Reset bgLayer to fullscreen
+        bgLayer.style.top = '0';
+        bgLayer.style.bottom = 'auto';
+        bgLayer.style.height = '100%';
+        bgLayer.style.backgroundSize = 'cover';
+
+        verseArea.style.order = '';
+        refArea.style.order = '';
+
+        document.body.style.backgroundColor = 'var(--bg)'; // Reset body
+
+        const watermark = document.getElementById("watermark");
+        if (watermark) watermark.style.display = 'block';
+
+        const bgType = settings.presentationBgType || "black";
+        const bgImage = settings.presentationBgImage;
+
+        if (bgType === "image" && bgImage) {
+          if (window.bgCache.type !== "image" || window.bgCache.val !== bgImage || window.bgCache.layout !== layout) {
+            bgLayer.style.backgroundImage = getSafeBgUrl(bgImage);
+            bgLayer.style.backgroundColor = "transparent";
+            window.bgCache = { type: "image", val: bgImage, layout };
+          }
+        } else if (bgType === "white") {
+          if (window.bgCache.type !== "white" || window.bgCache.layout !== layout) {
+            bgLayer.style.backgroundImage = "none";
+            bgLayer.style.backgroundColor = "#ffffff";
+            window.bgCache = { type: "white", val: null, layout };
+          }
+        } else if (bgType === "custom" && settings.presentationBgColor) {
+          if (window.bgCache.type !== "custom" || window.bgCache.val !== settings.presentationBgColor || window.bgCache.layout !== layout) {
+            bgLayer.style.backgroundImage = "none";
+            bgLayer.style.backgroundColor = settings.presentationBgColor;
+            window.bgCache = { type: "custom", val: settings.presentationBgColor, layout };
+          }
+        } else {
+          if (window.bgCache.type !== "black" || window.bgCache.layout !== layout) {
+            bgLayer.style.backgroundImage = "none";
+            bgLayer.style.backgroundColor = "#000";
+            window.bgCache = { type: "black", val: null, layout };
+          }
         }
       }
 
@@ -406,7 +512,12 @@
 
         // Respect visibility toggles
         const tamilEnabled = data.tamilEnabled !== false;
-        const englishEnabled = data.englishEnabled !== false;
+        let englishEnabled = data.englishEnabled !== false && getVerseCount(indexStr) <= 2;
+        
+        if (layout === 'lowerThird') {
+          englishEnabled = false; // Force hide English in lower-third
+        }
+
         tamil.style.display = tamilEnabled ? 'block' : 'none';
         eng.style.display = englishEnabled ? 'block' : 'none';
 
@@ -420,12 +531,12 @@
         const verseCount = getVerseCount(indexStr);
 
         const FONT_PRESETS = {
-          small: { tamil: 9.2, eng: 7.0, min: 0.0 },
-          medium: { tamil: 7.2, eng: 5.8, min: 3.5 },
+          small: { tamil: 8.2, eng: 6.5, min: 0 },
+          medium: { tamil: 6.2, eng: 5.2, min: 3.5 },
           large: { tamil: 4.7, eng: 3.9, min: 2.8 },
           huge: { tamil: 9.8, eng: 7.8, min: 3.0 },
-          multi2: { tamil: 5.5, eng: 4.5, min: 3.0 },
-          multi: { tamil: 4.2, eng: 3.5, min: 2.0 },
+          multi2: { tamil: 5.5, eng: 4.5, min: 3.0 }, // For exactly 2 verses
+          multi: { tamil: 4.2, eng: 3.5, min: 2.0 }, // For >2 verses
         };
 
         let effectiveType = type;
@@ -437,9 +548,9 @@
         const preset = FONT_PRESETS[effectiveType];
 
         // Line height adjustments with support for layoutOverrides
-        const layout = data.layoutOverrides || {};
-        let tLineHeight = layout.tamilLineHeight !== undefined ? layout.tamilLineHeight : (!isSingle ? "1.35" : "1.28");
-        let eLineHeight = layout.englishLineHeight !== undefined ? layout.englishLineHeight : "1.35";
+        const layoutOverrides = data.layoutOverrides || {};
+        let tLineHeight = layoutOverrides.tamilLineHeight !== undefined ? layoutOverrides.tamilLineHeight : (!isSingle ? "1.35" : "1.28");
+        let eLineHeight = layoutOverrides.englishLineHeight !== undefined ? layoutOverrides.englishLineHeight : "1.35";
         tamil.style.lineHeight = tLineHeight;
         eng.style.lineHeight = eLineHeight;
 
@@ -449,6 +560,12 @@
         // Clamp minimums
         if (tamilVW < 1.5) tamilVW = 1.5;
         if (engVW < 1.2) engVW = 1.2;
+
+        // Force lowerThird to start smaller so it fits well within the 15.5vh box
+        if (layout === 'lowerThird') {
+          tamilVW = 4.5;
+          engVW = 3.5;
+        }
 
         tamil.style.fontSize = tamilVW + "vw";
         eng.style.fontSize = engVW + "vw";
@@ -486,17 +603,31 @@
         // Reference font size — length-based
         const refLen = indexStr.length;
         let refVW =
-          (refLen > 38 ? 3.8 : refLen > 26 ? 6.5 : 5.5) + indexOffset;
+          (refLen > 38 ? 2.5 : refLen > 26 ? 3.2 : 3.8) + indexOffset + (offset * 0.10);
+
+        if (layout === 'lowerThird') {
+          refVW *= 0.30;
+        }
+
         if (refVW < 2.0) refVW = 2.0;
 
         ref.style.fontSize = refVW + "vw";
 
         // Exact Layout blocks from presentation.html
-        if (type === "small" || type === "medium") {
+        if (layout === 'lowerThird') {
+          verseArea.style.padding = layoutOverrides.versePaddingTop !== undefined ? `${layoutOverrides.versePaddingTop}vh 8vw 0 20vw` : "0 8vw 0 20vw"; // Padding from the left instead of right
+          box.style.marginTop = "0";
+          box.style.gap = "0";
+          box.style.overflow = "hidden";
+          box.style.justifyContent = "center"; // Center the text within the fixed background block!
+          verseArea.style.justifyContent = "center";
+          box.style.minHeight = "15.5vh";
+          box.style.maxHeight = "15.5vh";
+        } else if (type === "small" || type === "medium") {
           box.style.marginTop = "0";
 
           if (isSingle) {
-            verseArea.style.padding = layout.versePaddingTop !== undefined ? `${layout.versePaddingTop}vh 3vw 0` : "0.5vh 3vw 0";
+            verseArea.style.padding = layoutOverrides.versePaddingTop !== undefined ? `${layoutOverrides.versePaddingTop}vh 3vw 0` : "0.5vh 3vw 0";
             box.style.gap = "0";
             box.style.justifyContent = "center";
             verseArea.style.justifyContent = "center";
@@ -504,7 +635,7 @@
             box.style.maxHeight = "94%";
             refArea.style.height = "6%";
           } else {
-            verseArea.style.padding = layout.versePaddingTop !== undefined ? `${layout.versePaddingTop}vh 1vw 0` : "1vh 1vw 0";
+            verseArea.style.padding = layoutOverrides.versePaddingTop !== undefined ? `${layoutOverrides.versePaddingTop}vh 1vw 0` : "1vh 1vw 0";
             box.style.marginTop = "0";
             box.style.gap = "0";
             box.style.overflow = "hidden";
@@ -514,7 +645,7 @@
             refArea.style.height = "5%";
           }
         } else {
-          verseArea.style.padding = layout.versePaddingTop !== undefined ? `${layout.versePaddingTop}vh 1vw 0` : "1vh 1vw 0";
+          verseArea.style.padding = layoutOverrides.versePaddingTop !== undefined ? `${layoutOverrides.versePaddingTop}vh 1vw 0` : "1vh 1vw 0";
           box.style.marginTop = "0";
           box.style.gap = "0";
           box.style.overflow = "hidden";
@@ -524,7 +655,9 @@
           refArea.style.height = "5%";
         }
 
-        refArea.style.paddingTop = layout.indexPaddingTop !== undefined ? `${layout.indexPaddingTop}vh` : "2.5vh";
+        if (layout !== 'lowerThird') {
+          refArea.style.paddingTop = layoutOverrides.indexPaddingTop !== undefined ? `${layoutOverrides.indexPaddingTop}vh` : "2.5vh";
+        }
 
         // Swap display order based on primary language
         const primaryIsEnglish = data.primaryTranslation === "English";

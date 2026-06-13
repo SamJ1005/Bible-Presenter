@@ -14,8 +14,12 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
         name: fileData.name,
         presentationBgType: settings.presentationBgType ?? "color",
         presentationBgImage: settings.presentationBgImage ?? "",
+        lowerThirdBgImage: settings.lowerThirdBgImage ?? "",
         presentationBgColor: settings.presentationBgColor ?? "black",
         presentationTextColor: settings.presentationTextColor ?? "white",
+        lowerThirdTextColor: settings.lowerThirdTextColor ?? "",
+        showFullscreenWindow: settings.showFullscreenWindow !== false,
+        showLowerThirdWindow: settings.showLowerThirdWindow === true,
         enableTransition: settings.enableTransition ?? false,
         customWatermark: settings.customWatermark ?? "",
       };
@@ -27,7 +31,7 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
     // Use pre-built index if provided (e.g. from Prelist), otherwise generate
     const finalIndex = index || (() => {
       const tamilName = getTamilBookName(selectedBook);
-      return `${tamilName} ${selectedChapter}:${selectedVerse}   ${selectedBook}`;
+      return `${tamilName} (${selectedBook}) ${selectedChapter}:${selectedVerse}`;
     })();
 
     return {
@@ -45,8 +49,12 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
       primaryTranslation: settings.primaryTranslation ?? "Tamil",
       presentationBgType: settings.presentationBgType ?? "color",
       presentationBgImage: settings.presentationBgImage ?? "",
+      lowerThirdBgImage: settings.lowerThirdBgImage ?? "",
       presentationBgColor: settings.presentationBgColor ?? "black",
       presentationTextColor: settings.presentationTextColor ?? "white",
+      lowerThirdTextColor: settings.lowerThirdTextColor ?? "",
+      showFullscreenWindow: settings.showFullscreenWindow !== false,
+      showLowerThirdWindow: settings.showLowerThirdWindow === true,
       enableTransition: settings.enableTransition ?? false,
       customWatermark: settings.customWatermark ?? "",
     };

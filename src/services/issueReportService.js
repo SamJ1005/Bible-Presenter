@@ -9,6 +9,7 @@ import {
   serverTimestamp,
   doc,
   updateDoc,
+  onSnapshot,
 } from 'firebase/firestore';
 
 /**
@@ -72,6 +73,33 @@ export async function fetchChapterIssues(book, chapter) {
     console.error('[IssueReportService] fetchChapterIssues failed:', err);
     return [];
   }
+}
+
+/**
+ * Subscribe to issue reports for a specific book + chapter in real-time.
+ * Returns an unsubscribe function.
+ */
+export function subscribeChapterIssues(book, chapter, callback) {
+  const q = query(
+    collectionGroup(db, 'reports'),
+    where('book', '==', book),
+    where('chapter', '==', Number(chapter))
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const reports = [];
+    snapshot.forEach((docSnap) => {
+      reports.push({
+        id: docSnap.id,
+        path: docSnap.ref.path,
+        ...docSnap.data(),
+      });
+    });
+    callback(reports);
+  }, (err) => {
+    console.error('[IssueReportService] subscribeChapterIssues failed:', err);
+    callback([]);
+  });
 }
 
 /**

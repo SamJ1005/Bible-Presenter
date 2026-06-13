@@ -1,11 +1,8 @@
 // ChapterTable.jsx
 import React, { useEffect, useRef, useState } from "react";
 
-// Issue status → highlight colors
 const ISSUE_HIGHLIGHT = {
-  reported:  { dark: '#3d3520', light: '#fff8e1' },
-  reviewing: { dark: '#1a2f4a', light: '#e3f2fd' },
-  resolved:  { dark: '#1a3d2a', light: '#e8f5e9' },
+  pending:  { dark: '#3d3520', light: '#fff8e1' },
 };
 
 const ISSUE_DOT = {
@@ -174,14 +171,16 @@ export default function ChapterTable({
           const isSel = Number(vn) === Number(selectedVerse);
           const issueData = verseIssues[String(vn)];
           const hasIssue = issueData && issueData.count > 0;
-          const issueStatus = issueData?.status || 'reported';
+          const issueStatus = issueData?.status || 'pending';
           const isHovered = hoveredRow === vn;
 
           // Determine row background
           let rowBg = 'transparent';
           if (hasIssue) {
-            const hl = ISSUE_HIGHLIGHT[issueStatus] || ISSUE_HIGHLIGHT.reported;
-            rowBg = theme === 'dark' ? hl.dark : hl.light;
+            const hl = ISSUE_HIGHLIGHT[issueStatus];
+            if (hl) {
+              rowBg = theme === 'dark' ? hl.dark : hl.light;
+            }
           }
           if (isSel) {
             rowBg = theme === "dark" ? "#1f1f1f" : "#e8f3ff";

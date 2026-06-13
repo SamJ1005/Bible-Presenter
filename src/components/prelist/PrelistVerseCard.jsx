@@ -117,7 +117,7 @@ const PrelistVerseCard = ({
     if (!iframeReady || !iframeRef.current?.contentWindow) return;
     const payload = {
       type: "bible",
-      index: `${getTamilBookName(item.book)} ${item.chapter}:${item.verse}   ${item.book}`,
+      index: `${getTamilBookName(item.book)} (${item.book}) ${item.chapter}:${item.verse}`,
       tamilText: displayTamil || "",
       englishText: displayEnglish || "",
       fontSizeOffset: localFontOffset,
@@ -155,7 +155,7 @@ const PrelistVerseCard = ({
 
   // ─── Reference string
   const tamilBook = getTamilBookName(item.book);
-  const indexStr = `${tamilBook} ${item.chapter}:${item.verse}   ${item.book}`;
+  const indexStr = `${tamilBook} (${item.book}) ${item.chapter}:${item.verse}`;
 
   // ─── Verse type — identical to presentation_prelist.html
   const cleanText = (html) => (html || "").replace(/<[^>]*>/g, "");
@@ -250,8 +250,9 @@ const PrelistVerseCard = ({
     if (!indexTextRef.current) return;
     const refLen = indexStr.length;
     const indexOffset = (settings?.indexFontOffset || 0) * 0.12;
+    const localOffset = localFontOffset * 0.10;
 
-    let vw = (refLen > 38 ? 3.8 : refLen > 26 ? 6.5 : 5.5) + indexOffset;
+    let vw = (refLen > 38 ? 2.5 : refLen > 26 ? 3.2 : 3.8) + indexOffset + localOffset;
     if (vw < 2.0) vw = 2.0;
 
     const vwUnit = VIRTUAL_W / 100;
@@ -312,7 +313,7 @@ const PrelistVerseCard = ({
   const englishOrder = primaryIsEnglish ? 1 : 2;
 
   const tamilEnabled = settings?.isTamilEnabled !== false;
-  const englishEnabled = settings?.isEnglishEnabled !== false;
+  const englishEnabled = settings?.isEnglishEnabled !== false && verseCount <= 2;
 
   // ─── Layout
   // Verse area padding default

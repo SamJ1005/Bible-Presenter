@@ -548,6 +548,35 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
             </div>
           </SettingsCard>
 
+          {/* Presentation Layout */}
+          <SettingsCard title="Presentation Windows">
+            <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+              Choose which presentation windows to display (you can enable both for OBS).
+            </div>
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
+                <input
+                  type="checkbox"
+                  checked={settings.showFullscreenWindow !== false}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, showFullscreenWindow: e.target.checked }))}
+                  style={{ width: '16px', height: '16px' }}
+                />
+                Show Fullscreen Window
+              </label>
+            </div>
+            <div>
+              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
+                <input
+                  type="checkbox"
+                  checked={settings.showLowerThirdWindow === true}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, showLowerThirdWindow: e.target.checked }))}
+                  style={{ width: '16px', height: '16px' }}
+                />
+                Show Lower Third Window
+              </label>
+            </div>
+          </SettingsCard>
+
         </div>
 
         {/* COLUMN 2 — Presentation Appearance */}
@@ -765,6 +794,77 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
             </div>
           </SettingsCard>
 
+          {/* Lower Third Background Wallpaper */}
+          <SettingsCard title="Lower Third Background Wallpaper">
+            <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+              Set a background image exclusively for the lower-third presentation. If left blank, the background will be fully transparent.
+            </div>
+            
+            <div style={{ marginBottom: "8px" }}>
+              <label style={{
+                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px',
+                fontSize: '13px', padding: '6px 12px', borderRadius: '6px',
+                border: `1.5px dashed ${theme === 'dark' ? '#888' : '#666'}`,
+                color: theme === 'dark' ? '#eee' : '#555',
+                fontWeight: '600',
+                transition: 'all 0.2s ease',
+                background: theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+              }}>
+                {settings.lowerThirdBgImage ? "Replace Image" : "+ Add Lower Third Image"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      setSettings((prev) => ({
+                        ...prev,
+                        lowerThirdBgImage: reader.result,
+                        lowerThirdBgImageName: file.name,
+                      }));
+                    };
+                    reader.readAsDataURL(file);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+
+              {settings.lowerThirdBgImage && (
+                <div style={{ marginTop: '12px', position: 'relative', display: 'inline-block' }}>
+                  <img
+                    src={settings.lowerThirdBgImage}
+                    alt="Lower Third Bg"
+                    style={{
+                      height: '60px',
+                      objectFit: 'cover',
+                      borderRadius: '6px',
+                      border: '2px solid #00ff99',
+                      display: 'block',
+                    }}
+                  />
+                  <button
+                    onClick={() => setSettings((prev) => ({ ...prev, lowerThirdBgImage: null, lowerThirdBgImageName: null }))}
+                    style={{
+                      position: 'absolute', top: -6, right: -6,
+                      width: '20px', height: '20px',
+                      background: 'rgba(231,76,60,0.95)', color: '#fff',
+                      border: 'none', borderRadius: '50%', cursor: 'pointer',
+                      fontSize: '12px', fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      lineHeight: 1, padding: 0,
+                    }}
+                  >×</button>
+                  <div style={{ fontSize: '11px', opacity: 0.6, marginTop: '4px' }}>
+                    {settings.lowerThirdBgImageName}
+                  </div>
+                </div>
+              )}
+            </div>
+          </SettingsCard>
+
           {/* Font Color */}
           <SettingsCard title="Presentation Font Color">
             <div style={{ marginBottom: "8px" }}>
@@ -836,6 +936,41 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                     {settings.presentationTextColor}
                   </span>
                 </div>
+              )}
+            </div>
+          </SettingsCard>
+
+          {/* Lower Third Font Color */}
+          <SettingsCard title="Lower Third Font Color">
+            <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+              Overrides the text color specifically for the lower-third presentation. If empty, uses the standard Presentation Font Color.
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <input
+                type="color"
+                value={settings.lowerThirdTextColor || "#ffffff"}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    lowerThirdTextColor: e.target.value,
+                  }))
+                }
+                style={{ width: "40px", height: "30px", border: "none", cursor: "pointer", borderRadius: "4px" }}
+              />
+              <span style={{ fontSize: "12px", opacity: 0.6 }}>
+                {settings.lowerThirdTextColor || "Default (White)"}
+              </span>
+              {settings.lowerThirdTextColor && (
+                <button
+                  onClick={() => setSettings((prev) => ({ ...prev, lowerThirdTextColor: null }))}
+                  style={{
+                    marginLeft: 'auto',
+                    background: 'rgba(231,76,60,0.8)', color: '#fff', border: 'none', borderRadius: '4px',
+                    padding: '4px 8px', fontSize: '11px', cursor: 'pointer'
+                  }}
+                >
+                  Clear
+                </button>
               )}
             </div>
           </SettingsCard>

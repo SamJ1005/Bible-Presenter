@@ -13,8 +13,10 @@ function getIconPath() {
 
 let mainWin = null;
 let presentationWin = null;
+let lowerThirdWin = null;
 let currentPresentationPayload = null;
 let preferredDisplayId = 'auto'; // 'auto', 'primary', or specific display ID
+let currentPresentationFile = { fullscreen: null, lowerThird: null };
 
 /* ---- App configuration (must be before app.whenReady) ----  */
 app.setAppUserModelId("com.scripturescreen.app");
@@ -31,7 +33,6 @@ function createMainWindow() {
 
   const iconPath = getIconPath();
 
-  // Calculate 50% of screen dimensions for minimum size constraint
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenW, height: screenH } = primaryDisplay.workAreaSize;
 
@@ -64,19 +65,21 @@ function createMainWindow() {
   });
 
   mainWin.on("closed", () => {
-    // Close presentation window when main window closes
-    if (presentationWin && !presentationWin.isDestroyed()) {
-      presentationWin.close();
-    }
+    // Close presentation windows when main window closes
+    if (presentationWin && !presentationWin.isDestroyed()) presentationWin.close();
+    if (lowerThirdWin && !lowerThirdWin.isDestroyed()) lowerThirdWin.close();
     mainWin = null;
   });
 }
 
 /* ------------ Presentation Window (KIOSK MODE) ------------ */
-function createPresentationWindow(startFile = "presentation.html") {
-  if (presentationWin && !presentationWin.isDestroyed()) {
-    presentationWin.focus();
-    return;
+function createPresentationWindow(type = 'fullscreen', startFile = "presentation.html") {
+  const isLowerThird = type === 'lowerThird';
+  let win = isLowerThird ? lowerThirdWin : presentationWin;
+
+  if (win && !win.isDestroyed()) {
+    win.focus();
+    return win;
   }
 
   const displays = screen.getAllDisplays();
@@ -93,8 +96,8 @@ function createPresentationWindow(startFile = "presentation.html") {
 
   const iconPath = getIconPath();
 
-  presentationWin = new BrowserWindow({
-    title: "Scripture Screen",
+  win = new BrowserWindow({
+    title: isLowerThird ? "Scripture Screen - Lower Third" : "Scripture Screen",
     icon: iconPath,
     x: targetDisplay.bounds.x,
     y: targetDisplay.bounds.y,
@@ -103,8 +106,8 @@ function createPresentationWindow(startFile = "presentation.html") {
     kiosk: true,
     frame: false,
     show: false,
+    transparent: true,
     backgroundThrottling: false,
-    backgroundColor: "#000000",
     webPreferences: {
       preload: path.join(__dirname, "presentation-preload.js"),
       contextIsolation: true,
@@ -114,128 +117,126 @@ function createPresentationWindow(startFile = "presentation.html") {
     webSecurity: false,
   });
 
-  presentationWin.setIcon(iconPath);
+  win.setIcon(iconPath);
 
-  currentPresentationFile = startFile;
-  presentationWin.loadFile(path.join(__dirname, startFile));
-  console.log('[MAIN] Created presentation window, loading:', startFile);
+  if (isLowerThird) {
+    lowerThirdWin = win;
+    currentPresentationFile.lowerThird = startFile;
+  } else {
+    presentationWin = win;
+    currentPresentationFile.fullscreen = startFile;
+  }
 
-  presentationWin.webContents.once("dom-ready", () => {
-    console.log('[MAIN] Presentation DOM ready');
-    if (presentationWin && !presentationWin.isDestroyed()) {
-      presentationWin.show(); // Ensure it shows on dom-ready too
-    }
-    if (currentPresentationPayload) {
-      setTimeout(() => {
-        if (presentationWin && !presentationWin.isDestroyed()) {
-          presentationWin.webContents.send("display-verse", currentPresentationPayload);
-        }
-      }, 100);
-    }
+  win.loadFile(path.join(__dirname, startFile));
+  console.log(`[MAIN] Created ${type} window, loading:`, startFile);
+
+  win.webContents.once("dom-ready", () => {
+    if (win && !win.isDestroyed()) win.show();
   });
 
-  presentationWin.once("ready-to-show", () => {
-    if (presentationWin && !presentationWin.isDestroyed()) {
-      presentationWin.show();
-      presentationWin.focus();
+  win.once("ready-to-show", () => {
+    if (win && !win.isDestroyed()) {
+      win.show();
+      if (!isLowerThird) win.focus();
     }
   });
 
-  presentationWin.on("closed", () => {
-    presentationWin = null;
-    console.log('[MAIN] Presentation window closed');
+  win.on("closed", () => {
+    if (isLowerThird) lowerThirdWin = null;
+    else presentationWin = null;
+    console.log(`[MAIN] ${type} window closed`);
   });
+
+  return win;
 }
 
 /* ------------ IPC ------------ */
 ipcMain.handle("open-blank-presentation", () => {
-  // Always allow opening blank presentation, even if window exists
+  currentPresentationPayload = null;
+  // Open blank fullscreen
   if (presentationWin && !presentationWin.isDestroyed()) {
-    presentationWin.focus();
-    // Clear current payload to show blank
-    currentPresentationPayload = null;
-    // Send blank/null payload to actually clear the screen
     presentationWin.webContents.send("display-verse", null);
   } else {
-    // Clear the payload so the new window opens blank
-    currentPresentationPayload = null;
-    createPresentationWindow();
+    createPresentationWindow('fullscreen');
   }
   return true;
 });
 
-// Track which file is currently loaded
-let currentPresentationFile = "presentation.html";
-
-function loadPresentationFile(filename) {
-  if (!presentationWin || presentationWin.isDestroyed()) {
-    console.log('[MAIN] Cannot load file - window destroyed');
-    return;
-  }
-  if (currentPresentationFile === filename) {
-    console.log('[MAIN] File already loaded:', filename);
-    return; // Already loaded
-  }
-
-  console.log('[MAIN] Switching from', currentPresentationFile, 'to', filename);
-  currentPresentationFile = filename;
-  presentationWin.loadFile(path.join(__dirname, filename));
-}
-
 ipcMain.on("send-presentation", (_, payload) => {
-  console.log('[MAIN] Received presentation payload:', JSON.stringify(payload, null, 2));
+  console.log('[MAIN] Received presentation payload.');
   currentPresentationPayload = payload;
 
   const targetFile = (payload && payload.viewMode === "prelist")
     ? "presentation_prelist.html"
     : "presentation.html";
 
-  if (!presentationWin || presentationWin.isDestroyed()) {
-    console.log('[MAIN] Presentation window not found or destroyed, creating now...');
-    createPresentationWindow(targetFile);
-    return;
-  }
+  const showFS = payload.showFullscreenWindow !== false;
+  const showLT = payload.showLowerThirdWindow === true;
 
-  // Ensure window exists (extra safety)
-  if (!presentationWin || presentationWin.isDestroyed()) {
-    console.error('[MAIN] CRITICAL: Failed to create/find presentation window.');
-    return;
-  }
-
-  console.log('[MAIN] Window exists, updating content to:', targetFile);
-
-  if (currentPresentationFile !== targetFile) {
-    loadPresentationFile(targetFile);
-    // loadFile is async-ish, need to wait for dom-ready again
-    presentationWin.webContents.once("dom-ready", () => {
-      setTimeout(() => {
-        if (presentationWin && !presentationWin.isDestroyed()) {
-          console.log('[MAIN] File swapped, sending payload.');
-          presentationWin.webContents.send("display-verse", payload);
-        }
-      }, 100);
-    });
-    return;
-  }
-
-  // Same file, standard send
-  if (presentationWin.webContents.isLoading()) {
-    console.log('[MAIN] Window is still loading, waiting for dom-ready...');
-    presentationWin.webContents.once("dom-ready", () => {
-      setTimeout(() => {
-        if (presentationWin && !presentationWin.isDestroyed()) {
-          presentationWin.webContents.send("display-verse", payload);
-        }
-      }, 100);
-    });
+  // Fullscreen
+  if (showFS) {
+    let fsWin = presentationWin;
+    if (!fsWin || fsWin.isDestroyed()) {
+      fsWin = createPresentationWindow('fullscreen', targetFile);
+    }
+    
+    if (currentPresentationFile.fullscreen !== targetFile) {
+      currentPresentationFile.fullscreen = targetFile;
+      fsWin.loadFile(path.join(__dirname, targetFile));
+      fsWin.webContents.once("dom-ready", () => {
+        setTimeout(() => {
+          if (fsWin && !fsWin.isDestroyed()) {
+            fsWin.webContents.send("display-verse", { ...payload, presentationLayout: 'fullscreen' });
+          }
+        }, 100);
+      });
+    } else {
+      if (fsWin.webContents.isLoading()) {
+        fsWin.webContents.once("dom-ready", () => {
+          setTimeout(() => fsWin.webContents.send("display-verse", { ...payload, presentationLayout: 'fullscreen' }), 100);
+        });
+      } else {
+        fsWin.webContents.send("display-verse", { ...payload, presentationLayout: 'fullscreen' });
+      }
+    }
   } else {
-    console.log('[MAIN] Sending payload to existing window.');
-    presentationWin.webContents.send("display-verse", payload);
+    if (presentationWin && !presentationWin.isDestroyed()) presentationWin.close();
+  }
+
+  // Lower Third
+  if (showLT) {
+    let ltWin = lowerThirdWin;
+    if (!ltWin || ltWin.isDestroyed()) {
+      ltWin = createPresentationWindow('lowerThird', targetFile);
+    }
+
+    if (currentPresentationFile.lowerThird !== targetFile) {
+      currentPresentationFile.lowerThird = targetFile;
+      ltWin.loadFile(path.join(__dirname, targetFile));
+      ltWin.webContents.once("dom-ready", () => {
+        setTimeout(() => {
+          if (ltWin && !ltWin.isDestroyed()) {
+            ltWin.webContents.send("display-verse", { ...payload, presentationLayout: 'lowerThird' });
+          }
+        }, 100);
+      });
+    } else {
+      if (ltWin.webContents.isLoading()) {
+        ltWin.webContents.once("dom-ready", () => {
+          setTimeout(() => ltWin.webContents.send("display-verse", { ...payload, presentationLayout: 'lowerThird' }), 100);
+        });
+      } else {
+        ltWin.webContents.send("display-verse", { ...payload, presentationLayout: 'lowerThird' });
+      }
+    }
+  } else {
+    if (lowerThirdWin && !lowerThirdWin.isDestroyed()) lowerThirdWin.close();
   }
 });
 
 ipcMain.on("close-presentation", () => {
-  presentationWin?.close();
+  if (presentationWin && !presentationWin.isDestroyed()) presentationWin.close();
+  if (lowerThirdWin && !lowerThirdWin.isDestroyed()) lowerThirdWin.close();
 });
 
 ipcMain.on("presentation-next-verse", () => {

@@ -183,7 +183,7 @@ const Prelist = React.forwardRef((
       }
 
       const tamilName = getTamilBookName(item.book);
-      const indexStr = `${tamilName} ${item.chapter}:${item.verse}   ${item.book}`;
+      const indexStr = `${tamilName} (${item.book}) ${item.chapter}:${item.verse}`;
 
       sendToPresentation({
         selectedBook: item.book,
@@ -225,7 +225,7 @@ const Prelist = React.forwardRef((
       tamilText, // EXPLICIT PASS
       englishText, // EXPLICIT PASS
       settings,
-      index: `${getTamilBookName(item.book)} ${item.chapter}:${item.verse}   ${item.book}`,
+      index: `${getTamilBookName(item.book)} (${item.book}) ${item.chapter}:${item.verse}`,
       viewMode: "prelist",
       fontSizeOffset: item.fontSizeOffset || 0,
     });
@@ -478,7 +478,7 @@ const Prelist = React.forwardRef((
     }
 
     const tamilName = getTamilBookName(item.book);
-    const indexStr = `${tamilName} ${item.chapter}:${item.verse}   ${item.book}`;
+    const indexStr = `${tamilName} (${item.book}) ${item.chapter}:${item.verse}`;
 
     // Send directly to presentation (fire-and-forget for live update)
     try {
