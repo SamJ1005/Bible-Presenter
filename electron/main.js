@@ -47,6 +47,7 @@ function createMainWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       sandbox: false,
+      webSecurity: app.isPackaged, // Allow file:// font loads in dev from http:// localhost
     },
   });
 
@@ -335,7 +336,18 @@ ipcMain.handle("get-electron-path", () => __dirname.replace(/\\/g, "/"));
 ipcMain.handle("get-prelist-html", () => {
   try {
     const htmlPath = path.join(__dirname, "presentation_prelist.html");
-    return fs.readFileSync(htmlPath, "utf-8");
+    let html = fs.readFileSync(htmlPath, "utf-8");
+    
+    // Inject lower_third.js directly into the HTML for the Prelist blob
+    try {
+      const ltPath = path.join(__dirname, "lower_third.js");
+      const ltScript = fs.readFileSync(ltPath, "utf-8");
+      html = html.replace('<script src="lower_third.js"></script>', `<script>\n${ltScript}\n</script>`);
+    } catch(e) {
+      console.warn("Could not inject lower_third.js", e);
+    }
+    
+    return html;
   } catch (err) {
     console.error("[MAIN] Failed to read presentation_prelist.html:", err);
     return null;

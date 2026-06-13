@@ -182,6 +182,7 @@
     </div>
     <div id="watermark"></div>
   </div>
+  <script src="lower_third.js"></script>
   <script>
     /* ---------- WORD OVERFLOW FIX ---------- */
     function fixWordOverflow(el, containerWidth) {
@@ -236,6 +237,15 @@
       if (!imgPath) return 'none';
       const clean = imgPath.replace(/\\/g, '/');
       if (clean.startsWith('http') || clean.startsWith('data:')) return `url("${clean}")`;
+      if (clean.startsWith('templates/')) {
+        if (window.location.protocol === 'blob:') {
+          return `url("/${clean}")`;
+        } else if (window.location.href.includes('/dist/electron/') || window.location.href.includes('/app.asar/')) {
+          return `url("../${clean}")`;
+        } else {
+          return `url("../public/${clean}")`;
+        }
+      }
       if (!clean.startsWith('file:///')) return `url("file:///${clean}")`;
       return `url("${clean}")`;
     }
@@ -285,147 +295,33 @@
       // Handle inconsistent payload structures (nested vs flat from Prelist.jsx)
       const settings = data.settings || data;
 
-      // Text color
-      let textColor = settings.presentationTextColor || '#fff';
-      if (layout === 'lowerThird' && settings.lowerThirdTextColor) {
-        textColor = settings.lowerThirdTextColor;
-      }
-      document.body.style.color = textColor;
-      ref.style.color = textColor;
-      tamil.style.color = textColor;
-      eng.style.color = textColor;
-      if (watermark) {
-        watermark.innerText = settings.customWatermark || "";
-        watermark.style.color = textColor;
-      }
-
-      // Background - Cached logic from presentation.html
+      // Background - Cached logic via lower_third.js
       const layout = settings.presentationLayout || "fullscreen";
 
       if (!window.bgCache) {
         window.bgCache = { type: null, val: null, layout: null };
       }
 
-      // Handle Layout Structure first
+      // Shared DOM element references for lower_third.js
+      const ltEls = { container, verseArea, refArea, box, bgLayer, watermark, ref, tamil, eng };
+
+      // Handle Layout via shared module
       if (layout === 'lowerThird') {
-        container.style.justifyContent = 'flex-end';
-        container.style.paddingBottom = '3vh'; // Push up from bottom slightly
-        verseArea.style.flex = 'none'; // Disable flex stretch
-        
-        box.style.alignItems = 'flex-start';
-        box.style.textAlign = 'left';
-
-        // Fade out entirely if not a single verse
-        const indexStr = data.index || "";
-        const isSingle = !indexStr.includes(",") && !indexStr.includes("-");
-        if (!isSingle) {
-          document.body.style.opacity = '0';
-          return;
-        }
-        
-        refArea.style.position = 'absolute';
-        refArea.style.alignSelf = 'auto';
-        refArea.style.bottom = '3.5vh'; // Float just above the 3vh bottom padding
-        refArea.style.right = '2vw'; // Float on the right edge
-        refArea.style.padding = '0';
-        refArea.style.paddingTop = '0';
-        refArea.style.paddingRight = '0'; // No internal padding needed since it's floating
-        refArea.style.minHeight = 'auto';
-        refArea.style.display = 'block';
-
-        const watermark = document.getElementById("watermark");
-        if (watermark) watermark.style.display = 'none';
-        refArea.style.minHeight = 'auto';
-        refArea.style.display = 'block';
-
-        // Re-order the elements so index appears below the verse
-        verseArea.style.order = '1';
-        refArea.style.order = '2';
-
-        if (settings.lowerThirdBgImage) {
-          if (window.bgCache.type !== 'lowerThirdImage' || window.bgCache.val !== settings.lowerThirdBgImage || window.bgCache.layout !== layout) {
-            bgLayer.style.backgroundImage = getSafeBgUrl(settings.lowerThirdBgImage);
-            bgLayer.style.backgroundColor = 'transparent';
-
-            // Constrain background to the lower-third area
-            bgLayer.style.top = 'auto';
-            bgLayer.style.bottom = '3vh'; // Align exactly with container's paddingBottom in prelist
-            bgLayer.style.height = '15.5vh';
-            bgLayer.style.backgroundSize = '100% 100%';
-
-            window.bgCache = { type: 'lowerThirdImage', val: settings.lowerThirdBgImage, layout };
-          }
-        } else {
-          bgLayer.style.backgroundImage = 'none';
-          bgLayer.style.backgroundColor = 'transparent';
-
-          // Constrain background to the lower-third area
-          bgLayer.style.top = 'auto';
-          bgLayer.style.bottom = '3vh'; // Align exactly with container's paddingBottom in prelist
-          bgLayer.style.height = '15.5vh';
-          bgLayer.style.backgroundSize = '100% 100%';
-
-          window.bgCache = { type: 'transparent', val: null, layout: 'lowerThird' };
-        }
-        document.body.style.backgroundColor = 'transparent'; // Ensure body is transparent
+        const shouldContinue = applyLowerThirdLayout(ltEls, data);
+        if (!shouldContinue) return;
+        applyLowerThirdBackground(bgLayer, settings, getSafeBgUrl);
       } else {
-        container.style.justifyContent = 'flex-start';
-        container.style.paddingBottom = '0';
-        verseArea.style.flex = '1'; // Restore flex stretch
-        
-        box.style.alignItems = 'center';
-        box.style.textAlign = 'center';
-        
-        refArea.style.position = 'static';
-        refArea.style.bottom = 'auto';
-        refArea.style.right = 'auto';
-        refArea.style.padding = '';
+        resetToFullscreenLayout(ltEls);
+        // Override paddingTop for prelist (uses 2.5vh instead of 3.5vh)
         refArea.style.paddingTop = '2.5vh';
-        refArea.style.minHeight = '5%';
-        refArea.style.display = 'flex';
+        applyFullscreenBackground(bgLayer, settings, getSafeBgUrl);
+      }
 
-        // Reset bgLayer to fullscreen
-        bgLayer.style.top = '0';
-        bgLayer.style.bottom = 'auto';
-        bgLayer.style.height = '100%';
-        bgLayer.style.backgroundSize = 'cover';
-
-        verseArea.style.order = '';
-        refArea.style.order = '';
-
-        document.body.style.backgroundColor = 'var(--bg)'; // Reset body
-
-        const watermark = document.getElementById("watermark");
-        if (watermark) watermark.style.display = 'block';
-
-        const bgType = settings.presentationBgType || "black";
-        const bgImage = settings.presentationBgImage;
-
-        if (bgType === "image" && bgImage) {
-          if (window.bgCache.type !== "image" || window.bgCache.val !== bgImage || window.bgCache.layout !== layout) {
-            bgLayer.style.backgroundImage = getSafeBgUrl(bgImage);
-            bgLayer.style.backgroundColor = "transparent";
-            window.bgCache = { type: "image", val: bgImage, layout };
-          }
-        } else if (bgType === "white") {
-          if (window.bgCache.type !== "white" || window.bgCache.layout !== layout) {
-            bgLayer.style.backgroundImage = "none";
-            bgLayer.style.backgroundColor = "#ffffff";
-            window.bgCache = { type: "white", val: null, layout };
-          }
-        } else if (bgType === "custom" && settings.presentationBgColor) {
-          if (window.bgCache.type !== "custom" || window.bgCache.val !== settings.presentationBgColor || window.bgCache.layout !== layout) {
-            bgLayer.style.backgroundImage = "none";
-            bgLayer.style.backgroundColor = settings.presentationBgColor;
-            window.bgCache = { type: "custom", val: settings.presentationBgColor, layout };
-          }
-        } else {
-          if (window.bgCache.type !== "black" || window.bgCache.layout !== layout) {
-            bgLayer.style.backgroundImage = "none";
-            bgLayer.style.backgroundColor = "#000";
-            window.bgCache = { type: "black", val: null, layout };
-          }
-        }
+      // Text color (shared)
+      const textColor = applyTextColor({ ref, tamil, eng }, settings, layout);
+      if (watermark) {
+        watermark.innerText = settings.customWatermark || "";
+        watermark.style.color = textColor;
       }
 
       const applyContent = () => {
@@ -512,128 +408,116 @@
 
         // Respect visibility toggles
         const tamilEnabled = data.tamilEnabled !== false;
-        let englishEnabled = data.englishEnabled !== false && getVerseCount(indexStr) <= 2;
-        
-        if (layout === 'lowerThird') {
-          englishEnabled = false; // Force hide English in lower-third
-        }
-
         tamil.style.display = tamilEnabled ? 'block' : 'none';
-        eng.style.display = englishEnabled ? 'block' : 'none';
 
-        // --- MATCH presentation.html LOGIC ---
-        const type = getVerseType(
-          data.tamilText ? data.tamilText.replace(/<[^>]*>/g, "") : "",
-          data.englishText ? data.englishText.replace(/<[^>]*>/g, "") : "",
-        );
-
-        const isSingle = !indexStr.includes(",") && !indexStr.includes("-");
-        const verseCount = getVerseCount(indexStr);
-
-        const FONT_PRESETS = {
-          small: { tamil: 8.2, eng: 6.5, min: 0 },
-          medium: { tamil: 6.2, eng: 5.2, min: 3.5 },
-          large: { tamil: 4.7, eng: 3.9, min: 2.8 },
-          huge: { tamil: 9.8, eng: 7.8, min: 3.0 },
-          multi2: { tamil: 5.5, eng: 4.5, min: 3.0 }, // For exactly 2 verses
-          multi: { tamil: 4.2, eng: 3.5, min: 2.0 }, // For >2 verses
-        };
-
-        let effectiveType = type;
-        if (isSingle && (type === "small" || type === "medium")) {
-          effectiveType = "huge";
-        } else if (!isSingle) {
-          effectiveType = verseCount === 2 ? "multi2" : "multi";
-        }
-        const preset = FONT_PRESETS[effectiveType];
-
-        // Line height adjustments with support for layoutOverrides
-        const layoutOverrides = data.layoutOverrides || {};
-        let tLineHeight = layoutOverrides.tamilLineHeight !== undefined ? layoutOverrides.tamilLineHeight : (!isSingle ? "1.35" : "1.28");
-        let eLineHeight = layoutOverrides.englishLineHeight !== undefined ? layoutOverrides.englishLineHeight : "1.35";
-        tamil.style.lineHeight = tLineHeight;
-        eng.style.lineHeight = eLineHeight;
-
-        let tamilVW = preset.tamil;
-        let engVW = preset.eng;
-
-        // Clamp minimums
-        if (tamilVW < 1.5) tamilVW = 1.5;
-        if (engVW < 1.2) engVW = 1.2;
-
-        // Force lowerThird to start smaller so it fits well within the 15.5vh box
+        // Use shared lower-third logic for content layout and fitting
         if (layout === 'lowerThird') {
-          tamilVW = 4.5;
-          engVW = 3.5;
-        }
+          const layoutOverrides = data.layoutOverrides || {};
+          applyLowerThirdContentLayout({ verseArea, box, eng }, layoutOverrides);
+          fitLowerThirdTamil(tamil, box, data);
+          fitLowerThirdReference(ref, data);
+        } else {
+          let englishEnabled = data.englishEnabled !== false && getVerseCount(indexStr) <= 2;
+          eng.style.display = englishEnabled ? 'block' : 'none';
 
-        tamil.style.fontSize = tamilVW + "vw";
-        eng.style.fontSize = engVW + "vw";
+          // --- MATCH presentation.html LOGIC ---
+          const type = getVerseType(
+            data.tamilText ? data.tamilText.replace(/<[^>]*>/g, "") : "",
+            data.englishText ? data.englishText.replace(/<[^>]*>/g, "") : "",
+          );
 
-        // Always auto-shrink to fit screen 
-        let safety = 0;
-        while (
-          (box.scrollHeight > box.clientHeight ||
-            tamil.scrollWidth > box.clientWidth ||
-            eng.scrollWidth > box.clientWidth) &&
-          tamilVW > preset.min &&
-          safety < 120
-        ) {
-          tamilVW -= 0.1;
-          engVW -= 0.08;
+          const isSingle = !indexStr.includes(",") && !indexStr.includes("-");
+          const verseCount = getVerseCount(indexStr);
+
+          const FONT_PRESETS = {
+            small: { tamil: 8.2, eng: 6.5, min: 0 },
+            medium: { tamil: 6.2, eng: 5.2, min: 3.5 },
+            large: { tamil: 4.7, eng: 3.9, min: 2.8 },
+            huge: { tamil: 9.8, eng: 7.8, min: 3.0 },
+            multi2: { tamil: 5.5, eng: 4.5, min: 3.0 },
+            multi: { tamil: 4.2, eng: 3.5, min: 2.0 },
+          };
+
+          let effectiveType = type;
+          if (isSingle && (type === "small" || type === "medium")) {
+            effectiveType = "huge";
+          } else if (!isSingle) {
+            effectiveType = verseCount === 2 ? "multi2" : "multi";
+          }
+          const preset = FONT_PRESETS[effectiveType];
+
+          // Line height adjustments with support for layoutOverrides
+          const layoutOverrides = data.layoutOverrides || {};
+          let tLineHeight = layoutOverrides.tamilLineHeight !== undefined ? layoutOverrides.tamilLineHeight : (!isSingle ? "1.35" : "1.28");
+          let eLineHeight = layoutOverrides.englishLineHeight !== undefined ? layoutOverrides.englishLineHeight : "1.35";
+          tamil.style.lineHeight = tLineHeight;
+          eng.style.lineHeight = eLineHeight;
+
+          let tamilVW = preset.tamil;
+          let engVW = preset.eng;
+
+          if (tamilVW < 1.5) tamilVW = 1.5;
+          if (engVW < 1.2) engVW = 1.2;
 
           tamil.style.fontSize = tamilVW + "vw";
           eng.style.fontSize = engVW + "vw";
 
-          safety++;
-        }
+          // Auto-shrink to fit screen
+          let safety = 0;
+          while (
+            (box.scrollHeight > box.clientHeight ||
+              tamil.scrollWidth > box.clientWidth ||
+              eng.scrollWidth > box.clientWidth) &&
+            tamilVW > preset.min &&
+            safety < 120
+          ) {
+            tamilVW -= 0.1;
+            engVW -= 0.08;
+            tamil.style.fontSize = tamilVW + "vw";
+            eng.style.fontSize = engVW + "vw";
+            safety++;
+          }
 
-        // Apply font size offsets AFTER auto-shrink
-        const offset = data.fontSizeOffset || 0;
-        const globalTamilOffset = (data.tamilFontOffset || 0) * 0.15;
-        const globalEngOffset = (data.englishFontOffset || 0) * 0.12;
-        const indexOffset = (data.indexFontOffset || 0) * 0.12;
+          // Apply font size offsets AFTER auto-shrink
+          const offset = data.fontSizeOffset || 0;
+          const globalTamilOffset = (data.tamilFontOffset || 0) * 0.15;
+          const globalEngOffset = (data.englishFontOffset || 0) * 0.12;
+          const indexOffset = (data.indexFontOffset || 0) * 0.12;
 
-        tamilVW += offset * 0.15 + globalTamilOffset;
-        engVW += offset * 0.12 + globalEngOffset;
+          tamilVW += offset * 0.15 + globalTamilOffset;
+          engVW += offset * 0.12 + globalEngOffset;
 
-        tamil.style.fontSize = tamilVW + "vw";
-        eng.style.fontSize = engVW + "vw";
+          tamil.style.fontSize = tamilVW + "vw";
+          eng.style.fontSize = engVW + "vw";
 
-        // Reference font size — length-based
-        const refLen = indexStr.length;
-        let refVW =
-          (refLen > 38 ? 2.5 : refLen > 26 ? 3.2 : 3.8) + indexOffset + (offset * 0.10);
+          // Reference font size — length-based
+          const refLen = indexStr.length;
+          let refVW =
+            (refLen > 38 ? 2.5 : refLen > 26 ? 3.2 : 3.8) + indexOffset + (offset * 0.10);
+          if (refVW < 2.0) refVW = 2.0;
+          ref.style.fontSize = refVW + "vw";
 
-        if (layout === 'lowerThird') {
-          refVW *= 0.30;
-        }
-
-        if (refVW < 2.0) refVW = 2.0;
-
-        ref.style.fontSize = refVW + "vw";
-
-        // Exact Layout blocks from presentation.html
-        if (layout === 'lowerThird') {
-          verseArea.style.padding = layoutOverrides.versePaddingTop !== undefined ? `${layoutOverrides.versePaddingTop}vh 8vw 0 20vw` : "0 8vw 0 20vw"; // Padding from the left instead of right
-          box.style.marginTop = "0";
-          box.style.gap = "0";
-          box.style.overflow = "hidden";
-          box.style.justifyContent = "center"; // Center the text within the fixed background block!
-          verseArea.style.justifyContent = "center";
-          box.style.minHeight = "15.5vh";
-          box.style.maxHeight = "15.5vh";
-        } else if (type === "small" || type === "medium") {
-          box.style.marginTop = "0";
-
-          if (isSingle) {
-            verseArea.style.padding = layoutOverrides.versePaddingTop !== undefined ? `${layoutOverrides.versePaddingTop}vh 3vw 0` : "0.5vh 3vw 0";
-            box.style.gap = "0";
-            box.style.justifyContent = "center";
-            verseArea.style.justifyContent = "center";
-            box.style.overflow = "hidden";
-            box.style.maxHeight = "94%";
-            refArea.style.height = "6%";
+          // Layout blocks for fullscreen
+          if (type === "small" || type === "medium") {
+            box.style.marginTop = "0";
+            if (isSingle) {
+              verseArea.style.padding = layoutOverrides.versePaddingTop !== undefined ? `${layoutOverrides.versePaddingTop}vh 3vw 0` : "0.5vh 3vw 0";
+              box.style.gap = "0";
+              box.style.justifyContent = "center";
+              verseArea.style.justifyContent = "center";
+              box.style.overflow = "hidden";
+              box.style.maxHeight = "94%";
+              refArea.style.height = "6%";
+            } else {
+              verseArea.style.padding = layoutOverrides.versePaddingTop !== undefined ? `${layoutOverrides.versePaddingTop}vh 1vw 0` : "1vh 1vw 0";
+              box.style.marginTop = "0";
+              box.style.gap = "0";
+              box.style.overflow = "hidden";
+              box.style.justifyContent = "flex-start";
+              verseArea.style.justifyContent = "flex-start";
+              box.style.maxHeight = "94%";
+              refArea.style.height = "5%";
+            }
           } else {
             verseArea.style.padding = layoutOverrides.versePaddingTop !== undefined ? `${layoutOverrides.versePaddingTop}vh 1vw 0` : "1vh 1vw 0";
             box.style.marginTop = "0";
@@ -644,18 +528,7 @@
             box.style.maxHeight = "94%";
             refArea.style.height = "5%";
           }
-        } else {
-          verseArea.style.padding = layoutOverrides.versePaddingTop !== undefined ? `${layoutOverrides.versePaddingTop}vh 1vw 0` : "1vh 1vw 0";
-          box.style.marginTop = "0";
-          box.style.gap = "0";
-          box.style.overflow = "hidden";
-          box.style.justifyContent = "flex-start";
-          verseArea.style.justifyContent = "flex-start";
-          box.style.maxHeight = "94%";
-          refArea.style.height = "5%";
-        }
 
-        if (layout !== 'lowerThird') {
           refArea.style.paddingTop = layoutOverrides.indexPaddingTop !== undefined ? `${layoutOverrides.indexPaddingTop}vh` : "2.5vh";
         }
 
