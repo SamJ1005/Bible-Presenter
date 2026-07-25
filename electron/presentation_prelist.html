@@ -268,6 +268,66 @@
       return "medium";
     }
 
+    function fitReference(refEl, data) {
+      if (data && data.presentationLayout === 'lowerThird') {
+        fitLowerThirdReference(refEl, data);
+        return;
+      }
+
+      const text = (refEl.innerText || "").toLowerCase();
+      const indexStr = data && data.index ? data.index : "";
+      const verseCount = getVerseCount(indexStr);
+      const isMultiVerse = verseCount > 1 || text.includes("-") || text.includes(",");
+      const isSmallRef =
+        text.includes("revelation") ||
+        text.includes("வெளிப்படுத்தின") ||
+        text.includes("thessalonians") ||
+        text.includes("தெச");
+      const isLongText = text.length > 20;
+
+      // Base font size matching standard presentation size (4.2vw to 5.5vw)
+      let vw = (isSmallRef || (isMultiVerse && isLongText)) ? 4.2 : (isMultiVerse ? 4.5 : 5.5);
+      refEl.style.fontSize = vw + "vw";
+
+      const refAreaEl = document.getElementById("referenceArea");
+      const containerWidth = refAreaEl ? refAreaEl.clientWidth : window.innerWidth;
+      const targetWidth = containerWidth * 0.80; // 80% width area
+
+      if (isMultiVerse) {
+        // Multi-verse index: reduce slightly compared to single verse, but auto-scale to fill ~80% of width area
+        let safety = 0;
+        if (refEl.scrollWidth > targetWidth) {
+          while (refEl.scrollWidth > targetWidth && vw > 2.5 && safety < 100) {
+            vw -= 0.1;
+            refEl.style.fontSize = vw + "vw";
+            safety++;
+          }
+        } else if (refEl.scrollWidth < targetWidth) {
+          while (refEl.scrollWidth < targetWidth && vw < 5.2 && safety < 100) {
+            vw += 0.1;
+            refEl.style.fontSize = vw + "vw";
+            safety++;
+          }
+          if (refEl.scrollWidth > targetWidth) {
+            vw -= 0.1;
+            refEl.style.fontSize = vw + "vw";
+          }
+        }
+      } else {
+        // Single verse: fit container
+        while (refEl.scrollWidth > refEl.clientWidth && vw > 2.5) {
+          vw -= 0.1;
+          refEl.style.fontSize = vw + "vw";
+        }
+      }
+
+      // Apply font offsets
+      const indexOffset = (data && data.indexFontOffset ? data.indexFontOffset : 0) * 0.15;
+      const localOffset = (data && data.fontSizeOffset ? data.fontSizeOffset : 0) * 0.10;
+      vw += indexOffset + localOffset;
+      refEl.style.fontSize = vw + "vw";
+    }
+
     function updateDisplay(data) {
       if (data && data.fadeOutOnly) {
         document.body.style.transition = 'opacity 0.25s ease-out';
@@ -413,8 +473,8 @@
         // Use shared lower-third logic for content layout and fitting
         if (layout === 'lowerThird') {
           const layoutOverrides = data.layoutOverrides || {};
-          applyLowerThirdContentLayout({ verseArea, box, eng }, layoutOverrides);
-          fitLowerThirdTamil(tamil, box, data);
+          applyLowerThirdContentLayout({ verseArea, box, eng, tamil }, layoutOverrides, data);
+          fitLowerThirdTamil(tamil, box, data, eng);
           fitLowerThirdReference(ref, data);
         } else {
           let englishEnabled = data.englishEnabled !== false && getVerseCount(indexStr) <= 2;
@@ -482,7 +542,6 @@
           const offset = data.fontSizeOffset || 0;
           const globalTamilOffset = (data.tamilFontOffset || 0) * 0.15;
           const globalEngOffset = (data.englishFontOffset || 0) * 0.12;
-          const indexOffset = (data.indexFontOffset || 0) * 0.12;
 
           tamilVW += offset * 0.15 + globalTamilOffset;
           engVW += offset * 0.12 + globalEngOffset;
@@ -490,12 +549,8 @@
           tamil.style.fontSize = tamilVW + "vw";
           eng.style.fontSize = engVW + "vw";
 
-          // Reference font size — length-based
-          const refLen = indexStr.length;
-          let refVW =
-            (refLen > 38 ? 2.5 : refLen > 26 ? 3.2 : 3.8) + indexOffset + (offset * 0.10);
-          if (refVW < 2.0) refVW = 2.0;
-          ref.style.fontSize = refVW + "vw";
+          // Fit reference/index (matches regular presentation size & 80% width filling for multi-verse)
+          fitReference(ref, data);
 
           // Layout blocks for fullscreen
           if (type === "small" || type === "medium") {

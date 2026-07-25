@@ -5,6 +5,11 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
   const lastPayloadParamsRef = useRef(null);
 
   function buildPayload({ selectedBook, selectedChapter, selectedVerse, settings = {}, tamilDataOverride = null, englishText = null, tamilText = null, viewMode = "bible", type = "bible", fileData = null, fontSizeOffset = 0, index = null }) {
+    // If viewMode is prelist or type is file, and only lower third is enabled in settings,
+    // forcefully enable showFullscreenWindow so playlist items display on screen!
+    const forceFullscreen = (viewMode === "prelist" || type === "file") && (settings.showLowerThirdWindow === true && settings.showFullscreenWindow === false);
+    const resolvedShowFullscreen = forceFullscreen ? true : (settings.showFullscreenWindow !== false);
+
     if (type === "file" && fileData) {
       return {
         viewMode,
@@ -12,13 +17,14 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
         url: fileData.url,
         fileType: fileData.fileType,
         name: fileData.name,
+        localPreview: fileData.localPreview || fileData.url,
         presentationBgType: settings.presentationBgType ?? "color",
         presentationBgImage: settings.presentationBgImage ?? "",
         lowerThirdBgImage: settings.lowerThirdBgImage ?? "",
         presentationBgColor: settings.presentationBgColor ?? "black",
         presentationTextColor: settings.presentationTextColor ?? "white",
-        lowerThirdTextColor: settings.lowerThirdTextColor ?? "",
-        showFullscreenWindow: settings.showFullscreenWindow !== false,
+        lowerThirdTextColor: settings.lowerThirdTextColor ?? "white",
+        showFullscreenWindow: resolvedShowFullscreen,
         showLowerThirdWindow: settings.showLowerThirdWindow === true,
         enableTransition: settings.enableTransition ?? false,
         customWatermark: settings.customWatermark ?? "",
@@ -47,13 +53,14 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
       tamilEnabled: settings.isTamilEnabled ?? true,
       englishEnabled: settings.isEnglishEnabled ?? true,
       primaryTranslation: settings.primaryTranslation ?? "Tamil",
+      lowerThirdLanguage: settings.lowerThirdLanguage ?? "tamil",
       presentationBgType: settings.presentationBgType ?? "color",
       presentationBgImage: settings.presentationBgImage ?? "",
       lowerThirdBgImage: settings.lowerThirdBgImage ?? "",
       presentationBgColor: settings.presentationBgColor ?? "black",
       presentationTextColor: settings.presentationTextColor ?? "white",
-      lowerThirdTextColor: settings.lowerThirdTextColor ?? "",
-      showFullscreenWindow: settings.showFullscreenWindow !== false,
+      lowerThirdTextColor: settings.lowerThirdTextColor ?? "white",
+      showFullscreenWindow: resolvedShowFullscreen,
       showLowerThirdWindow: settings.showLowerThirdWindow === true,
       enableTransition: settings.enableTransition ?? false,
       customWatermark: settings.customWatermark ?? "",
@@ -61,11 +68,13 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
   }
 
   // Opens (if needed) and sends the payload
-  async function sendToPresentation({ selectedBook, selectedChapter, selectedVerse, settings = {}, tamilDataOverride = null, englishText = null, tamilText = null, viewMode = "bible", type = "bible", fileData = null, fontSizeOffset = 0, index = null }) {
+  async function sendToPresentation(params = {}) {
+    const { selectedBook, selectedChapter, selectedVerse, settings = {}, tamilDataOverride = null, englishText = null, tamilText = null, viewMode = "bible", type = "bible", fileData = null, fontSizeOffset = 0, index = null } = params;
+
     // Validation
-    if (type === "bible") {
+    if (type === "bible" && !index) {
       if (!selectedBook || !selectedChapter || !selectedVerse) {
-        console.warn("sendToPresentation called with incomplete state", { selectedBook, selectedChapter, selectedVerse });
+        console.warn("sendToPresentation called with incomplete state", params);
         return;
       }
     }
@@ -73,7 +82,7 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
     const payload = buildPayload({ selectedBook, selectedChapter, selectedVerse, settings, tamilDataOverride, englishText, tamilText, viewMode, type, fileData, fontSizeOffset, index });
 
     // Store the exact parameters needed to rebuild this slide with new settings later
-    lastPayloadParamsRef.current = { selectedBook, selectedChapter, selectedVerse, tamilDataOverride, englishText, tamilText, viewMode, type, fileData, fontSizeOffset, index };
+    lastPayloadParamsRef.current = params;
 
     try {
       // Send payload to Electron; it will auto-open the window if not already present.

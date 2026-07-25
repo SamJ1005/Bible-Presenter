@@ -92,30 +92,16 @@ const Prelist = React.forwardRef((
     setIsManageMode(false);
   };
 
-  // Scroll the active item into view when activeId changes
+  // Scroll the active item into view immediately when activeId changes (no slow animations)
   useEffect(() => {
-    // Stagger scrolls to prevent browser conflict
-    
-    // 1. Scroll SIDEBAR (Priority 1)
-    const sidebarTimer = setTimeout(() => {
-      if (activeId && sidebarItemRefs.current && sidebarItemRefs.current[activeId]) {
-        const activeElement = sidebarItemRefs.current[activeId];
-        activeElement.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (activeId) {
+      if (sidebarItemRefs.current && sidebarItemRefs.current[activeId]) {
+        sidebarItemRefs.current[activeId].scrollIntoView({ behavior: "instant", block: "nearest" });
       }
-    }, 100);
-
-    // 2. Scroll MAIN VIEW (Priority 2, slightly delayed)
-    const mainTimer = setTimeout(() => {
-      if (activeId && itemRefs.current && itemRefs.current[activeId]) {
-        const mainElement = itemRefs.current[activeId];
-        mainElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (itemRefs.current && itemRefs.current[activeId]) {
+        itemRefs.current[activeId].scrollIntoView({ behavior: "instant", block: "nearest" });
       }
-    }, 300);
-
-    return () => {
-      clearTimeout(sidebarTimer);
-      clearTimeout(mainTimer);
-    };
+    }
   }, [activeId]);
 
   const handleItemClick = (id) => {
@@ -132,26 +118,29 @@ const Prelist = React.forwardRef((
 
     // Handle "File" type or other legacy types
     if (item.type === "file") {
-      // Prefer Local Persisted URL (local-media://), then Firebase imageUrl, then preview URL, then original path
-      let mediaSrc = item.localUrl || item.imageUrl || item.url;
+      const isInvalidUrl = (u) => !u || ["[uploading]", "[upload-failed]", "[offline-or-failed-upload]", "[local-file]"].includes(u);
+      let mediaSrc = !isInvalidUrl(item.imageUrl)
+        ? item.imageUrl
+        : (!isInvalidUrl(item.url)
+          ? item.url
+          : (item.localUrl || item.localPreview || null));
 
       if (!mediaSrc && item.path) {
         const fixedPath = item.path.replace(/\\/g, "/");
         mediaSrc = `file:///${fixedPath}`;
       }
 
-      const payload = {
+      sendToPresentation({
         viewMode: "prelist",
         type: "file",
         fileData: {
           url: mediaSrc,
           fileType: item.fileType,
           name: item.name,
+          localPreview: item.localPreview || item.imageUrl || item.url,
         },
         settings,
-      };
-      // console.log("[PRELIST.JSX] Sending file payload:", payload);
-      sendToPresentation(payload);
+      });
       return;
     }
 
@@ -169,17 +158,12 @@ const Prelist = React.forwardRef((
           .join("<br/>");
       }
 
-      // English is empty for multi-verse as per requirement to fit screen,
-      // UNLESS Tamil is missing/failed, then show English as fallback.
-      let finalEnglish = "";
-      if (!finalTamil || finalTamil.trim() === "") {
-        if (item.englishHtml) {
-          finalEnglish = item.englishHtml;
-        } else {
-          finalEnglish = item.versesPayload
-            .map((i) => `${i.v}. ${i.eng}`)
-            .join("<br/>");
-        }
+      // Include English text if available for multi-verse
+      let finalEnglish = item.englishHtml || "";
+      if (!finalEnglish && item.versesPayload && item.versesPayload.length > 0) {
+        finalEnglish = item.versesPayload
+          .map((i) => `${i.v}. ${i.eng}`)
+          .join("<br/>");
       }
 
       const tamilName = getTamilBookName(item.book);
@@ -497,6 +481,11 @@ const Prelist = React.forwardRef((
         presentationTextColor: settings?.presentationTextColor ?? 'white',
         enableTransition: settings?.enableTransition ?? false,
         customWatermark: settings?.customWatermark ?? '',
+        showFullscreenWindow: settings?.showFullscreenWindow !== false,
+        showLowerThirdWindow: settings?.showLowerThirdWindow === true,
+        lowerThirdLanguage: settings?.lowerThirdLanguage ?? "tamil",
+        lowerThirdBgImage: settings?.lowerThirdBgImage ?? "",
+        lowerThirdTextColor: settings?.lowerThirdTextColor ?? "",
         tamilFontOffset: settings?.tamilFontOffset ?? 0,
         englishFontOffset: settings?.englishFontOffset ?? 0,
         indexFontOffset: settings?.indexFontOffset ?? 0,

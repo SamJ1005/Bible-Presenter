@@ -170,6 +170,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [displays, setDisplays] = React.useState([]);
+  const [activeTab, setActiveTab] = useState("display");
 
   React.useEffect(() => {
     if (window.api?.getDisplays) {
@@ -359,7 +360,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
         <div
           onClick={() => setSettings(prev => ({ ...prev, cloudSyncEnabled: !isCloudSyncOn }))}
           style={{
-            marginBottom: "24px",
+            marginBottom: "20px",
             padding: "16px 20px",
             borderRadius: "12px",
             background: isCloudSyncOn
@@ -484,387 +485,486 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
         </div>
       )}
 
-      {/* THREE COLUMN LAYOUT */}
+      {/* CATEGORIZED SUB-TABS NAVIGATION BELOW AUTO-SAVE / CLOUD SYNC */}
       <div style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr 1fr",
-        gap: "20px",
-        alignItems: "flex-start"
+        display: "flex",
+        gap: "10px",
+        marginBottom: "20px",
+        borderBottom: `1px solid ${theme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
+        paddingBottom: "12px"
       }}>
-        {/* COLUMN 1 — Language & Display */}
-        <div style={{ minWidth: 0 }}>
-
-          {/* Primary Translation */}
-          <SettingsCard title="Primary Language">
-            <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
-              Sets which language appears first — in the Bible tab and on-screen presentation.
-            </div>
-            {["Tamil", "English"].map((lang) => (
-              <div key={lang} style={{ marginBottom: "10px" }}>
-                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "10px" }}>
-                  <input
-                    type="radio"
-                    name="primaryTranslation"
-                    checked={(settings.primaryTranslation || "Tamil") === lang}
-                    onChange={() => setSettings((prev) => ({ ...prev, primaryTranslation: lang }))}
-                  />
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: '14px' }}>{lang}</div>
-                    <div style={{ fontSize: '11px', opacity: 0.6 }}>
-                      {lang === "Tamil" ? "Tamil on left / top" : "English on left / top"}
-                    </div>
-                  </div>
-                </label>
-              </div>
-            ))}
-          </SettingsCard>
-
-          {/* Language Visibility */}
-          <SettingsCard title="Show Languages">
-            <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
-              Toggle which languages are shown in the presentation.
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
-                <input
-                  type="checkbox"
-                  checked={settings.isTamilEnabled !== false}
-                  onChange={(e) => setSettings((prev) => ({ ...prev, isTamilEnabled: e.target.checked }))}
-                  style={{ width: '16px', height: '16px' }}
-                />
-                Show Tamil
-              </label>
-            </div>
-            <div>
-              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
-                <input
-                  type="checkbox"
-                  checked={settings.isEnglishEnabled !== false}
-                  onChange={(e) => setSettings((prev) => ({ ...prev, isEnglishEnabled: e.target.checked }))}
-                  style={{ width: '16px', height: '16px' }}
-                />
-                Show English
-              </label>
-            </div>
-          </SettingsCard>
-
-          {/* Presentation Windows */}
-          <SettingsCard title="Presentation Windows">
-            <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
-              Choose which presentation windows to display (you can enable both for OBS).
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
-                <input
-                  type="checkbox"
-                  checked={settings.showFullscreenWindow !== false}
-                  onChange={(e) => setSettings((prev) => ({ ...prev, showFullscreenWindow: e.target.checked }))}
-                  style={{ width: '16px', height: '16px' }}
-                />
-                Show Fullscreen Window
-              </label>
-            </div>
-            <div>
-              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
-                <input
-                  type="checkbox"
-                  checked={settings.showLowerThirdWindow === true}
-                  onChange={(e) => setSettings((prev) => ({ ...prev, showLowerThirdWindow: e.target.checked }))}
-                  style={{ width: '16px', height: '16px' }}
-                />
-                Show Lower Third Window
-              </label>
-            </div>
-          </SettingsCard>
-
-          {/* Display Device */}
-          <SettingsCard title="Display Device">
-            <select
-              value={settings.preferredDisplayId || 'auto'}
-              onChange={(e) => {
-                const val = e.target.value;
-                setSettings(prev => ({ ...prev, preferredDisplayId: val }));
-                if (window.api?.setPreferredDisplay) window.api.setPreferredDisplay(val);
-              }}
+        {[
+          { id: "display", label: "General & Display", icon: "🌐" },
+          { id: "fullscreen", label: "Fullscreen Presentation", icon: "🖥️" },
+          { id: "lowerthird", label: "Lower Third Presentation", icon: "📺" }
+        ].map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
               style={{
-                width: "100%",
-                padding: "8px 10px",
-                border: theme === 'dark' ? '1px solid #444' : '1px solid #ccc',
-                background: theme === 'dark' ? '#1a1a1a' : '#fff',
-                color: theme === 'dark' ? '#e0e0e0' : '#222',
-                borderRadius: "6px",
-                fontSize: "13px",
-                outline: 'none'
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 18px",
+                borderRadius: "8px",
+                border: isActive
+                  ? (theme === "dark" ? "1px solid rgba(0, 255, 153, 0.4)" : "1px solid rgba(0, 51, 153, 0.4)")
+                  : "1px solid transparent",
+                background: isActive
+                  ? (theme === "dark" ? "rgba(0, 255, 153, 0.12)" : "rgba(0, 51, 153, 0.08)")
+                  : (theme === "dark" ? "rgba(255, 255, 255, 0.03)" : "rgba(0, 0, 0, 0.03)"),
+                color: isActive
+                  ? (theme === "dark" ? "#00ff99" : "#003399")
+                  : (theme === "dark" ? "#aaa" : "#555"),
+                fontWeight: isActive ? 700 : 500,
+                fontSize: "14px",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                outline: "none"
               }}
             >
-              <option value="auto">Auto (Prefer Secondary)</option>
-              {displays.filter(d => d.isPrimary).map(d => (
-                <option key={d.id} value={d.id}>Primary — {d.width}×{d.height}</option>
-              ))}
-              {displays.filter(d => !d.isPrimary).map((d, i) => (
-                <option key={d.id} value={d.id}>Secondary{displays.filter(x => !x.isPrimary).length > 1 ? ` (${i + 1})` : ''} — {d.width}×{d.height}</option>
-              ))}
-            </select>
-            <div style={{ fontSize: '11px', opacity: 0.55, marginTop: '6px' }}>
-              'Auto' opens on the secondary monitor if available.
-            </div>
-          </SettingsCard>
+              <span style={{ fontSize: "16px" }}>{tab.icon}</span>
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
+      {/* TAB CONTENT AREAS */}
+
+      {/* TAB 1: GENERAL & DISPLAY */}
+      {activeTab === "display" && (
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "20px",
+          alignItems: "flex-start"
+        }}>
+          <div>
+            {/* Primary Translation */}
+            <SettingsCard title="Primary Language">
+              <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+                Sets which language appears first — in the Bible tab and on-screen presentation.
+              </div>
+              {["Tamil", "English"].map((lang) => (
+                <div key={lang} style={{ marginBottom: "10px" }}>
+                  <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "10px" }}>
+                    <input
+                      type="radio"
+                      name="primaryTranslation"
+                      checked={(settings.primaryTranslation || "Tamil") === lang}
+                      onChange={() => setSettings((prev) => ({ ...prev, primaryTranslation: lang }))}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '14px' }}>{lang}</div>
+                      <div style={{ fontSize: '11px', opacity: 0.6 }}>
+                        {lang === "Tamil" ? "Tamil on left / top" : "English on left / top"}
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              ))}
+            </SettingsCard>
+          </div>
+
+          <div>
+            {/* Presentation Windows */}
+            <SettingsCard title="Presentation Windows">
+              <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+                Choose which presentation windows to display (you can enable both for OBS).
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.showFullscreenWindow !== false}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, showFullscreenWindow: e.target.checked }))}
+                    style={{ width: '16px', height: '16px' }}
+                  />
+                  Show Fullscreen Window
+                </label>
+              </div>
+              <div>
+                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.showLowerThirdWindow === true}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, showLowerThirdWindow: e.target.checked }))}
+                    style={{ width: '16px', height: '16px' }}
+                  />
+                  Show Lower Third Window
+                </label>
+              </div>
+            </SettingsCard>
+
+            {/* Display Device */}
+            <SettingsCard title="Display Device">
+              <select
+                value={settings.preferredDisplayId || 'auto'}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSettings(prev => ({ ...prev, preferredDisplayId: val }));
+                  if (window.api?.setPreferredDisplay) window.api.setPreferredDisplay(val);
+                }}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  border: theme === 'dark' ? '1px solid #444' : '1px solid #ccc',
+                  background: theme === 'dark' ? '#1a1a1a' : '#fff',
+                  color: theme === 'dark' ? '#e0e0e0' : '#222',
+                  borderRadius: "6px",
+                  fontSize: "13px",
+                  outline: 'none'
+                }}
+              >
+                <option value="auto">Auto (Prefer Secondary)</option>
+                {displays.filter(d => d.isPrimary).map(d => (
+                  <option key={d.id} value={d.id}>Primary — {d.width}×{d.height}</option>
+                ))}
+                {displays.filter(d => !d.isPrimary).map((d, i) => (
+                  <option key={d.id} value={d.id}>Secondary{displays.filter(x => !x.isPrimary).length > 1 ? ` (${i + 1})` : ''} — {d.width}×{d.height}</option>
+                ))}
+              </select>
+              <div style={{ fontSize: '11px', opacity: 0.55, marginTop: '6px' }}>
+                'Auto' opens on the secondary monitor if available.
+              </div>
+            </SettingsCard>
+
+            {/* General Options */}
+            <SettingsCard title="General App Preferences">
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontSize: "14px" }}>
+                  <input type="checkbox" checked={settings.enableTransition} onChange={(e) => setSettings((prev) => ({ ...prev, enableTransition: e.target.checked }))} style={{ width: "16px", height: "16px" }} />
+                  Enable Slide/Fade Transition
+                </label>
+              </div>
+              <div>
+                <label style={{ fontWeight: 600, fontSize: "13px", display: "block", marginBottom: "6px" }}>Custom Watermark</label>
+                <input type="text" value={settings.customWatermark || ""} placeholder="your watermark" onChange={(e) => setSettings((prev) => ({ ...prev, customWatermark: e.target.value }))}
+                  style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box", border: theme === 'dark' ? '1px solid #444' : '1px solid #ccc', background: theme === 'dark' ? '#1a1a1a' : '#fff', color: theme === 'dark' ? '#e0e0e0' : '#222' }}
+                />
+              </div>
+            </SettingsCard>
+          </div>
         </div>
+      )}
 
-        {/* COLUMN 2 — Fullscreen Appearance */}
-        <div style={{ minWidth: 0 }}>
+      {/* TAB 2: FULLSCREEN PRESENTATION */}
+      {activeTab === "fullscreen" && (
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "20px",
+          alignItems: "flex-start"
+        }}>
+          <div>
+            {/* Background Options */}
+            <SettingsCard title="Fullscreen Background">
+              {/* White */}
+              <div style={{ marginBottom: "8px" }}>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <input
+                    type="radio"
+                    name="bg"
+                    checked={settings.presentationBgType === "white"}
+                    onChange={() =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        presentationBgType: "white",
+                        presentationBgImage: null,
+                        presentationTextColor: "black",
+                      }))
+                    }
+                  />
+                  <span>White background</span>
+                </label>
+              </div>
 
-          {/* Background Options */}
-          <SettingsCard title="Fullscreen Background">
-            {/* White */}
-            <div style={{ marginBottom: "8px" }}>
-              <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
-                <input
-                  type="radio"
-                  name="bg"
-                  checked={settings.presentationBgType === "white"}
-                  onChange={() =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      presentationBgType: "white",
-                      presentationBgImage: null,
-                      presentationTextColor: "black",
-                    }))
-                  }
-                />
-                <span>White background</span>
-              </label>
-            </div>
+              {/* Black */}
+              <div style={{ marginBottom: "8px" }}>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <input
+                    type="radio"
+                    name="bg"
+                    checked={settings.presentationBgType === "black"}
+                    onChange={() =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        presentationBgType: "black",
+                        presentationBgImage: null,
+                        presentationTextColor: "white",
+                      }))
+                    }
+                  />
+                  <span>Black background</span>
+                </label>
+              </div>
 
-            {/* Black */}
-            <div style={{ marginBottom: "8px" }}>
-              <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
-                <input
-                  type="radio"
-                  name="bg"
-                  checked={settings.presentationBgType === "black"}
-                  onChange={() =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      presentationBgType: "black",
-                      presentationBgImage: null,
-                      presentationTextColor: "white",
-                    }))
-                  }
-                />
-                <span>Black background</span>
-              </label>
-            </div>
+              {/* Custom Image — gallery approach */}
+              <div style={{ marginBottom: "8px" }}>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <input
+                    type="radio"
+                    name="bg"
+                    checked={settings.presentationBgType === "image"}
+                    onChange={() => setSettings((prev) => ({ ...prev, presentationBgType: "image" }))}
+                  />
+                  <span>Custom Image</span>
+                </label>
 
-            {/* Custom Image — gallery approach */}
-            <div style={{ marginBottom: "8px" }}>
-              <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
-                <input
-                  type="radio"
-                  name="bg"
-                  checked={settings.presentationBgType === "image"}
-                  onChange={() => setSettings((prev) => ({ ...prev, presentationBgType: "image" }))}
-                />
-                <span>Custom Image</span>
-              </label>
+                {/* Image Gallery */}
+                <div style={{ marginTop: '10px', marginLeft: '4px' }}>
+                  {(settings.bgImageGallery || []).length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                      {(settings.bgImageGallery || []).map((img) => {
+                        const isActive = settings.presentationBgImage === img.data;
+                        return (
+                          <div key={img.id} style={{ position: 'relative', cursor: 'pointer' }} title={img.name}>
+                            <img
+                              src={img.data} alt={img.name}
+                              onClick={() => setSettings((prev) => ({ ...prev, presentationBgImage: img.data, presentationBgImageName: img.name, presentationBgType: 'image' }))}
+                              style={{ width: '80px', height: '52px', objectFit: 'cover', borderRadius: '6px', border: isActive ? '2px solid #00ff99' : '2px solid transparent', display: 'block', transition: 'border-color 0.2s' }}
+                            />
+                            {isActive && (<div style={{ position: 'absolute', top: 2, left: 2, background: '#00ff99', color: '#000', fontSize: '9px', fontWeight: 700, padding: '1px 4px', borderRadius: '3px' }}>✓</div>)}
+                            <button onClick={(e) => { e.stopPropagation(); setSettings((prev) => { const gallery = (prev.bgImageGallery || []).filter(x => x.id !== img.id); const wasActive = prev.presentationBgImage === img.data; return { ...prev, bgImageGallery: gallery, presentationBgImage: wasActive ? (gallery[0]?.data || null) : prev.presentationBgImage, presentationBgImageName: wasActive ? (gallery[0]?.name || null) : prev.presentationBgImageName, presentationBgType: wasActive && gallery.length === 0 ? 'black' : prev.presentationBgType }; }); }}
+                              style={{ position: 'absolute', top: 2, right: 2, width: '16px', height: '16px', background: 'rgba(231,76,60,0.85)', color: '#fff', border: 'none', borderRadius: '50%', cursor: 'pointer', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 }}
+                            >×</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
-              {/* Image Gallery */}
-              <div style={{ marginTop: '10px', marginLeft: '4px' }}>
-                {(settings.bgImageGallery || []).length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-                    {(settings.bgImageGallery || []).map((img) => {
-                      const isActive = settings.presentationBgImage === img.data;
-                      return (
-                        <div key={img.id} style={{ position: 'relative', cursor: 'pointer' }} title={img.name}>
-                          <img
-                            src={img.data} alt={img.name}
-                            onClick={() => setSettings((prev) => ({ ...prev, presentationBgImage: img.data, presentationBgImageName: img.name, presentationBgType: 'image' }))}
-                            style={{ width: '80px', height: '52px', objectFit: 'cover', borderRadius: '6px', border: isActive ? '2px solid #00ff99' : '2px solid transparent', display: 'block', transition: 'border-color 0.2s' }}
-                          />
-                          {isActive && (<div style={{ position: 'absolute', top: 2, left: 2, background: '#00ff99', color: '#000', fontSize: '9px', fontWeight: 700, padding: '1px 4px', borderRadius: '3px' }}>✓</div>)}
-                          <button onClick={(e) => { e.stopPropagation(); setSettings((prev) => { const gallery = (prev.bgImageGallery || []).filter(x => x.id !== img.id); const wasActive = prev.presentationBgImage === img.data; return { ...prev, bgImageGallery: gallery, presentationBgImage: wasActive ? (gallery[0]?.data || null) : prev.presentationBgImage, presentationBgImageName: wasActive ? (gallery[0]?.name || null) : prev.presentationBgImageName, presentationBgType: wasActive && gallery.length === 0 ? 'black' : prev.presentationBgType }; }); }}
-                            style={{ position: 'absolute', top: 2, right: 2, width: '16px', height: '16px', background: 'rgba(231,76,60,0.85)', color: '#fff', border: 'none', borderRadius: '50%', cursor: 'pointer', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 }}
-                          >×</button>
-                        </div>
-                      );
-                    })}
+                  <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '13px', padding: '6px 12px', borderRadius: '6px', border: `1.5px dashed ${theme === 'dark' ? '#888' : '#666'}`, color: theme === 'dark' ? '#eee' : '#555', fontWeight: '600', transition: 'all 0.2s ease', background: theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }}>
+                    + Add Image
+                    <input type="file" accept="image/*" multiple style={{ display: 'none' }}
+                      onChange={(e) => { const files = Array.from(e.target.files); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const newImg = { id: Date.now() + Math.random(), name: file.name, data: reader.result }; setSettings((prev) => ({ ...prev, bgImageGallery: [...(prev.bgImageGallery || []), newImg], presentationBgImage: prev.presentationBgImage || reader.result, presentationBgImageName: prev.presentationBgImageName || file.name, presentationBgType: 'image' })); }; reader.readAsDataURL(file); }); e.target.value = ''; }}
+                    />
+                  </label>
+
+                  {(settings.bgImageGallery || []).length === 0 && (
+                    <div style={{ fontSize: '11px', opacity: 0.5, marginTop: '6px' }}>Upload images to build a gallery. Click any thumbnail to use it.</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Custom Color */}
+              <div>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <input type="radio" name="bg" checked={settings.presentationBgType === "custom"} onChange={() => setSettings((prev) => ({ ...prev, presentationBgType: "custom", presentationBgImage: null, presentationBgColor: prev.presentationBgColor || "#1a1a2e" }))} />
+                  <span>Custom Color</span>
+                </label>
+                {settings.presentationBgType === "custom" && (
+                  <div style={{ marginTop: "8px", marginLeft: "24px", display: "flex", alignItems: "center", gap: "10px" }}>
+                    <input type="color" value={settings.presentationBgColor || "#1a1a2e"} onChange={(e) => setSettings((prev) => ({ ...prev, presentationBgColor: e.target.value }))} style={{ width: "40px", height: "30px", border: "none", cursor: "pointer", borderRadius: "4px" }} />
+                    <span style={{ fontSize: "12px", opacity: 0.6 }}>{settings.presentationBgColor || "#1a1a2e"}</span>
                   </div>
                 )}
+              </div>
+            </SettingsCard>
+          </div>
+
+          <div>
+            {/* Fullscreen Font Color */}
+            <SettingsCard title="Fullscreen Font Color">
+              <div style={{ marginBottom: "8px" }}>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <input type="radio" name="fontColor" checked={settings.presentationTextColor === "white"} onChange={() => setSettings((prev) => ({ ...prev, presentationTextColor: "white" }))} />
+                  <span>White Text</span>
+                </label>
+              </div>
+              <div style={{ marginBottom: "8px" }}>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <input type="radio" name="fontColor" checked={settings.presentationTextColor === "black"} onChange={() => setSettings((prev) => ({ ...prev, presentationTextColor: "black" }))} />
+                  <span>Black Text</span>
+                </label>
+              </div>
+              <div>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <input type="radio" name="fontColor" checked={settings.presentationTextColor !== "white" && settings.presentationTextColor !== "black"} onChange={() => setSettings((prev) => ({ ...prev, presentationTextColor: prev.presentationTextColor && prev.presentationTextColor !== "white" && prev.presentationTextColor !== "black" ? prev.presentationTextColor : "#ffdd57" }))} />
+                  <span>Custom Color</span>
+                </label>
+                {settings.presentationTextColor !== "white" && settings.presentationTextColor !== "black" && (
+                  <div style={{ marginTop: "8px", marginLeft: "24px", display: "flex", alignItems: "center", gap: "10px" }}>
+                    <input type="color" value={settings.presentationTextColor || "#ffdd57"} onChange={(e) => setSettings((prev) => ({ ...prev, presentationTextColor: e.target.value }))} style={{ width: "40px", height: "30px", border: "none", cursor: "pointer", borderRadius: "4px" }} />
+                    <span style={{ fontSize: "12px", opacity: 0.6 }}>{settings.presentationTextColor}</span>
+                  </div>
+                )}
+              </div>
+            </SettingsCard>
+
+            {/* Language Visibility for Fullscreen */}
+            <SettingsCard title="Show Languages">
+              <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+                Toggle which languages are shown in the fullscreen presentation.
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.isTamilEnabled !== false}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, isTamilEnabled: e.target.checked }))}
+                    style={{ width: '16px', height: '16px' }}
+                  />
+                  Show Tamil
+                </label>
+              </div>
+              <div>
+                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.isEnglishEnabled !== false}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, isEnglishEnabled: e.target.checked }))}
+                    style={{ width: '16px', height: '16px' }}
+                  />
+                  Show English
+                </label>
+              </div>
+            </SettingsCard>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: LOWER THIRD PRESENTATION */}
+      {activeTab === "lowerthird" && (
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "20px",
+          alignItems: "flex-start"
+        }}>
+          <div>
+            {/* Select Language Radio Button for Lower Third */}
+            <SettingsCard title="Lower Third Language">
+              <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+                Select which single language is displayed during lower-third presentation.
+              </div>
+              <div style={{ marginBottom: "10px" }}>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", fontSize: "14px" }}>
+                  <input
+                    type="radio"
+                    name="lowerThirdLang"
+                    checked={(settings.lowerThirdLanguage || "tamil") === "tamil"}
+                    onChange={() => setSettings((prev) => ({ ...prev, lowerThirdLanguage: "tamil" }))}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600 }}>Tamil Only</div>
+                    <div style={{ fontSize: '11px', opacity: 0.6 }}>Displays Tamil scripture text in lower third</div>
+                  </div>
+                </label>
+              </div>
+              <div>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", fontSize: "14px" }}>
+                  <input
+                    type="radio"
+                    name="lowerThirdLang"
+                    checked={settings.lowerThirdLanguage === "english"}
+                    onChange={() => setSettings((prev) => ({ ...prev, lowerThirdLanguage: "english" }))}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600 }}>English Only</div>
+                    <div style={{ fontSize: '11px', opacity: 0.6 }}>Displays English scripture text in lower third</div>
+                  </div>
+                </label>
+              </div>
+            </SettingsCard>
+
+            {/* Lower Third Font Color — White/Black/Custom radio */}
+            <SettingsCard title="Lower Third Font Color">
+              <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+                Select the text color for the lower-third presentation.
+              </div>
+              <div style={{ marginBottom: "8px" }}>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <input type="radio" name="ltFontColor" checked={!settings.lowerThirdTextColor || settings.lowerThirdTextColor === "white"} onChange={() => setSettings((prev) => ({ ...prev, lowerThirdTextColor: "white" }))} />
+                  <span>White Text</span>
+                </label>
+              </div>
+              <div style={{ marginBottom: "8px" }}>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <input type="radio" name="ltFontColor" checked={settings.lowerThirdTextColor === "black"} onChange={() => setSettings((prev) => ({ ...prev, lowerThirdTextColor: "black" }))} />
+                  <span>Black Text</span>
+                </label>
+              </div>
+              <div>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <input type="radio" name="ltFontColor" checked={settings.lowerThirdTextColor && settings.lowerThirdTextColor !== "white" && settings.lowerThirdTextColor !== "black"} onChange={() => setSettings((prev) => ({ ...prev, lowerThirdTextColor: prev.lowerThirdTextColor && prev.lowerThirdTextColor !== "white" && prev.lowerThirdTextColor !== "black" ? prev.lowerThirdTextColor : "#ffdd57" }))} />
+                  <span>Custom Color</span>
+                </label>
+                {settings.lowerThirdTextColor && settings.lowerThirdTextColor !== "white" && settings.lowerThirdTextColor !== "black" && (
+                  <div style={{ marginTop: "8px", marginLeft: "24px", display: "flex", alignItems: "center", gap: "10px" }}>
+                    <input type="color" value={settings.lowerThirdTextColor || "#ffdd57"} onChange={(e) => setSettings((prev) => ({ ...prev, lowerThirdTextColor: e.target.value }))} style={{ width: "40px", height: "30px", border: "none", cursor: "pointer", borderRadius: "4px" }} />
+                    <span style={{ fontSize: "12px", opacity: 0.6 }}>{settings.lowerThirdTextColor}</span>
+                  </div>
+                )}
+              </div>
+            </SettingsCard>
+          </div>
+
+          <div>
+            {/* Lower Third Background — Gallery */}
+            <SettingsCard title="Lower Third Background">
+              <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+                Set a background image for the lower-third. If left blank, the background will be fully transparent.
+              </div>
+              <div style={{ marginBottom: "8px" }}>
+                {(() => {
+                  const defaultTemplates = Array.from({length: 7}, (_, i) => ({
+                    id: `default-lt-${i+1}`,
+                    name: `Template ${i+1}`,
+                    data: `templates/lt ${i+1}.png`,
+                    isDefault: true
+                  }));
+                  const userGallery = settings.lowerThirdBgGallery || [];
+                  const fullGallery = [...defaultTemplates, ...userGallery];
+
+                  return fullGallery.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                      {fullGallery.map((img) => {
+                        const isActive = settings.lowerThirdBgImage === img.data;
+                        return (
+                          <div key={img.id} style={{ position: 'relative', cursor: 'pointer' }} title={img.name}>
+                            <img src={img.data} alt={img.name}
+                              onClick={() => setSettings((prev) => ({ ...prev, lowerThirdBgImage: img.data, lowerThirdBgImageName: img.name }))}
+                              style={{ width: '80px', height: '52px', objectFit: 'cover', borderRadius: '6px', border: isActive ? '2px solid #00ff99' : '2px solid transparent', display: 'block', transition: 'border-color 0.2s' }}
+                            />
+                            {isActive && (<div style={{ position: 'absolute', top: 2, left: 2, background: '#00ff99', color: '#000', fontSize: '9px', fontWeight: 700, padding: '1px 4px', borderRadius: '3px' }}>✓</div>)}
+                            {!img.isDefault && (
+                              <button onClick={(e) => { e.stopPropagation(); setSettings((prev) => { const gallery = (prev.lowerThirdBgGallery || []).filter(x => x.id !== img.id); const wasActive = prev.lowerThirdBgImage === img.data; return { ...prev, lowerThirdBgGallery: gallery, lowerThirdBgImage: wasActive ? null : prev.lowerThirdBgImage, lowerThirdBgImageName: wasActive ? null : prev.lowerThirdBgImageName }; }); }}
+                                style={{ position: 'absolute', top: 2, right: 2, width: '16px', height: '16px', background: 'rgba(231,76,60,0.85)', color: '#fff', border: 'none', borderRadius: '50%', cursor: 'pointer', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 }}
+                              >×</button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
 
                 <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '13px', padding: '6px 12px', borderRadius: '6px', border: `1.5px dashed ${theme === 'dark' ? '#888' : '#666'}`, color: theme === 'dark' ? '#eee' : '#555', fontWeight: '600', transition: 'all 0.2s ease', background: theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }}>
-                  + Add Image
+                  + Add Custom Image
                   <input type="file" accept="image/*" multiple style={{ display: 'none' }}
-                    onChange={(e) => { const files = Array.from(e.target.files); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const newImg = { id: Date.now() + Math.random(), name: file.name, data: reader.result }; setSettings((prev) => ({ ...prev, bgImageGallery: [...(prev.bgImageGallery || []), newImg], presentationBgImage: prev.presentationBgImage || reader.result, presentationBgImageName: prev.presentationBgImageName || file.name, presentationBgType: 'image' })); }; reader.readAsDataURL(file); }); e.target.value = ''; }}
+                    onChange={(e) => { const files = Array.from(e.target.files); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const newImg = { id: Date.now() + Math.random(), name: file.name, data: reader.result }; setSettings((prev) => ({ ...prev, lowerThirdBgGallery: [...(prev.lowerThirdBgGallery || []), newImg], lowerThirdBgImage: prev.lowerThirdBgImage || reader.result, lowerThirdBgImageName: prev.lowerThirdBgImageName || file.name })); }; reader.readAsDataURL(file); }); e.target.value = ''; }}
                   />
                 </label>
 
-                {(settings.bgImageGallery || []).length === 0 && (
-                  <div style={{ fontSize: '11px', opacity: 0.5, marginTop: '6px' }}>Upload images to build a gallery. Click any thumbnail to use it.</div>
+                {/* Legacy single image support */}
+                {settings.lowerThirdBgImage && (settings.lowerThirdBgGallery || []).length === 0 && (
+                  <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
+                    <img src={settings.lowerThirdBgImage} alt="Lower Third Bg" style={{ height: '52px', objectFit: 'cover', borderRadius: '6px', border: '2px solid #00ff99', display: 'block' }} />
+                    <button onClick={() => setSettings((prev) => ({ ...prev, lowerThirdBgImage: null, lowerThirdBgImageName: null }))}
+                      style={{ position: 'absolute', top: -6, right: -6, width: '18px', height: '18px', background: 'rgba(231,76,60,0.95)', color: '#fff', border: 'none', borderRadius: '50%', cursor: 'pointer', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 }}
+                    >×</button>
+                    <div style={{ fontSize: '10px', opacity: 0.5, marginTop: '3px' }}>{settings.lowerThirdBgImageName || 'Active'}</div>
+                  </div>
                 )}
               </div>
-            </div>
-
-            {/* Custom Color */}
-            <div>
-              <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
-                <input type="radio" name="bg" checked={settings.presentationBgType === "custom"} onChange={() => setSettings((prev) => ({ ...prev, presentationBgType: "custom", presentationBgImage: null, presentationBgColor: prev.presentationBgColor || "#1a1a2e" }))} />
-                <span>Custom Color</span>
-              </label>
-              {settings.presentationBgType === "custom" && (
-                <div style={{ marginTop: "8px", marginLeft: "24px", display: "flex", alignItems: "center", gap: "10px" }}>
-                  <input type="color" value={settings.presentationBgColor || "#1a1a2e"} onChange={(e) => setSettings((prev) => ({ ...prev, presentationBgColor: e.target.value }))} style={{ width: "40px", height: "30px", border: "none", cursor: "pointer", borderRadius: "4px" }} />
-                  <span style={{ fontSize: "12px", opacity: 0.6 }}>{settings.presentationBgColor || "#1a1a2e"}</span>
-                </div>
-              )}
-            </div>
-          </SettingsCard>
-
-          {/* Fullscreen Font Color */}
-          <SettingsCard title="Fullscreen Font Color">
-            <div style={{ marginBottom: "8px" }}>
-              <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
-                <input type="radio" name="fontColor" checked={settings.presentationTextColor === "white"} onChange={() => setSettings((prev) => ({ ...prev, presentationTextColor: "white" }))} />
-                <span>White Text</span>
-              </label>
-            </div>
-            <div style={{ marginBottom: "8px" }}>
-              <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
-                <input type="radio" name="fontColor" checked={settings.presentationTextColor === "black"} onChange={() => setSettings((prev) => ({ ...prev, presentationTextColor: "black" }))} />
-                <span>Black Text</span>
-              </label>
-            </div>
-            <div>
-              <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
-                <input type="radio" name="fontColor" checked={settings.presentationTextColor !== "white" && settings.presentationTextColor !== "black"} onChange={() => setSettings((prev) => ({ ...prev, presentationTextColor: prev.presentationTextColor && prev.presentationTextColor !== "white" && prev.presentationTextColor !== "black" ? prev.presentationTextColor : "#ffdd57" }))} />
-                <span>Custom Color</span>
-              </label>
-              {settings.presentationTextColor !== "white" && settings.presentationTextColor !== "black" && (
-                <div style={{ marginTop: "8px", marginLeft: "24px", display: "flex", alignItems: "center", gap: "10px" }}>
-                  <input type="color" value={settings.presentationTextColor || "#ffdd57"} onChange={(e) => setSettings((prev) => ({ ...prev, presentationTextColor: e.target.value }))} style={{ width: "40px", height: "30px", border: "none", cursor: "pointer", borderRadius: "4px" }} />
-                  <span style={{ fontSize: "12px", opacity: 0.6 }}>{settings.presentationTextColor}</span>
-                </div>
-              )}
-            </div>
-          </SettingsCard>
+            </SettingsCard>
+          </div>
         </div>
-
-        {/* COLUMN 3 — Lower Third Appearance */}
-        <div style={{ minWidth: 0 }}>
-
-          {/* Lower Third Background — Gallery */}
-          <SettingsCard title="Lower Third Background">
-            <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
-              Set a background image for the lower-third. If left blank, the background will be fully transparent.
-            </div>
-            <div style={{ marginBottom: "8px" }}>
-              {(() => {
-                const defaultTemplates = Array.from({length: 7}, (_, i) => ({
-                  id: `default-lt-${i+1}`,
-                  name: `Template ${i+1}`,
-                  data: `templates/lt ${i+1}.png`,
-                  isDefault: true
-                }));
-                const userGallery = settings.lowerThirdBgGallery || [];
-                const fullGallery = [...defaultTemplates, ...userGallery];
-
-                return fullGallery.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-                    {fullGallery.map((img) => {
-                      const isActive = settings.lowerThirdBgImage === img.data;
-                      return (
-                        <div key={img.id} style={{ position: 'relative', cursor: 'pointer' }} title={img.name}>
-                          <img src={img.data} alt={img.name}
-                            onClick={() => setSettings((prev) => ({ ...prev, lowerThirdBgImage: img.data, lowerThirdBgImageName: img.name }))}
-                            style={{ width: '80px', height: '52px', objectFit: 'cover', borderRadius: '6px', border: isActive ? '2px solid #00ff99' : '2px solid transparent', display: 'block', transition: 'border-color 0.2s' }}
-                          />
-                          {isActive && (<div style={{ position: 'absolute', top: 2, left: 2, background: '#00ff99', color: '#000', fontSize: '9px', fontWeight: 700, padding: '1px 4px', borderRadius: '3px' }}>✓</div>)}
-                          {!img.isDefault && (
-                            <button onClick={(e) => { e.stopPropagation(); setSettings((prev) => { const gallery = (prev.lowerThirdBgGallery || []).filter(x => x.id !== img.id); const wasActive = prev.lowerThirdBgImage === img.data; return { ...prev, lowerThirdBgGallery: gallery, lowerThirdBgImage: wasActive ? null : prev.lowerThirdBgImage, lowerThirdBgImageName: wasActive ? null : prev.lowerThirdBgImageName }; }); }}
-                              style={{ position: 'absolute', top: 2, right: 2, width: '16px', height: '16px', background: 'rgba(231,76,60,0.85)', color: '#fff', border: 'none', borderRadius: '50%', cursor: 'pointer', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 }}
-                            >×</button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-
-              <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '13px', padding: '6px 12px', borderRadius: '6px', border: `1.5px dashed ${theme === 'dark' ? '#888' : '#666'}`, color: theme === 'dark' ? '#eee' : '#555', fontWeight: '600', transition: 'all 0.2s ease', background: theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }}>
-                + Add Custom Image
-                <input type="file" accept="image/*" multiple style={{ display: 'none' }}
-                  onChange={(e) => { const files = Array.from(e.target.files); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const newImg = { id: Date.now() + Math.random(), name: file.name, data: reader.result }; setSettings((prev) => ({ ...prev, lowerThirdBgGallery: [...(prev.lowerThirdBgGallery || []), newImg], lowerThirdBgImage: prev.lowerThirdBgImage || reader.result, lowerThirdBgImageName: prev.lowerThirdBgImageName || file.name })); }; reader.readAsDataURL(file); }); e.target.value = ''; }}
-                />
-              </label>
-
-              {/* Legacy single image support */}
-              {settings.lowerThirdBgImage && (settings.lowerThirdBgGallery || []).length === 0 && (
-                <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
-                  <img src={settings.lowerThirdBgImage} alt="Lower Third Bg" style={{ height: '52px', objectFit: 'cover', borderRadius: '6px', border: '2px solid #00ff99', display: 'block' }} />
-                  <button onClick={() => setSettings((prev) => ({ ...prev, lowerThirdBgImage: null, lowerThirdBgImageName: null }))}
-                    style={{ position: 'absolute', top: -6, right: -6, width: '18px', height: '18px', background: 'rgba(231,76,60,0.95)', color: '#fff', border: 'none', borderRadius: '50%', cursor: 'pointer', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 }}
-                  >×</button>
-                  <div style={{ fontSize: '10px', opacity: 0.5, marginTop: '3px' }}>{settings.lowerThirdBgImageName || 'Active'}</div>
-                </div>
-              )}
-            </div>
-          </SettingsCard>
-
-          {/* Lower Third Font Color — White/Black/Custom radio */}
-          <SettingsCard title="Lower Third Font Color">
-            <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
-              Overrides the text color for the lower-third presentation.
-            </div>
-            <div style={{ marginBottom: "8px" }}>
-              <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
-                <input type="radio" name="ltFontColor" checked={!settings.lowerThirdTextColor} onChange={() => setSettings((prev) => ({ ...prev, lowerThirdTextColor: null }))} />
-                <span>Use Fullscreen Color</span>
-              </label>
-            </div>
-            <div style={{ marginBottom: "8px" }}>
-              <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
-                <input type="radio" name="ltFontColor" checked={settings.lowerThirdTextColor === "white"} onChange={() => setSettings((prev) => ({ ...prev, lowerThirdTextColor: "white" }))} />
-                <span>White Text</span>
-              </label>
-            </div>
-            <div style={{ marginBottom: "8px" }}>
-              <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
-                <input type="radio" name="ltFontColor" checked={settings.lowerThirdTextColor === "black"} onChange={() => setSettings((prev) => ({ ...prev, lowerThirdTextColor: "black" }))} />
-                <span>Black Text</span>
-              </label>
-            </div>
-            <div>
-              <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
-                <input type="radio" name="ltFontColor" checked={settings.lowerThirdTextColor && settings.lowerThirdTextColor !== "white" && settings.lowerThirdTextColor !== "black"} onChange={() => setSettings((prev) => ({ ...prev, lowerThirdTextColor: prev.lowerThirdTextColor && prev.lowerThirdTextColor !== "white" && prev.lowerThirdTextColor !== "black" ? prev.lowerThirdTextColor : "#ffdd57" }))} />
-                <span>Custom Color</span>
-              </label>
-              {settings.lowerThirdTextColor && settings.lowerThirdTextColor !== "white" && settings.lowerThirdTextColor !== "black" && (
-                <div style={{ marginTop: "8px", marginLeft: "24px", display: "flex", alignItems: "center", gap: "10px" }}>
-                  <input type="color" value={settings.lowerThirdTextColor || "#ffdd57"} onChange={(e) => setSettings((prev) => ({ ...prev, lowerThirdTextColor: e.target.value }))} style={{ width: "40px", height: "30px", border: "none", cursor: "pointer", borderRadius: "4px" }} />
-                  <span style={{ fontSize: "12px", opacity: 0.6 }}>{settings.lowerThirdTextColor}</span>
-                </div>
-              )}
-            </div>
-          </SettingsCard>
-
-          {/* General Options */}
-          <SettingsCard title="General">
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontSize: "14px" }}>
-                <input type="checkbox" checked={settings.enableTransition} onChange={(e) => setSettings((prev) => ({ ...prev, enableTransition: e.target.checked }))} style={{ width: "16px", height: "16px" }} />
-                Enable Slide/Fade Transition
-              </label>
-            </div>
-            <div>
-              <label style={{ fontWeight: 600, fontSize: "13px", display: "block", marginBottom: "6px" }}>Custom Watermark</label>
-              <input type="text" value={settings.customWatermark || ""} placeholder="your watermark" onChange={(e) => setSettings((prev) => ({ ...prev, customWatermark: e.target.value }))}
-                style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box", border: theme === 'dark' ? '1px solid #444' : '1px solid #ccc', background: theme === 'dark' ? '#1a1a1a' : '#fff', color: theme === 'dark' ? '#e0e0e0' : '#222' }}
-              />
-            </div>
-          </SettingsCard>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

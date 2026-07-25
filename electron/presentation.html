@@ -281,21 +281,47 @@
       }
 
       const text = (el.innerText || "").toLowerCase();
+      const indexStr = data && data.index ? data.index : "";
+      const verseCount = getVerseCount(indexStr);
+      const isMultiVerse = verseCount > 1 || text.includes("-") || text.includes(",");
       const isSmallRef =
         text.includes("revelation") ||
         text.includes("வெளிப்படுத்தின") ||
         text.includes("thessalonians") ||
         text.includes("தெச");
-
-      const isMultiVerse = text.includes("-") || text.includes(",");
       const isLongText = text.length > 20;
 
-      let vw = (isSmallRef || (isMultiVerse && isLongText)) ? 4.2 : 5.5;
-
+      let vw = (isSmallRef || (isMultiVerse && isLongText)) ? 4.2 : (isMultiVerse ? 4.5 : 5.5);
       el.style.fontSize = vw + "vw";
-      while (el.scrollWidth > el.clientWidth && vw > 2.5) {
-        vw -= 0.1;
-        el.style.fontSize = vw + "vw";
+
+      const refAreaEl = document.getElementById("referenceArea");
+      const containerWidth = refAreaEl ? refAreaEl.clientWidth : window.innerWidth;
+      const targetWidth = containerWidth * 0.80;
+
+      if (isMultiVerse) {
+        let safety = 0;
+        if (el.scrollWidth > targetWidth) {
+          while (el.scrollWidth > targetWidth && vw > 2.5 && safety < 100) {
+            vw -= 0.1;
+            el.style.fontSize = vw + "vw";
+            safety++;
+          }
+        } else if (el.scrollWidth < targetWidth) {
+          while (el.scrollWidth < targetWidth && vw < 5.2 && safety < 100) {
+            vw += 0.1;
+            el.style.fontSize = vw + "vw";
+            safety++;
+          }
+          if (el.scrollWidth > targetWidth) {
+            vw -= 0.1;
+            el.style.fontSize = vw + "vw";
+          }
+        }
+      } else {
+        while (el.scrollWidth > el.clientWidth && vw > 2.5) {
+          vw -= 0.1;
+          el.style.fontSize = vw + "vw";
+        }
       }
 
       // Apply index font offset
@@ -482,7 +508,7 @@
       tamil.style.display = data.tamilEnabled === false ? 'none' : 'block';
       // Use shared lower-third logic for content layout
       if (data.presentationLayout === 'lowerThird') {
-        applyLowerThirdContentLayout({ verseArea, box, eng }, null);
+        applyLowerThirdContentLayout({ verseArea, box, eng, tamil }, null, data);
       } else {
         eng.style.display = (data.englishEnabled === false || verseCount > 2) ? 'none' : 'block';
       }
@@ -539,7 +565,7 @@
 
       // Use dedicated lower-third fitting or standard fitting
       if (data.presentationLayout === 'lowerThird') {
-        fitLowerThirdTamil(tamil, box, data);
+        fitLowerThirdTamil(tamil, box, data, eng);
       } else {
         fitVerseBox(tamil, eng, box, type, isSingle, verseCount, data);
       }

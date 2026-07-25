@@ -65,7 +65,7 @@ function applyLowerThirdLayout(els, data) {
   // Remove underline and bold the index in lower third
   if (els.ref) {
     els.ref.style.textDecoration = 'none';
-    els.ref.style.fontWeight = 'bold';
+    els.ref.style.fontWeight = '900';
   }
 
   // Hide watermark in lower-third
@@ -252,16 +252,24 @@ function applyTextColor(els, data, layout) {
 
 /**
  * Apply lower-third content sizing (verse area padding, box constraints).
- * Tamil-only, auto-fit within the 15.5vh area, accounting for padding/margin.
+ * Auto-fit within the 15.5vh area, accounting for padding/margin.
+ * Supports lowerThirdLanguage ('tamil' or 'english').
  *
- * @param {Object} els  - DOM elements { verseArea, box, eng }
+ * @param {Object} els  - DOM elements { verseArea, box, eng, tamil }
  * @param {Object} overrides - Optional layoutOverrides from prelist items
+ * @param {Object} data - Presentation payload
  */
-function applyLowerThirdContentLayout(els, overrides) {
-  const { verseArea, box, eng } = els;
+function applyLowerThirdContentLayout(els, overrides, data = {}) {
+  const { verseArea, box, eng, tamil } = els;
 
-  // Force hide English in lower-third — Tamil only
-  eng.style.display = 'none';
+  const lang = data.lowerThirdLanguage || 'tamil';
+  if (lang === 'english') {
+    if (tamil) tamil.style.display = 'none';
+    if (eng) eng.style.display = 'block';
+  } else {
+    if (eng) eng.style.display = 'none';
+    if (tamil) tamil.style.display = 'block';
+  }
 
   // Content area with padding for margin-aware auto-fit
   // Verse goes till the full right side border (1vw padding)
@@ -280,62 +288,89 @@ function applyLowerThirdContentLayout(els, overrides) {
   box.style.maxHeight = '15.5vh';
 }
 
-/* ---------- LOWER THIRD: FIT TAMIL TEXT ---------- */
+/* ---------- LOWER THIRD: FIT SCRIPTURE TEXT ---------- */
 
 /**
- * Auto-fit Tamil text within the lower-third area.
- * Starts at 4.5vw and shrinks until it fits the box height,
- * accounting for padding space from the margins.
+ * Auto-fit scripture text (Tamil or English based on lowerThirdLanguage) within lower-third area.
  *
  * @param {HTMLElement} tamilEl - The #tamilText element
  * @param {HTMLElement} box     - The #verseBox element
- * @param {Object}      data   - The presentation payload (for font offsets)
+ * @param {Object}      data    - The presentation payload
+ * @param {HTMLElement} [engEl] - The #englishText element
  */
-function fitLowerThirdTamil(tamilEl, box, data) {
-  const tamilText = data.tamilText ? data.tamilText.replace(/<[^>]*>/g, "") : "";
-  const len = tamilText.length;
+function fitLowerThirdTamil(tamilEl, box, data, engEl) {
+  const lang = data.lowerThirdLanguage || 'tamil';
+  const targetEl = (lang === 'english' && engEl) ? engEl : tamilEl;
+  const hideEl = (lang === 'english' && engEl) ? tamilEl : engEl;
 
-  // Use multiple font size presets based on text length (similar to normal presentation)
-  let tamilVW = 2.5;
-  if (len < 80) tamilVW = 2.2;
-  else if (len < 160) tamilVW = 2.0;
-  else if (len < 240) tamilVW = 1.6;
-  else tamilVW = 1.4;
+  if (hideEl) hideEl.style.display = 'none';
+  if (targetEl) targetEl.style.display = 'block';
+
+  const rawText = (targetEl ? targetEl.innerText : "").replace(/<[^>]*>/g, "");
+  const len = rawText.length;
+
+  // Use multiple font size presets based on text length
+  let textVW = 2.5;
+  if (len < 80) textVW = 2.2;
+  else if (len < 160) textVW = 2.0;
+  else if (len < 240) textVW = 1.6;
+  else textVW = 1.4;
 
   const minVW = 1.2;
 
-  tamilEl.style.fontSize = tamilVW + 'vw';
+  if (targetEl) {
+    targetEl.style.fontSize = textVW + 'vw';
 
-  // Shrink loop: account for box padding/margin by checking scrollHeight vs clientHeight
-  let safety = 0;
-  while (
-    (box.scrollHeight > box.clientHeight || tamilEl.scrollWidth > box.clientWidth) &&
-    tamilVW > minVW &&
-    safety < 120
-  ) {
-    tamilVW -= 0.1;
-    tamilEl.style.fontSize = tamilVW + 'vw';
-    safety++;
+    // Shrink loop: account for box padding/margin by checking scrollHeight vs clientHeight
+    let safety = 0;
+    while (
+      (box.scrollHeight > box.clientHeight || targetEl.scrollWidth > box.clientWidth) &&
+      textVW > minVW &&
+      safety < 120
+    ) {
+      textVW -= 0.1;
+      targetEl.style.fontSize = textVW + 'vw';
+      safety++;
+    }
+
+    // Apply font offset AFTER auto-shrink
+    const fontOffset = lang === 'english'
+      ? (data.englishFontOffset || 0) * 0.12
+      : (data.tamilFontOffset || 0) * 0.15;
+    const localOffset = (data.fontSizeOffset || 0) * 0.15;
+    textVW += fontOffset + localOffset;
+    targetEl.style.fontSize = textVW + 'vw';
   }
-
-  // Apply font offset AFTER auto-shrink
-  const tamilOffset = (data.tamilFontOffset || 0) * 0.15;
-  const localOffset = (data.fontSizeOffset || 0) * 0.15;
-  tamilVW += tamilOffset + localOffset;
-  tamilEl.style.fontSize = tamilVW + 'vw';
 }
 
 /* ---------- LOWER THIRD: FIT REFERENCE ---------- */
 
 /**
  * Fit the reference (index) text for lower-third mode.
+ * Formats reference based on lowerThirdLanguage ('english' vs 'tamil').
  * Significantly smaller than fullscreen.
  *
  * @param {HTMLElement} refEl - The #reference element
  * @param {Object}      data  - The presentation payload
  */
 function fitLowerThirdReference(refEl, data) {
-  const text = (refEl.innerText || '').toLowerCase();
+  const rawIndex = (data && data.index) ? data.index : (refEl.innerText || '');
+  const lang = (data && data.lowerThirdLanguage) || 'tamil';
+
+  // Format index string according to lowerThirdLanguage
+  let formattedIndex = rawIndex;
+  const match = rawIndex.match(/^(.*?)\s*\((.*?)\)\s*(.*)$/);
+  if (match) {
+    // match[1] = Tamil name, match[2] = English name, match[3] = chapter:verse
+    if (lang === 'english') {
+      formattedIndex = `${match[2]} ${match[3]}`.trim();
+    } else {
+      formattedIndex = `${match[1]} ${match[3]}`.trim();
+    }
+  }
+  refEl.innerText = formattedIndex;
+
+  const text = formattedIndex.toLowerCase();
   const isSmallRef =
     text.includes('revelation') ||
     text.includes('வெளிப்படுத்தின') ||
