@@ -159,6 +159,7 @@ const PrelistSearch = ({
           alignItems: "center",
           justifyContent: "center",
           boxSizing: "border-box",
+          outline: "none",
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.background =
@@ -192,6 +193,7 @@ const PrelistSearch = ({
           alignItems: "center",
           justifyContent: "center",
           boxSizing: "border-box",
+          outline: "none",
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.background =

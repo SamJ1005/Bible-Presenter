@@ -20,6 +20,7 @@ const PrelistSidebar = ({
   clearQueue,
   removeFromQueue,
   addFileToQueue,
+  addCustomSlide,
   fileInputRef,
   onFileSelect,
   activeId,
@@ -824,6 +825,15 @@ const CheckIcon = ({ size = 14 }) => (
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginLeft: 'auto' }}>
             <button
+              type="button"
+              className="action-btn"
+              style={{ color: theme === 'dark' ? '#00ff99' : '#238b50', fontWeight: 700 }}
+              onClick={addCustomSlide}
+              title="Add an empty custom text slide"
+            >
+              T+
+            </button>
+            <button
               style={{ color: theme === 'dark' ? 'white' : 'black' }}
               className="action-btn"
               onClick={() => fileInputRef.current && fileInputRef.current.click()}
@@ -834,7 +844,7 @@ const CheckIcon = ({ size = 14 }) => (
               type="file"
               ref={fileInputRef}
               style={{ display: 'none' }}
-              accept="image/png, image/jpeg, image/jpg, image/webp, video/*"
+              accept="image/png, image/jpeg, image/jpg, image/webp, image/gif, .gif, video/*"
               onChange={onFileSelect}
             />
 

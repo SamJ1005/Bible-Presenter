@@ -1029,6 +1029,69 @@ export default function App() {
         immediateLocalUrl = await window.api.saveMediaFile(fileObj.path);
     }
 
+    const isVideo = fileObj.type && (fileObj.type.startsWith('video') || /\.(mp4|webm|mov|mkv|avi)$/i.test(fileObj.name));
+
+    // Handle videos: Local playback only, no cloud upload, no huge base64 data URLs in localStorage
+    if (isVideo) {
+      const videoUrl = immediateLocalUrl || URL.createObjectURL(fileObj);
+      const newItem = {
+        id: newItemId,
+        type: 'file',
+        name: fileObj.name,
+        fileType: fileObj.type || 'video/mp4',
+        url: videoUrl,
+        localUrl: immediateLocalUrl || videoUrl,
+        isLocalOnly: true,
+        cloudUploadStatus: 'local-only',
+      };
+
+      setPrelistedItems((prev) => {
+        if (insertAfterId) {
+          const idx = prev.findIndex((item) => item.id === insertAfterId);
+          if (idx !== -1) {
+            const newArr = [...prev];
+            newArr.splice(idx + 1, 0, newItem);
+            return newArr;
+          }
+        }
+        return [...prev, newItem];
+      });
+
+      toast.success(`Added video "${fileObj.name}" (Local playback only)`);
+      return;
+    }
+
+    // Check size limit for images (Cloudinary image limit is 10 MB)
+    const isOverCloudLimit = fileObj.size > 10 * 1024 * 1024;
+    if (isOverCloudLimit) {
+      const objUrl = immediateLocalUrl || URL.createObjectURL(fileObj);
+      const newItem = {
+        id: newItemId,
+        type: 'file',
+        name: fileObj.name,
+        fileType: fileObj.type,
+        url: objUrl,
+        localUrl: immediateLocalUrl || objUrl,
+        isLocalOnly: true,
+        cloudUploadStatus: 'local-only',
+      };
+
+      setPrelistedItems((prev) => {
+        if (insertAfterId) {
+          const idx = prev.findIndex((item) => item.id === insertAfterId);
+          if (idx !== -1) {
+            const newArr = [...prev];
+            newArr.splice(idx + 1, 0, newItem);
+            return newArr;
+          }
+        }
+        return [...prev, newItem];
+      });
+
+      toast.success(`Added "${fileObj.name}" for local presentation (>10MB)`);
+      return;
+    }
+
     const reader = new FileReader();
 
     reader.onload = (e) => {
@@ -1040,7 +1103,7 @@ export default function App() {
         fileType: fileObj.type,
         url: '[uploading]', // Temporary state
         localUrl: immediateLocalUrl, // Available immediately!
-        localPreview: e.target.result, // BASE64 for local immediate use only, stripped by sanitizeItemsForCloud
+        localPreview: immediateLocalUrl ? null : e.target.result, // Only use small base64 if no local file path
         cloudUploadStatus: 'pending'
         // STRICT REQUIREMENT: No local paths stored
       };

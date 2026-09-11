@@ -68,10 +68,11 @@
       font-family: "TamilBibleFont", Arial, sans-serif;
       text-decoration: underline;
       text-decoration-color: #b4b4b4ec;
-      text-underline-offset: 2px;
+      text-underline-offset: 5px;
       text-decoration-skip-ink: none;
       color: #fff;
       text-align: center;
+      white-space: nowrap;
     }
 
     #verseArea {
@@ -149,10 +150,41 @@
     body.ready {
       opacity: 1;
     }
+
+    #presentationExit {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      z-index: 2000;
+      width: 44px;
+      height: 44px;
+      border: 1.5px solid rgba(255, 255, 255, 0.45);
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.35);
+      color: rgba(255, 255, 255, 0.9);
+      font: 28px/1 Arial, sans-serif;
+      cursor: pointer;
+      opacity: 0.35;
+      outline: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    #presentationExit:hover,
+    #presentationExit:focus-visible {
+      opacity: 0.95;
+      background: rgba(220, 38, 38, 0.85);
+      border-color: rgba(255, 255, 255, 0.9);
+      transform: scale(1.05);
+      outline: none;
+    }
   </style>
 </head>
 
 <body>
+  <button id="presentationExit" type="button" hidden aria-label="Exit presentation" title="Exit presentation">×</button>
   <div id="bgLayer"></div>
   <div id="container">
     <div id="referenceArea">
@@ -186,6 +218,7 @@
   <script>
     /* ---------- WORD OVERFLOW FIX ---------- */
     function fixWordOverflow(el, containerWidth) {
+      if (!el) return;
       const words = el.querySelectorAll('.word-shrink');
       words.forEach(span => {
         span.style.fontSize = '';
@@ -237,13 +270,14 @@
       if (!imgPath) return 'none';
       const clean = imgPath.replace(/\\/g, '/');
       if (clean.startsWith('http') || clean.startsWith('data:')) return `url("${clean}")`;
-      if (clean.startsWith('templates/')) {
+      if (clean.startsWith('templates/') || clean.startsWith('/templates/')) {
+        const tPath = clean.replace(/^\//, '');
         if (window.location.protocol === 'blob:') {
-          return `url("/${clean}")`;
+          return `url("/${tPath}")`;
         } else if (window.location.href.includes('/dist/electron/') || window.location.href.includes('/app.asar/')) {
-          return `url("../${clean}")`;
+          return `url("../${tPath}")`;
         } else {
-          return `url("../public/${clean}")`;
+          return `url("../public/${tPath}")`;
         }
       }
       if (!clean.startsWith('file:///')) return `url("file:///${clean}")`;
@@ -252,10 +286,12 @@
 
     function getVerseCount(indexStr) {
       if (!indexStr) return 1;
-      const tamilText = document.getElementById("tamilText").innerHTML || "";
+      const tamilEl = document.getElementById("tamilText");
+      const tamilText = tamilEl ? (tamilEl.innerHTML || "") : "";
       const lines = tamilText.split("<br>").filter((l) => l.trim()).length;
       if (lines > 1) return lines;
-      const rangeMatch = indexStr.match(/:(\d+)-(\d+)/);
+      const str = String(indexStr);
+      const rangeMatch = str.match(/:(\d+)-(\d+)/);
       if (rangeMatch)
         return parseInt(rangeMatch[2]) - parseInt(rangeMatch[1]) + 1;
       return 1;
@@ -285,37 +321,27 @@
         text.includes("தெச");
       const isLongText = text.length > 20;
 
-      // Base font size matching standard presentation size (4.2vw to 5.5vw)
-      let vw = (isSmallRef || (isMultiVerse && isLongText)) ? 4.2 : (isMultiVerse ? 4.5 : 5.5);
+      let vw = (isSmallRef || (isMultiVerse && isLongText)) ? 4.2 : (isMultiVerse ? 4.8 : 5.5);
       refEl.style.fontSize = vw + "vw";
 
       const refAreaEl = document.getElementById("referenceArea");
       const containerWidth = refAreaEl ? refAreaEl.clientWidth : window.innerWidth;
-      const targetWidth = containerWidth * 0.80; // 80% width area
+      const targetWidth = containerWidth * 0.82; // Fill at least ~82% width area
 
-      if (isMultiVerse) {
-        // Multi-verse index: reduce slightly compared to single verse, but auto-scale to fill ~80% of width area
-        let safety = 0;
-        if (refEl.scrollWidth > targetWidth) {
-          while (refEl.scrollWidth > targetWidth && vw > 2.5 && safety < 100) {
-            vw -= 0.1;
-            refEl.style.fontSize = vw + "vw";
-            safety++;
-          }
-        } else if (refEl.scrollWidth < targetWidth) {
-          while (refEl.scrollWidth < targetWidth && vw < 5.2 && safety < 100) {
-            vw += 0.1;
-            refEl.style.fontSize = vw + "vw";
-            safety++;
-          }
-          if (refEl.scrollWidth > targetWidth) {
-            vw -= 0.1;
-            refEl.style.fontSize = vw + "vw";
-          }
+      let safety = 0;
+      if (refEl.scrollWidth > targetWidth) {
+        while (refEl.scrollWidth > targetWidth && vw > 2.0 && safety < 100) {
+          vw -= 0.1;
+          refEl.style.fontSize = vw + "vw";
+          safety++;
         }
-      } else {
-        // Single verse: fit container
-        while (refEl.scrollWidth > refEl.clientWidth && vw > 2.5) {
+      } else if (refEl.scrollWidth < targetWidth) {
+        while (refEl.scrollWidth < targetWidth && vw < 6.8 && safety < 100) {
+          vw += 0.1;
+          refEl.style.fontSize = vw + "vw";
+          safety++;
+        }
+        if (refEl.scrollWidth > targetWidth) {
           vw -= 0.1;
           refEl.style.fontSize = vw + "vw";
         }
@@ -329,16 +355,7 @@
     }
 
     function updateDisplay(data) {
-      if (data && data.fadeOutOnly) {
-        document.body.style.transition = 'opacity 0.25s ease-out';
-        document.body.style.opacity = '0';
-        return;
-      }
-      document.body.classList.add('ready');
-      document.body.style.opacity = '';
-      document.body.style.transition = '';
-
-      if (!data) return;
+      const exitButton = document.getElementById("presentationExit");
       const bgLayer = document.getElementById("bgLayer");
       const container = document.getElementById("container");
       const ref = document.getElementById("reference");
@@ -351,6 +368,37 @@
       const mediaArea = document.getElementById("mediaArea");
       const mediaImg = document.getElementById("mediaImg");
       const mediaVideo = document.getElementById("mediaVideo");
+
+      // Guard blank / null presentation
+      if (!data || data.isBlank) {
+        if (exitButton) exitButton.hidden = !(data && data.showExitControl);
+        if (ref) ref.innerText = "";
+        if (tamil) tamil.innerText = "";
+        if (eng) eng.innerText = "";
+        if (watermark) watermark.innerText = "";
+        if (mediaArea) mediaArea.style.display = "none";
+        if (mediaVideo) mediaVideo.pause();
+        if (bgLayer) {
+          bgLayer.style.backgroundImage = "none";
+          bgLayer.style.backgroundColor = "#000000";
+        }
+        window.bgCache = { type: 'black', val: null, layout: 'fullscreen' };
+        document.body.classList.add('ready');
+        return;
+      }
+
+      if (data.fadeOutOnly) {
+        document.body.style.transition = 'opacity 0.25s ease-out';
+        document.body.style.opacity = '0';
+        return;
+      }
+
+      // Show exit button only when presentation covers the primary display
+      if (exitButton) exitButton.hidden = !(data.showExitControl && data.presentationLayout === "fullscreen");
+
+      document.body.classList.add('ready');
+      document.body.style.opacity = '';
+      document.body.style.transition = '';
 
       // Handle inconsistent payload structures (nested vs flat from Prelist.jsx)
       const settings = data.settings || data;
@@ -372,8 +420,8 @@
         applyLowerThirdBackground(bgLayer, settings, getSafeBgUrl);
       } else {
         resetToFullscreenLayout(ltEls);
-        // Override paddingTop for prelist (uses 2.5vh instead of 3.5vh)
-        refArea.style.paddingTop = '2.5vh';
+        // Match presentation.html padding (3.5vh)
+        refArea.style.paddingTop = '3.5vh';
         applyFullscreenBackground(bgLayer, settings, getSafeBgUrl);
       }
 
@@ -637,6 +685,15 @@
         window.presentationAPI.onVerse(updateDisplay);
       else setTimeout(waitAPI, 50);
     })();
+
+    const exitBtn = document.getElementById("presentationExit");
+    if (exitBtn) {
+      exitBtn.addEventListener("click", () => {
+        document.body.style.transition = "opacity 0.15s ease-out";
+        document.body.style.opacity = "0";
+        setTimeout(() => window.presentationAPI?.close?.(), 150);
+      });
+    }
 
     // Support for iframe preview integration via postMessage
     window.addEventListener("message", (event) => {

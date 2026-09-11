@@ -169,13 +169,20 @@ const Prelist = React.forwardRef((
       const tamilName = getTamilBookName(item.book);
       const indexStr = `${tamilName} (${item.book}) ${item.chapter}:${item.verse}`;
 
+      const isEnglishDisabled = item.languageMode === 'tamil' || item.showEnglish === false;
+      const isTamilDisabled = item.languageMode === 'english' || item.showTamil === false;
+
       sendToPresentation({
         selectedBook: item.book,
         selectedChapter: item.chapter,
         selectedVerse: item.verse,
-        tamilText: finalTamil,
-        englishText: finalEnglish,
-        settings,
+        tamilText: isTamilDisabled ? "" : finalTamil,
+        englishText: isEnglishDisabled ? "" : finalEnglish,
+        settings: {
+          ...settings,
+          isEnglishEnabled: isEnglishDisabled ? false : settings?.isEnglishEnabled,
+          isTamilEnabled: isTamilDisabled ? false : settings?.isTamilEnabled,
+        },
         index: indexStr,
         viewMode: "prelist",
         fontSizeOffset: item.fontSizeOffset || 0,
@@ -202,13 +209,20 @@ const Prelist = React.forwardRef((
         tamilText = getTamilVerse(item.book, item.chapter, item.verse);
     }
 
+    const isEnglishDisabled = item.languageMode === 'tamil' || item.showEnglish === false;
+    const isTamilDisabled = item.languageMode === 'english' || item.showTamil === false;
+
     sendToPresentation({
       selectedBook: item.book,
       selectedChapter: item.chapter,
       selectedVerse: item.verse,
-      tamilText, // EXPLICIT PASS
-      englishText, // EXPLICIT PASS
-      settings,
+      tamilText: isTamilDisabled ? "" : tamilText,
+      englishText: isEnglishDisabled ? "" : englishText,
+      settings: {
+        ...settings,
+        isEnglishEnabled: isEnglishDisabled ? false : settings?.isEnglishEnabled,
+        isTamilEnabled: isTamilDisabled ? false : settings?.isTamilEnabled,
+      },
       index: `${getTamilBookName(item.book)} (${item.book}) ${item.chapter}:${item.verse}`,
       viewMode: "prelist",
       fontSizeOffset: item.fontSizeOffset || 0,
@@ -781,6 +795,7 @@ const Prelist = React.forwardRef((
         verseIssues={verseIssues}
         onReportVerse={onReportVerse}
         user={user}
+        updateQueueItem={updateQueueItem}
       />
     </div>
   );

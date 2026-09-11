@@ -51,8 +51,7 @@ footer {
 }
 
 *:focus {
-    outline: 1px solid var(--focus-color);
-    outline-offset: 1px;
+    outline: none;
 }
 
 /* Remove ugly default blue outline (Chrome/Edge) */
@@ -60,6 +59,14 @@ footer {
     outline: 1px solid var(--focus-color);
     outline-offset: 1px;
     box-shadow: 0 0 4px var(--focus-color);
+}
+
+button:focus, button:focus-visible {
+    outline: none !important;
+}
+
+button:focus-visible {
+    box-shadow: 0 0 0 2px var(--focus-color, #00ff99) !important;
 }
 /* Base search container style (Light Mode default) */
 .search-container {

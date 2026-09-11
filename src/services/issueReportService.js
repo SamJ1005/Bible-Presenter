@@ -37,6 +37,7 @@ export async function submitIssueReport({
     verse: Number(verse),
     issueType,
     description: comment || '',
+    comment: comment || '',
     reportedBy: reporter,
     reportedAt: serverTimestamp(),
     status: 'pending',
@@ -61,10 +62,12 @@ export async function fetchChapterIssues(book, chapter) {
 
     const reports = [];
     snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
       reports.push({
         id: docSnap.id,
         path: docSnap.ref.path,
-        ...docSnap.data(),
+        ...data,
+        comment: data.comment || data.description || '',
       });
     });
 
@@ -89,10 +92,12 @@ export function subscribeChapterIssues(book, chapter, callback) {
   return onSnapshot(q, (snapshot) => {
     const reports = [];
     snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
       reports.push({
         id: docSnap.id,
         path: docSnap.ref.path,
-        ...docSnap.data(),
+        ...data,
+        comment: data.comment || data.description || '',
       });
     });
     callback(reports);
@@ -117,10 +122,12 @@ export async function fetchVerseIssues(book, chapter, verse) {
 
     const reports = [];
     snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
       reports.push({
         id: docSnap.id,
         path: docSnap.ref.path,
-        ...docSnap.data(),
+        ...data,
+        comment: data.comment || data.description || '',
       });
     });
 
@@ -136,27 +143,30 @@ export async function fetchVerseIssues(book, chapter, verse) {
  */
 export async function fetchAllIssueReports(statusFilter = null) {
   try {
-    let q;
-    // The browser uses 'pending', map 'reported' to 'pending'
+    // The UI uses 'reported', map to 'pending'
     const actualStatusFilter = statusFilter === 'reported' ? 'pending' : statusFilter;
     
-    if (actualStatusFilter && actualStatusFilter !== 'all') {
-      q = query(
-        collectionGroup(db, 'reports'),
-        where('status', '==', actualStatusFilter)
-      );
-    } else {
-      q = query(collectionGroup(db, 'reports'));
-    }
+    // Using collectionGroup(db, 'reports') without where clause prevents the Firestore index error:
+    // "The query requires a COLLECTION_GROUP_ASC index for collection reports and field status"
+    // Client-side filtering allows immediate querying without requiring manual Firestore console index creation.
+    const q = query(collectionGroup(db, 'reports'));
     const snapshot = await getDocs(q);
 
     const reports = [];
     snapshot.forEach((docSnap) => {
-      reports.push({
-        id: docSnap.id,
-        path: docSnap.ref.path, // Full path needed for updating
-        ...docSnap.data(),
-      });
+      const data = docSnap.data();
+      const status = data.status || 'pending';
+
+      if (!actualStatusFilter || actualStatusFilter === 'all' || status === actualStatusFilter) {
+        reports.push({
+          id: docSnap.id,
+          path: docSnap.ref.path, // Full path needed for updating
+          ...data,
+          status,
+          comment: data.comment || data.description || '',
+          description: data.description || data.comment || '',
+        });
+      }
     });
 
     // Sort client-side by reportedAt descending
@@ -164,8 +174,8 @@ export async function fetchAllIssueReports(statusFilter = null) {
       const timeA = a.reportedAt || a.createdAt;
       const timeB = b.reportedAt || b.createdAt;
       
-      const tA = timeA?.toMillis?.() || new Date(timeA).getTime() || 0;
-      const tB = timeB?.toMillis?.() || new Date(timeB).getTime() || 0;
+      const tA = timeA?.toMillis?.() || (timeA ? new Date(timeA).getTime() : 0);
+      const tB = timeB?.toMillis?.() || (timeB ? new Date(timeB).getTime() : 0);
       return tB - tA;
     });
 
@@ -197,7 +207,7 @@ export async function updateIssueStatus(reportPath, newStatus) {
  */
 export function buildVerseIssueMap(reports) {
   const map = {};
-  const STATUS_PRIORITY = { pending: 3, reviewing: 2, resolved: 1 };
+  const STATUS_PRIORITY = { pending: 2, reported: 2, resolved: 1 };
 
   for (const report of reports) {
     const vn = String(report.verse);

@@ -235,10 +235,14 @@ export default function useSearch({
     if (!bookObj) return error("Book data not loaded yet.");
 
     // ✅ SINGLE-CHAPTER BOOK FIX
+    // Allows both inputs: with chapter number (e.g. "Jude 1 21", "Jude 1:21") and without chapter number (e.g. "Jude 21")
     if (bookObj.chapters.length === 1) {
-      // "3jn 1" → verse 1 (not chapter 1)
-      parsed.verse = parsed.chapter;
-      parsed.chapter = 1;
+      if (parsed.chapter > 1) {
+        // e.g. "Jude 21" was parsed as chapter 21, verse 1 -> map to chapter 1, verse 21
+        parsed.verse = parsed.chapter;
+        parsed.chapter = 1;
+      }
+      // If parsed.chapter === 1, keep parsed.verse as-is (e.g. "Jude 1 21" -> verse 21; "Jude 1" -> verse 1)
     }
 
     const maxCh = Math.max(...bookObj.chapters.map((c) => Number(c.chapter)));

@@ -158,10 +158,41 @@
     body.ready {
       opacity: 1;
     }
+
+    #presentationExit {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      z-index: 2000;
+      width: 44px;
+      height: 44px;
+      border: 1.5px solid rgba(255, 255, 255, 0.45);
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.35);
+      color: rgba(255, 255, 255, 0.9);
+      font: 28px/1 Arial, sans-serif;
+      cursor: pointer;
+      opacity: 0.35;
+      outline: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    #presentationExit:hover,
+    #presentationExit:focus-visible {
+      opacity: 0.95;
+      background: rgba(220, 38, 38, 0.85);
+      border-color: rgba(255, 255, 255, 0.9);
+      transform: scale(1.05);
+      outline: none;
+    }
   </style>
 </head>
 
 <body>
+  <button id="presentationExit" type="button" hidden aria-label="Exit presentation" title="Exit presentation">×</button>
   <div id="bgLayer"></div>
   <div id="container">
     <div id="referenceArea">
@@ -195,10 +226,12 @@
 
     function getVerseCount(indexStr) {
       if (!indexStr) return 1;
-      const tamilText = document.getElementById("tamilText").innerHTML || "";
+      const tamilEl = document.getElementById("tamilText");
+      const tamilText = tamilEl ? (tamilEl.innerHTML || "") : "";
       const lines = tamilText.split("<br>").filter((l) => l.trim()).length;
       if (lines > 1) return lines;
-      const rangeMatch = indexStr.match(/:(\d+)-(\d+)/);
+      const str = String(indexStr);
+      const rangeMatch = str.match(/:(\d+)-(\d+)/);
       if (rangeMatch)
         return parseInt(rangeMatch[2]) - parseInt(rangeMatch[1]) + 1;
       return 1;
@@ -291,34 +324,27 @@
         text.includes("தெச");
       const isLongText = text.length > 20;
 
-      let vw = (isSmallRef || (isMultiVerse && isLongText)) ? 4.2 : (isMultiVerse ? 4.5 : 5.5);
+      let vw = (isSmallRef || (isMultiVerse && isLongText)) ? 4.2 : (isMultiVerse ? 4.8 : 5.5);
       el.style.fontSize = vw + "vw";
 
       const refAreaEl = document.getElementById("referenceArea");
       const containerWidth = refAreaEl ? refAreaEl.clientWidth : window.innerWidth;
-      const targetWidth = containerWidth * 0.80;
+      const targetWidth = containerWidth * 0.82;
 
-      if (isMultiVerse) {
-        let safety = 0;
-        if (el.scrollWidth > targetWidth) {
-          while (el.scrollWidth > targetWidth && vw > 2.5 && safety < 100) {
-            vw -= 0.1;
-            el.style.fontSize = vw + "vw";
-            safety++;
-          }
-        } else if (el.scrollWidth < targetWidth) {
-          while (el.scrollWidth < targetWidth && vw < 5.2 && safety < 100) {
-            vw += 0.1;
-            el.style.fontSize = vw + "vw";
-            safety++;
-          }
-          if (el.scrollWidth > targetWidth) {
-            vw -= 0.1;
-            el.style.fontSize = vw + "vw";
-          }
+      let safety = 0;
+      if (el.scrollWidth > targetWidth) {
+        while (el.scrollWidth > targetWidth && vw > 2.0 && safety < 100) {
+          vw -= 0.1;
+          el.style.fontSize = vw + "vw";
+          safety++;
         }
-      } else {
-        while (el.scrollWidth > el.clientWidth && vw > 2.5) {
+      } else if (el.scrollWidth < targetWidth) {
+        while (el.scrollWidth < targetWidth && vw < 6.8 && safety < 100) {
+          vw += 0.1;
+          el.style.fontSize = vw + "vw";
+          safety++;
+        }
+        if (el.scrollWidth > targetWidth) {
           vw -= 0.1;
           el.style.fontSize = vw + "vw";
         }
@@ -336,13 +362,14 @@
       if (!imgPath) return 'none';
       const clean = imgPath.replace(/\\/g, '/');
       if (clean.startsWith('http') || clean.startsWith('data:')) return `url("${clean}")`;
-      if (clean.startsWith('templates/')) {
+      if (clean.startsWith('templates/') || clean.startsWith('/templates/')) {
+        const tPath = clean.replace(/^\//, '');
         if (window.location.protocol === 'blob:') {
-          return `url("/${clean}")`;
+          return `url("/${tPath}")`;
         } else if (window.location.href.includes('/dist/electron/') || window.location.href.includes('/app.asar/')) {
-          return `url("../${clean}")`;
+          return `url("../${tPath}")`;
         } else {
-          return `url("../public/${clean}")`;
+          return `url("../public/${tPath}")`;
         }
       }
       if (!clean.startsWith('file:///')) return `url("file:///${clean}")`;
@@ -350,25 +377,41 @@
     }
 
     function updateVerse(data) {
+      const bgLayer = document.getElementById('bgLayer');
+      const exitButton = document.getElementById("presentationExit");
       const ref = document.getElementById("reference");
       const tamil = document.getElementById("tamilText");
       const eng = document.getElementById("englishText");
       const box = document.getElementById("verseBox");
       const verseArea = document.getElementById("verseArea");
       const refArea = document.getElementById("referenceArea");
+      const watermark = document.getElementById("watermark");
+      const container = document.getElementById('container');
 
-      if (data && data.fadeOutOnly) {
+      // Guard blank / null presentation
+      if (!data || data.isBlank) {
+        if (exitButton) exitButton.hidden = !(data && data.showExitControl);
+        if (ref) ref.innerText = "";
+        if (tamil) tamil.innerText = "";
+        if (eng) eng.innerText = "";
+        if (watermark) watermark.innerText = "";
+        if (bgLayer) {
+          bgLayer.style.backgroundImage = "none";
+          bgLayer.style.backgroundColor = "#000000";
+        }
+        window.bgCache = { type: 'black', val: null, layout: 'fullscreen' };
+        document.body.classList.add('ready');
+        return;
+      }
+
+      if (data.fadeOutOnly) {
         document.body.style.transition = 'opacity 0.25s ease-out';
         document.body.style.opacity = '0';
         return;
       }
 
-      if (!data) {
-        ref.innerText = "";
-        tamil.innerText = "";
-        eng.innerText = "";
-        return;
-      }
+      // Show exit button only when presentation covers the primary display
+      if (exitButton) exitButton.hidden = !(data.showExitControl && data.presentationLayout === "fullscreen");
 
       document.body.classList.add('ready');
       document.body.style.opacity = ''; // reset if it was faded out
@@ -378,20 +421,20 @@
       // ----- APPLY SETTINGS -----
 
       // Background - Cached
-      const bgLayer = document.getElementById('bgLayer');
-      const container = document.getElementById('container');
       const bgType = data.presentationBgType || 'black';
       const layout = data.presentationLayout || 'fullscreen';
 
       // Initialize cache if needed
       if (!window.bgCache) {
         window.bgCache = { type: null, val: null, layout: null };
-        bgLayer.style.backgroundColor = "black";
-        bgLayer.style.backgroundImage = "none";
+        if (bgLayer) {
+          bgLayer.style.backgroundColor = "black";
+          bgLayer.style.backgroundImage = "none";
+        }
       }
 
       // Shared DOM element references for lower_third.js
-      const ltEls = { container, verseArea, refArea, box, bgLayer, watermark: document.getElementById('watermark'), ref, tamil, eng };
+      const ltEls = { container, verseArea, refArea, box, bgLayer, watermark, ref, tamil, eng };
 
       // Handle Layout
       if (layout === 'lowerThird') {
@@ -407,7 +450,6 @@
       const textColor = applyTextColor(ltEls, data, layout);
 
       // Watermark
-      const watermark = document.getElementById('watermark');
       if (watermark) {
         watermark.innerText = data.customWatermark || '';
         watermark.style.color = textColor;
@@ -451,6 +493,7 @@
     /* ---------- WORD OVERFLOW FIX ---------- */
     /* Wraps each word in a span; shrinks only words that overflow their container */
     function fixWordOverflow(el, containerWidth) {
+      if (!el) return;
       const words = el.querySelectorAll('.word-shrink');
       words.forEach(span => {
         // Reset any previous shrink
@@ -589,6 +632,15 @@
         setTimeout(waitAPI, 50);
       }
     })();
+
+    const exitBtn = document.getElementById("presentationExit");
+    if (exitBtn) {
+      exitBtn.addEventListener("click", () => {
+        document.body.style.transition = "opacity 0.15s ease-out";
+        document.body.style.opacity = "0";
+        setTimeout(() => window.presentationAPI?.close?.(), 150);
+      });
+    }
 
     /* ---------- KEYS ---------- */
     document.addEventListener("keydown", (e) => {

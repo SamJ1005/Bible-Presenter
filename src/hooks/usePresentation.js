@@ -10,6 +10,25 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
     const forceFullscreen = (viewMode === "prelist" || type === "file") && (settings.showLowerThirdWindow === true && settings.showFullscreenWindow === false);
     const resolvedShowFullscreen = forceFullscreen ? true : (settings.showFullscreenWindow !== false);
 
+    if (type === "custom") {
+      return {
+        viewMode: viewMode || "prelist",
+        type: "custom",
+        customHtml: params.customHtml || "",
+        customFontSize: params.customFontSize || "7vw",
+        presentationBgType: settings.presentationBgType ?? "color",
+        presentationBgImage: settings.presentationBgImage ?? "",
+        lowerThirdBgImage: settings.lowerThirdBgImage ?? "",
+        presentationBgColor: settings.presentationBgColor ?? settings.presentationSolidColor ?? "black",
+        presentationTextColor: settings.presentationTextColor ?? "white",
+        lowerThirdTextColor: settings.lowerThirdTextColor ?? "white",
+        showFullscreenWindow: resolvedShowFullscreen,
+        showLowerThirdWindow: settings.showLowerThirdWindow === true,
+        enableTransition: settings.enableTransition ?? false,
+        customWatermark: settings.customWatermark ?? "",
+      };
+    }
+
     if (type === "file" && fileData) {
       return {
         viewMode,

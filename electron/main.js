@@ -37,6 +37,7 @@ function createMainWindow() {
   const { width: screenW, height: screenH } = primaryDisplay.workAreaSize;
 
   mainWin = new BrowserWindow({
+    title: "Scripture Screen - Control Panel",
     width: 1300,
     height: 800,
     show: false, // IMPORTANT: show only when ready
@@ -48,6 +49,7 @@ function createMainWindow() {
       contextIsolation: true,
       sandbox: false,
       webSecurity: app.isPackaged, // Allow file:// font loads in dev from http:// localhost
+      devTools: !app.isPackaged, // Enable DevTools only during development, disabled in production build
     },
   });
 
@@ -98,7 +100,7 @@ function createPresentationWindow(type = 'fullscreen', startFile = "presentation
   const iconPath = getIconPath();
 
   win = new BrowserWindow({
-    title: isLowerThird ? "Scripture Screen - Lower Third" : "Scripture Screen",
+    title: isLowerThird ? "Scripture Screen - Lower Third" : "Scripture Screen - Fullscreen Presentation",
     icon: iconPath,
     x: targetDisplay.bounds.x,
     y: targetDisplay.bounds.y,
@@ -114,6 +116,7 @@ function createPresentationWindow(type = 'fullscreen', startFile = "presentation
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      devTools: !app.isPackaged,
     },
     webSecurity: false,
   });
@@ -151,14 +154,27 @@ function createPresentationWindow(type = 'fullscreen', startFile = "presentation
   return win;
 }
 
+function sendDisplayVerse(win, payload, presentationLayout) {
+  if (!win || win.isDestroyed()) return;
+  const primary = screen.getPrimaryDisplay();
+  const windowDisplay = screen.getDisplayMatching(win.getBounds());
+  win.webContents.send("display-verse", {
+    ...(payload || {}),
+    presentationLayout,
+    showExitControl: windowDisplay.id === primary.id,
+  });
+}
+
 /* ------------ IPC ------------ */
 ipcMain.handle("open-blank-presentation", () => {
-  currentPresentationPayload = null;
-  // Open blank fullscreen
+  currentPresentationPayload = { isBlank: true };
   if (presentationWin && !presentationWin.isDestroyed()) {
-    presentationWin.webContents.send("display-verse", null);
+    sendDisplayVerse(presentationWin, { isBlank: true }, 'fullscreen');
   } else {
-    createPresentationWindow('fullscreen');
+    const win = createPresentationWindow('fullscreen');
+    win.webContents.once("dom-ready", () => {
+      setTimeout(() => sendDisplayVerse(win, { isBlank: true }, 'fullscreen'), 100);
+    });
   }
   return true;
 });
@@ -171,8 +187,8 @@ ipcMain.on("send-presentation", (_, payload) => {
     ? "presentation_prelist.html"
     : "presentation.html";
 
-  const showFS = payload.showFullscreenWindow !== false;
-  const showLT = payload.showLowerThirdWindow === true;
+  const showFS = !payload || payload.isBlank ? true : payload.showFullscreenWindow !== false;
+  const showLT = payload && !payload.isBlank && payload.showLowerThirdWindow === true;
 
   // Fullscreen
   if (showFS) {
@@ -187,17 +203,17 @@ ipcMain.on("send-presentation", (_, payload) => {
       fsWin.webContents.once("dom-ready", () => {
         setTimeout(() => {
           if (fsWin && !fsWin.isDestroyed()) {
-            fsWin.webContents.send("display-verse", { ...payload, presentationLayout: 'fullscreen' });
+            sendDisplayVerse(fsWin, payload, 'fullscreen');
           }
         }, 100);
       });
     } else {
       if (fsWin.webContents.isLoading()) {
         fsWin.webContents.once("dom-ready", () => {
-          setTimeout(() => fsWin.webContents.send("display-verse", { ...payload, presentationLayout: 'fullscreen' }), 100);
+          setTimeout(() => sendDisplayVerse(fsWin, payload, 'fullscreen'), 100);
         });
       } else {
-        fsWin.webContents.send("display-verse", { ...payload, presentationLayout: 'fullscreen' });
+        sendDisplayVerse(fsWin, payload, 'fullscreen');
       }
     }
   } else {
@@ -217,17 +233,17 @@ ipcMain.on("send-presentation", (_, payload) => {
       ltWin.webContents.once("dom-ready", () => {
         setTimeout(() => {
           if (ltWin && !ltWin.isDestroyed()) {
-            ltWin.webContents.send("display-verse", { ...payload, presentationLayout: 'lowerThird' });
+            sendDisplayVerse(ltWin, payload, 'lowerThird');
           }
         }, 100);
       });
     } else {
       if (ltWin.webContents.isLoading()) {
         ltWin.webContents.once("dom-ready", () => {
-          setTimeout(() => ltWin.webContents.send("display-verse", { ...payload, presentationLayout: 'lowerThird' }), 100);
+          setTimeout(() => sendDisplayVerse(ltWin, payload, 'lowerThird'), 100);
         });
       } else {
-        ltWin.webContents.send("display-verse", { ...payload, presentationLayout: 'lowerThird' });
+        sendDisplayVerse(ltWin, payload, 'lowerThird');
       }
     }
   } else {
@@ -409,6 +425,8 @@ app.whenReady().then(() => {
     callback({ path: fullPath });
   });
 
+  const isDev = !app.isPackaged;
+
   // Create custom menu
   const menuTemplate = [
     {
@@ -416,7 +434,7 @@ app.whenReady().then(() => {
       submenu: [
         { role: 'reload' },
         { role: 'forceReload' },
-        { role: 'toggleDevTools' },
+        ...(isDev ? [{ role: 'toggleDevTools' }] : []),
         { type: 'separator' },
         { role: 'resetZoom' },
         {

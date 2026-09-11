@@ -439,3 +439,215 @@
   opacity: 0.6;
   line-height: 1.4;
 }
+
+/* ── Comment View & Issue Badge ── */
+.bm-issue-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: rgba(128, 128, 128, 0.12);
+  text-transform: capitalize;
+}
+
+.bm-comment-cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bm-comment-text {
+  font-size: 13px;
+  line-height: 1.45;
+  word-break: break-word;
+  color: inherit;
+  opacity: 0.9;
+}
+
+.bm-view-comment-btn {
+  background: rgba(128, 128, 128, 0.12);
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  color: inherit;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.bm-view-comment-btn:hover {
+  background: rgba(128, 128, 128, 0.22);
+  border-color: rgba(128, 128, 128, 0.4);
+}
+
+/* ── Issue Details Modal ── */
+.bm-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.bm-modal-content {
+  width: 100%;
+  max-width: 540px;
+  border-radius: 14px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  animation: bm-modalFadeIn 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes bm-modalFadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.bm-modal-content.dark {
+  background: #1c1c1c;
+  color: #f0f0f0;
+  border: 1px solid #383838;
+}
+
+.bm-modal-content.light {
+  background: #ffffff;
+  color: #222222;
+  border: 1px solid #e0e0e0;
+}
+
+.bm-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+}
+
+.bm-modal-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.bm-modal-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bm-modal-close-btn:hover {
+  opacity: 1;
+}
+
+.bm-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bm-modal-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.bm-modal-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bm-modal-meta-label {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.5;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bm-modal-meta-value {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.bm-modal-comment-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bm-modal-comment-box {
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.bm-modal-comment-box.dark {
+  background: #141414;
+  border: 1px solid #333;
+  color: #e0e0e0;
+}
+
+.bm-modal-comment-box.light {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  color: #333;
+}
+
+.bm-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 20px;
+  border-top: 1px solid rgba(128, 128, 128, 0.15);
+}
+
+.bm-modal-action-btn {
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.2s;
+}
+
+.bm-modal-action-btn.dark {
+  background: #333;
+  color: #fff;
+}
+
+.bm-modal-action-btn.light {
+  background: #e0e0e0;
+  color: #222;
+}
+
+.bm-modal-action-btn:hover {
+  opacity: 0.85;
+}

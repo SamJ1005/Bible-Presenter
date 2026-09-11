@@ -29,6 +29,7 @@ const PrelistMainView = ({
   verseIssues = {},
   onReportVerse,
   user,
+  updateQueueItem,
 }) => {
   // Helper to lookup verse text
   const getVerseText = (bookName, chapter, verse) => {
@@ -153,6 +154,7 @@ const PrelistMainView = ({
               verseIssues={verseIssues}
               onReportVerse={onReportVerse}
               user={user}
+              updateQueueItem={updateQueueItem}
             />
           );
         })}

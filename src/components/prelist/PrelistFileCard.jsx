@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import PrelistVideoPlayer from "./PrelistVideoPlayer";
 
 const PrelistFileCard = ({ item, theme, isActive, handlePresent, handleItemClick, itemRefs }) => {
   const isImage = item.fileType && item.fileType.startsWith('image');
@@ -81,7 +82,7 @@ const PrelistFileCard = ({ item, theme, isActive, handlePresent, handleItemClick
         </div>
       )}
       {isVideo && displayUrl && (
-        <video src={displayUrl} controls style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '4px' }} />
+        <PrelistVideoPlayer src={displayUrl} name={item.name} theme={theme} />
       )}
       {isVideo && !displayUrl && (
         <div style={{

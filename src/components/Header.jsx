@@ -27,63 +27,67 @@ export default function Header({
       style={{
         background: bg,
         color: text,
-        padding: "0 12px",
+        padding: "0 14px",
         fontSize: "20px",
         borderBottom: `1px solid ${border}`,
-        display: "grid",
-        gridTemplateColumns: "1fr auto 1fr", /* Three columns: Left, Center (Title), Right */
+        display: "flex",
+        justifyContent: "space-between",
         alignItems: "center",
         height: "60px",
         minHeight: "55px",
         flexShrink: 0,
-        minWidth: "600px" /* Prevent total crushing */
+        minWidth: "600px",
       }}
     >
-      {/* LEFT SIDE */}
+      {/* LEFT SIDE: Buttons + Navi Tabs + Scripture Screen Title */}
       <div
         style={{
           display: "flex",
-          gap: "20px",
           alignItems: "center",
+          gap: "10px",
           height: "100%",
-          justifySelf: "start"
         }}
       >
-        {/* Blank + Close buttons */}
-        <button
-          onClick={openBlankPresentation}
-          title="Blank Presentation"
-          style={buttonStyle(theme)}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background =
-              theme === "dark" ? "#838383bd" : "#d3d3d3ff";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background =
-              theme === "dark" ? "rgb(49, 49, 49)" : "#ffffff";
-          }}
-        >
-          ☐
-        </button>
+        {/* Blank + Close buttons tightly clustered */}
+        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+          <button
+            onClick={openBlankPresentation}
+            title="Blank Presentation"
+            style={buttonStyle(theme)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background =
+                theme === "dark" ? "#838383bd" : "#d3d3d3ff";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background =
+                theme === "dark" ? "#0f0e0e" : "#ffffff";
+            }}
+          >
+            ☐
+          </button>
 
-        <button
-          onClick={closePresentation}
-          title="Close Presentation"
-          style={buttonStyle(theme)}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background =
-              theme === "dark" ? "#838383bd" : "#d3d3d3ff";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background =
-              theme === "dark" ? "#0f0e0eff" : "#ffffff";
-          }}
-        >
-          ☒
-        </button>
+          <button
+            onClick={closePresentation}
+            title="Close Presentation"
+            style={buttonStyle(theme)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background =
+                theme === "dark" ? "#838383bd" : "#d3d3d3ff";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background =
+                theme === "dark" ? "#0f0e0eff" : "#ffffff";
+            }}
+          >
+            ☒
+          </button>
+        </div>
+
+        {/* Subtle divider */}
+        <div style={{ width: "1px", height: "18px", background: border, opacity: 0.35 }} />
 
         {/* TABS */}
-        <div style={{ display: "flex", gap: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
           {renderTab(
             "bible",
             "Bible",
@@ -121,23 +125,26 @@ export default function Header({
             text
           )}
         </div>
-      </div>
 
-      {/* CENTER TITLE - Now in grid flow, won't overlap */}
-      <div
-        style={{
-          fontSize: "26px",
-          fontWeight: "500",
-          whiteSpace: "nowrap",
-          color: theme === "dark" ? "#00ff99" : "#003399",
-          textAlign: "center"
-        }}
-      >
-        Scripture Screen
+        {/* Subtle divider */}
+        <div style={{ width: "1px", height: "18px", background: border, opacity: 0.35 }} />
+
+        {/* TITLE TEXT: Closer to left navigation */}
+        <div
+          style={{
+            fontSize: "23px",
+            fontWeight: "600",
+            whiteSpace: "nowrap",
+            color: theme === "dark" ? "#00ff99" : "#003399",
+            marginLeft: "2px",
+          }}
+        >
+          Scripture Screen
+        </div>
       </div>
 
       {/* RIGHT — Font controls (Bible tab only) + Theme Toggle */}
-      <div style={{ justifySelf: "end", display: "flex", alignItems: "center", gap: "14px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
 
         {/* Font Resize Controls — only visible in Bible tab */}
         {isBibleTab && settings && setSettings && (
@@ -329,14 +336,16 @@ function renderTab(
     <div
       onClick={() => setActiveTab(id)}
       style={{
-        padding: "8px 14px",
+        padding: "5px 10px",
         cursor: "pointer",
         borderRadius: "6px",
+        fontSize: "16px",
+        fontWeight: isActive ? "600" : "500",
 
         // ACTIVE TEXT COLOR
         color: isActive ? tabActiveText : normalText,
         background: "transparent",
-        transition: "0.25s",
+        transition: "0.2s",
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.background = tabHoverBg;

@@ -219,6 +219,8 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
   };
 
   const isCloudSyncOn = settings.cloudSyncEnabled !== false;
+  const cloudSyncAccent = theme === "dark" ? "#00ff99" : "#238b50";
+  const cloudSyncAccentRgb = theme === "dark" ? "0, 255, 153" : "35, 139, 80";
 
   return (
     <div style={{ padding: "20px", maxHeight: "calc(100vh - 80px)", overflowY: "auto" }}>
@@ -355,25 +357,35 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
 
       <Login isOpen={showLogin} onClose={() => setShowLogin(false)} />
 
-      {/* Cloud Sync Card (full width, premium design) */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "16px",
+        marginBottom: "20px",
+        borderBottom: `1px solid ${theme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
+        paddingBottom: "12px"
+      }}>
+      {/* Compact Cloud Sync control */}
       {user && (
         <div
           onClick={() => setSettings(prev => ({ ...prev, cloudSyncEnabled: !isCloudSyncOn }))}
           style={{
-            marginBottom: "20px",
-            padding: "16px 20px",
+            width: "fit-content",
+            maxWidth: "100%",
+            marginBottom: "0",
+            marginLeft: "auto",
+            order: 2,
+            padding: "10px 14px",
             borderRadius: "12px",
             background: isCloudSyncOn
-              ? (theme === "dark"
-                ? "linear-gradient(135deg, rgba(0, 255, 153, 0.08) 0%, rgba(0, 255, 153, 0.02) 100%)"
-                : "linear-gradient(135deg, rgba(0, 51, 153, 0.06) 0%, rgba(0, 51, 153, 0.02) 100%)")
+              ? `linear-gradient(135deg, rgba(${cloudSyncAccentRgb}, 0.10) 0%, rgba(${cloudSyncAccentRgb}, 0.02) 100%)`
               : "rgba(128, 128, 128, 0.06)",
             border: isCloudSyncOn
-              ? (theme === "dark" ? "1px solid rgba(0, 255, 153, 0.25)" : "1px solid rgba(0, 51, 153, 0.2)")
+              ? `1px solid rgba(${cloudSyncAccentRgb}, 0.28)`
               : "1px solid rgba(128, 128, 128, 0.15)",
             display: "flex",
             alignItems: "center",
-            gap: "16px",
+            gap: "10px",
             cursor: "pointer",
             transition: "all 0.3s ease",
             userSelect: "none"
@@ -381,11 +393,11 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
         >
           {/* Cloud Icon Container */}
           <div style={{
-            width: "44px",
-            height: "44px",
-            borderRadius: "12px",
+            width: "36px",
+            height: "36px",
+            borderRadius: "10px",
             background: isCloudSyncOn
-              ? (theme === "dark" ? "rgba(0, 255, 153, 0.12)" : "rgba(0, 51, 153, 0.1)")
+              ? `rgba(${cloudSyncAccentRgb}, 0.12)`
               : "rgba(128, 128, 128, 0.1)",
             display: "flex",
             alignItems: "center",
@@ -395,9 +407,9 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
             position: "relative"
           }}>
             <CloudIcon
-              size={24}
+              size={20}
               color={isCloudSyncOn
-                ? (theme === "dark" ? "#00ff99" : "#003399")
+                ? cloudSyncAccent
                 : (theme === "dark" ? "#666" : "#999")}
             />
             {/* Sync checkmark badge */}
@@ -413,9 +425,9 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                border: theme === "dark" ? "2px solid rgba(0, 255, 153, 0.4)" : "2px solid rgba(0, 51, 153, 0.3)"
+                border: `2px solid rgba(${cloudSyncAccentRgb}, 0.4)`
               }}>
-                <CheckIcon size={10} color={theme === "dark" ? "#00ff99" : "#003399"} />
+                <CheckIcon size={10} color={cloudSyncAccent} />
               </div>
             )}
           </div>
@@ -423,7 +435,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
           {/* Text */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
-              fontSize: "15px",
+              fontSize: "14px",
               fontWeight: 700,
               marginBottom: "3px",
               color: isCloudSyncOn
@@ -438,18 +450,19 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                 padding: "2px 8px",
                 borderRadius: "10px",
                 background: isCloudSyncOn
-                  ? (theme === "dark" ? "rgba(0, 255, 153, 0.15)" : "rgba(0, 51, 153, 0.1)")
+                  ? `rgba(${cloudSyncAccentRgb}, 0.15)`
                   : "rgba(128, 128, 128, 0.12)",
                 color: isCloudSyncOn
-                  ? (theme === "dark" ? "#00ff99" : "#003399")
+                  ? cloudSyncAccent
                   : (theme === "dark" ? "#666" : "#999"),
               }}>
                 {isCloudSyncOn ? "ON" : "OFF"}
               </span>
             </div>
             <div style={{
+              display: "block",
               fontSize: "12px",
-              opacity: 0.6,
+              opacity: 0.85,
               lineHeight: 1.4
             }}>
               {isCloudSyncOn
@@ -460,24 +473,24 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
 
           {/* Toggle Switch */}
           <div style={{
-            width: "44px",
-            height: "24px",
-            borderRadius: "12px",
+            width: "38px",
+            height: "22px",
+            borderRadius: "11px",
             background: isCloudSyncOn
-              ? (theme === "dark" ? "#00ff99" : "#003399")
+              ? cloudSyncAccent
               : (theme === "dark" ? "#333" : "#ccc"),
             position: "relative",
             transition: "background 0.3s ease",
             flexShrink: 0
           }}>
             <div style={{
-              width: "20px",
-              height: "20px",
+              width: "18px",
+              height: "18px",
               borderRadius: "50%",
               background: "#fff",
               position: "absolute",
               top: "2px",
-              left: isCloudSyncOn ? "22px" : "2px",
+              left: isCloudSyncOn ? "18px" : "2px",
               transition: "left 0.3s ease",
               boxShadow: "0 1px 3px rgba(0,0,0,0.3)"
             }} />
@@ -485,13 +498,14 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
         </div>
       )}
 
-      {/* CATEGORIZED SUB-TABS NAVIGATION BELOW AUTO-SAVE / CLOUD SYNC */}
+      {/* CATEGORIZED SUB-TABS NAVIGATION */}
       <div style={{
         display: "flex",
         gap: "10px",
-        marginBottom: "20px",
-        borderBottom: `1px solid ${theme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
-        paddingBottom: "12px"
+        marginBottom: "0",
+        flex: 1,
+        minWidth: 0,
+        flexWrap: "wrap"
       }}>
         {[
           { id: "display", label: "General & Display", icon: "🌐" },
@@ -531,6 +545,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
           );
         })}
       </div>
+      </div>
 
       {/* TAB CONTENT AREAS */}
 
@@ -566,6 +581,22 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                   </label>
                 </div>
               ))}
+            </SettingsCard>
+
+            {/* General preferences are kept with the language choice to avoid a long second column. */}
+            <SettingsCard title="General App Preferences">
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontSize: "14px" }}>
+                  <input type="checkbox" checked={settings.enableTransition} onChange={(e) => setSettings((prev) => ({ ...prev, enableTransition: e.target.checked }))} style={{ width: "16px", height: "16px" }} />
+                  Enable Slide/Fade Transition
+                </label>
+              </div>
+              <div>
+                <label style={{ fontWeight: 600, fontSize: "13px", display: "block", marginBottom: "6px" }}>Custom Watermark</label>
+                <input type="text" value={settings.customWatermark || ""} placeholder="your watermark" onChange={(e) => setSettings((prev) => ({ ...prev, customWatermark: e.target.value }))}
+                  style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box", border: theme === 'dark' ? '1px solid #444' : '1px solid #ccc', background: theme === 'dark' ? '#1a1a1a' : '#fff', color: theme === 'dark' ? '#e0e0e0' : '#222' }}
+                />
+              </div>
             </SettingsCard>
           </div>
 
@@ -632,21 +663,6 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
               </div>
             </SettingsCard>
 
-            {/* General Options */}
-            <SettingsCard title="General App Preferences">
-              <div style={{ marginBottom: "16px" }}>
-                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontSize: "14px" }}>
-                  <input type="checkbox" checked={settings.enableTransition} onChange={(e) => setSettings((prev) => ({ ...prev, enableTransition: e.target.checked }))} style={{ width: "16px", height: "16px" }} />
-                  Enable Slide/Fade Transition
-                </label>
-              </div>
-              <div>
-                <label style={{ fontWeight: 600, fontSize: "13px", display: "block", marginBottom: "6px" }}>Custom Watermark</label>
-                <input type="text" value={settings.customWatermark || ""} placeholder="your watermark" onChange={(e) => setSettings((prev) => ({ ...prev, customWatermark: e.target.value }))}
-                  style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box", border: theme === 'dark' ? '1px solid #444' : '1px solid #ccc', background: theme === 'dark' ? '#1a1a1a' : '#fff', color: theme === 'dark' ? '#e0e0e0' : '#222' }}
-                />
-              </div>
-            </SettingsCard>
           </div>
         </div>
       )}

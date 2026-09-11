@@ -83,6 +83,10 @@ const PrelistQueueItem = ({
           <span className="text-ellipsis" title={item.name}>
             <span style={{ opacity: 0.7 }}>📄</span> {item.name}
           </span>
+        ) : item.type === 'custom' ? (
+          <span className="text-ellipsis" title={item.title || 'Custom Slide'}>
+            <span style={{ opacity: 0.7 }}>T</span> {item.title || 'Custom Slide'}
+          </span>
         ) : (
           <span className="text-ellipsis">
             <strong>{item.book}</strong> {item.chapter}:{item.verse}
@@ -92,7 +96,7 @@ const PrelistQueueItem = ({
 
       {/* Controls (Visible ONLY in Manage Mode) */}
       <div className="item-controls" style={{ opacity: isManageMode ? 1 : 0, pointerEvents: isManageMode ? 'auto' : 'none' }}>
-        {item.type !== 'file' && (
+        {item.type !== 'file' && item.type !== 'custom' && (
           <button
             className="icon-btn"
             onClick={(e) => { e.stopPropagation(); startEditingRef(item); }}
