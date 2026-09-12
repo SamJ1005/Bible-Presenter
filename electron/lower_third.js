@@ -384,8 +384,7 @@ function fitLowerThirdReference(refEl, data) {
   vw *= 0.28; // Significantly smaller for lower-third
 
   const indexOffset = (data && data.indexFontOffset ? data.indexFontOffset : 0) * 0.15;
-  const localOffset = (data && data.fontSizeOffset ? data.fontSizeOffset : 0) * 0.10;
-  vw += indexOffset + localOffset;
+  vw += indexOffset;
 
   refEl.style.fontSize = vw + 'vw';
 

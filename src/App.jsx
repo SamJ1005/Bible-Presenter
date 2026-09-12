@@ -190,6 +190,8 @@ export default function App() {
           ...itemToSync, 
           url: isCloudUrl ? itemToSync.url : '[offline-or-failed-upload]', 
           imageUrl: item.imageUrl || (isCloudUrl ? itemToSync.url : null),
+          localUrl: item.localUrl || null,
+          path: item.path || null,
           localOnly: !isCloudUrl 
         };
       }
@@ -398,12 +400,18 @@ export default function App() {
                 if (cloudItem.type === 'file') {
                   const localMatch = localItems.find(li => li.id === cloudItem.id);
                   let newUrl = cloudItem.url;
-                  let newLocalUrl = localMatch?.localUrl || null;
+                  let newLocalUrl = localMatch?.localUrl || cloudItem.localUrl || null;
+                  let newPath = localMatch?.path || cloudItem.path || null;
                   
-                  // If cloud URL is invalid but we have a valid cloud URL locally, preserve it
-                  if ((!newUrl || newUrl === '[offline-or-failed-upload]') && 
-                      localMatch && localMatch.url && (localMatch.url.startsWith('https://firebasestorage') || localMatch.url.startsWith('https://res.cloudinary.com'))) {
-                    newUrl = localMatch.url;
+                  // If cloud URL is invalid/local-only, preserve working local file URL from localMatch or path
+                  if (!newUrl || newUrl === '[offline-or-failed-upload]' || newUrl === '[local-file]' || newUrl === '[local-only]') {
+                    if (localMatch?.url && !localMatch.url.startsWith('[')) {
+                      newUrl = localMatch.url;
+                    } else if (newLocalUrl) {
+                      newUrl = newLocalUrl;
+                    } else if (newPath) {
+                      newUrl = `file:///${newPath.replace(/\\/g, '/')}`;
+                    }
                   }
                   
                   // If we have an imageUrl from Cloudinary/Firebase but no localUrl or the localUrl is missing, download it
@@ -425,7 +433,8 @@ export default function App() {
                     ...cloudItem, 
                     url: newUrl, // Preserve fallback url if needed
                     localUrl: newLocalUrl, // The actual offline path
-                    localPreview: localMatch ? localMatch.localPreview : undefined
+                    path: newPath,
+                    localPreview: localMatch ? (localMatch.localPreview || newLocalUrl) : newLocalUrl
                   };
                 }
                 return cloudItem;
@@ -1023,24 +1032,33 @@ export default function App() {
     const newItemId = Date.now() + Math.random();
     const cleanName = fileObj.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
     
-    // Attempt immediate local cache for immediate presentation
-    let immediateLocalUrl = null;
-    if (fileObj.path && window.api && window.api.saveMediaFile) {
-        immediateLocalUrl = await window.api.saveMediaFile(fileObj.path);
-    }
+    const isVideo = (fileObj.type && fileObj.type.startsWith('video')) || /\.(mp4|webm|mov|mkv|avi|flv|wmv|m4v|3gp|ts)$/i.test(fileObj.name || "");
 
-    const isVideo = fileObj.type && (fileObj.type.startsWith('video') || /\.(mp4|webm|mov|mkv|avi)$/i.test(fileObj.name));
+    // Immediate local cache:
+    // For videos or any file with native path on disk, use direct file:/// protocol instantly!
+    // Never copy or freeze main thread for large (1GB+ / 2hr) video files.
+    let immediateLocalUrl = null;
+    if (fileObj.path) {
+      immediateLocalUrl = `local-file:///${fileObj.path.replace(/\\/g, "/")}`;
+    } else if (isVideo) {
+      immediateLocalUrl = URL.createObjectURL(fileObj);
+    } else if (window.api && window.api.saveMediaFile) {
+      immediateLocalUrl = await window.api.saveMediaFile(fileObj.path);
+    }
 
     // Handle videos: Local playback only, no cloud upload, no huge base64 data URLs in localStorage
     if (isVideo) {
       const videoUrl = immediateLocalUrl || URL.createObjectURL(fileObj);
+      const computedFileType = fileObj.type || (/\.mkv$/i.test(fileObj.name) ? 'video/x-matroska' : 'video/mp4');
       const newItem = {
         id: newItemId,
         type: 'file',
         name: fileObj.name,
-        fileType: fileObj.type || 'video/mp4',
+        fileType: computedFileType,
         url: videoUrl,
         localUrl: immediateLocalUrl || videoUrl,
+        localPreview: immediateLocalUrl || videoUrl,
+        path: fileObj.path || null,
         isLocalOnly: true,
         cloudUploadStatus: 'local-only',
       };
@@ -1277,11 +1295,13 @@ export default function App() {
               {/* Search input + previous/next buttons */}
               <div
                 style={{
-                  display: "flex", // Keep single row
-                  gap: "8px", // Reduced gap
+                  display: "flex",
+                  gap: "8px",
                   alignItems: "center",
                   width: "100%",
-                  overflow: "hidden"
+                  overflow: "visible",
+                  padding: "2px 2px",
+                  boxSizing: "border-box",
                 }}
               >
                 {/* Search bar with icon */}
@@ -1369,13 +1389,17 @@ export default function App() {
 
                 {/* Prev / Next buttons */}
                 <button
+                  type="button"
                   title="Previous Verse"
                   onClick={handlePrev}
                   style={{
-                    width: "35px", /* Increased touch target */
+                    width: "35px",
                     height: "35px",
                     minWidth: "35px",
                     minHeight: "35px",
+                    maxWidth: "35px",
+                    maxHeight: "35px",
+                    flexShrink: 0,
                     padding: "0",
                     borderRadius: "50%",
                     fontSize: "15px",
@@ -1384,11 +1408,13 @@ export default function App() {
                     border:
                       theme === "dark" ? "1px solid #555" : "1px solid #999",
                     cursor: "pointer",
-                    transition: "all 0.2s ease",
+                    transition: "background 0.2s ease",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     boxSizing: "border-box",
+                    overflow: "hidden",
+                    outline: "none",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background =
@@ -1403,13 +1429,17 @@ export default function App() {
                 </button>
 
                 <button
+                  type="button"
                   title="Next Verse"
                   onClick={handleNext}
                   style={{
-                    width: "35px", /* Increased touch target */
+                    width: "35px",
                     height: "35px",
                     minWidth: "35px",
                     minHeight: "35px",
+                    maxWidth: "35px",
+                    maxHeight: "35px",
+                    flexShrink: 0,
                     padding: "0",
                     borderRadius: "50%",
                     fontSize: "15px",
@@ -1418,11 +1448,13 @@ export default function App() {
                     border:
                       theme === "dark" ? "1px solid #555" : "1px solid #999",
                     cursor: "pointer",
-                    transition: "all 0.2s ease",
+                    transition: "background 0.2s ease",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     boxSizing: "border-box",
+                    overflow: "hidden",
+                    outline: "none",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background =
@@ -1599,7 +1631,13 @@ export default function App() {
         />
       )}
 
-      {activeTab === "maintenance" && user?.email === 'samjac75@gmail.com' && (
+      {activeTab === "maintenance" && (
+        Boolean(
+          (user?.email && import.meta.env.VITE_MAINTENANCE_EMAIL && user.email === import.meta.env.VITE_MAINTENANCE_EMAIL) ||
+          import.meta.env.VITE_ENABLE_MAINTENANCE === "true" ||
+          (typeof window !== "undefined" && localStorage.getItem("enable_maintenance") === "true")
+        )
+      ) && (
         <BibleMaintenance theme={theme} user={user} />
       )}
 

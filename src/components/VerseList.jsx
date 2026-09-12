@@ -44,7 +44,14 @@ export default function VerseList({ count = 0, selectedVerse, setSelectedVerse, 
                 padding: 4,
                 cursor: "pointer",
                 borderRadius: 4,
-                background: Number(v) === Number(selectedVerse) ? (theme === "dark" ? "#3acc9298" : "#c0d5ffff") : "transparent",
+                background: Number(v) === Number(selectedVerse)
+                  ? (theme === "dark" ? "rgba(0, 255, 153, 0.25)" : "rgba(0, 51, 153, 0.18)")
+                  : "transparent",
+                color: Number(v) === Number(selectedVerse)
+                  ? (theme === "dark" ? "#00ff99" : "#003399")
+                  : (theme === "dark" ? "#ffffff" : "#000000"),
+                fontWeight: Number(v) === Number(selectedVerse) ? "700" : "400",
+                transition: "background 0.2s ease, color 0.2s ease",
               }}
             >
               {v}

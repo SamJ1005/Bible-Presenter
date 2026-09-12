@@ -404,7 +404,7 @@
       const settings = data.settings || data;
 
       // Background - Cached logic via lower_third.js
-      const layout = settings.presentationLayout || "fullscreen";
+      const layout = data.presentationLayout || settings.presentationLayout || "fullscreen";
 
       if (!window.bgCache) {
         window.bgCache = { type: null, val: null, layout: null };
@@ -448,20 +448,32 @@
           // Show Media Area
           mediaArea.style.display = "flex";
 
-          const isImage = data.fileType && data.fileType.startsWith("image");
-          const isVideo = data.fileType && data.fileType.startsWith("video");
+          const fType = (data.fileType || data.fileData?.fileType || "").toLowerCase();
+          const fName = (data.name || data.fileData?.name || data.url || "").toLowerCase();
+          const isImage = fType.startsWith("image") || /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i.test(fName);
+          const isVideo = fType.startsWith("video") || /\.(mp4|webm|mov|mkv|avi|flv|wmv|m4v|3gp|ts)$/i.test(fName);
+
+          const normalizeUrl = (u) => {
+            if (!u || typeof u !== "string") return "";
+            if (/^[a-zA-Z]:[\\/]/.test(u)) return "local-file:///" + u.replace(/\\/g, "/");
+            if (/^file:\/\/\//i.test(u)) return u.replace(/^file:\/\/\//i, "local-file:///");
+            if (/^file:\/\//i.test(u)) return u.replace(/^file:\/\//i, "local-file:///");
+            return u;
+          };
 
           if (isImage) {
-            const displayUrl =
+            const rawUrl =
               data.url &&
                 ![
                   "[uploading]",
                   "[upload-failed]",
                   "[offline-or-failed-upload]",
                   "[local-file]",
+                  "[local-only]",
                 ].includes(data.url)
                 ? data.url
-                : data.localPreview;
+                : (data.localPreview || data.localUrl || (data.path ? `local-file:///${data.path.replace(/\\/g, "/")}` : null));
+            const displayUrl = normalizeUrl(rawUrl);
 
             if (displayUrl) {
               mediaImg.src = displayUrl;
@@ -472,25 +484,85 @@
             mediaVideo.style.display = "none";
             mediaVideo.pause();
           } else if (isVideo) {
-            const displayUrl =
+            const rawUrl =
               data.url &&
                 ![
                   "[uploading]",
                   "[upload-failed]",
                   "[offline-or-failed-upload]",
                   "[local-file]",
+                  "[local-only]",
                 ].includes(data.url)
                 ? data.url
-                : data.localPreview;
+                : (data.localPreview || data.localUrl || (data.path ? `local-file:///${data.path.replace(/\\/g, "/")}` : null));
+            const displayUrl = normalizeUrl(rawUrl);
 
             if (displayUrl) {
-              mediaVideo.src = displayUrl;
+              const isSecondary = data.isSecondaryDisplay === true;
+              mediaVideo.controls = !isSecondary;
+              mediaVideo.style.cursor = isSecondary ? "none" : "default";
+
+              const currentSrc = mediaVideo.currentSrc || mediaVideo.src || "";
+              const normalize = (s) => {
+                if (!s) return "";
+                let str = decodeURIComponent(s).replace(/\\/g, "/").toLowerCase();
+                str = str.replace(/^(file|local-file):\/\/\/?/, "");
+                if (/^[a-z]\//.test(str)) {
+                  str = str[0] + ":/" + str.slice(2);
+                }
+                return str;
+              };
+              const isSameVideo = currentSrc && normalize(currentSrc) === normalize(displayUrl);
+
+              if (data.volume !== undefined) {
+                mediaVideo.volume = Math.max(0, Math.min(1, data.volume));
+              }
+              if (data.isMuted !== undefined) {
+                mediaVideo.muted = !!data.isMuted;
+              }
+
+              mediaVideo.onerror = (e) => {
+                console.error("[PRESENTATION PRELIST] mediaVideo error:", mediaVideo.error, displayUrl);
+              };
+
+              if (!isSameVideo) {
+                mediaVideo.src = displayUrl;
+                mediaVideo.load();
+
+                const applyPlayState = () => {
+                  if (data.currentTime !== undefined && data.currentTime > 0) {
+                    try { mediaVideo.currentTime = data.currentTime; } catch (e) {}
+                  }
+                  if (data.isPlaying !== false) {
+                    mediaVideo
+                      .play()
+                      .catch((e) => console.error("[PRESENTATION PRELIST] Auto-play failed:", e));
+                  } else {
+                    mediaVideo.pause();
+                  }
+                };
+
+                if (mediaVideo.readyState >= 1) {
+                  applyPlayState();
+                } else {
+                  mediaVideo.onloadedmetadata = applyPlayState;
+                }
+              } else {
+                if (data.currentTime !== undefined && Math.abs(mediaVideo.currentTime - data.currentTime) > 1.5) {
+                  try { mediaVideo.currentTime = data.currentTime; } catch (e) {}
+                }
+                if (data.isPlaying === true && mediaVideo.paused) {
+                  mediaVideo.play().catch(e => console.error("[PRESENTATION PRELIST] Play error:", e));
+                } else if (data.isPlaying === false && !mediaVideo.paused) {
+                  mediaVideo.pause();
+                }
+              }
+              mediaArea.style.display = "flex";
+              mediaArea.style.opacity = "1";
               mediaVideo.style.display = "block";
-              mediaVideo
-                .play()
-                .catch((e) => console.error("Auto-play failed:", e));
             } else {
               mediaVideo.style.display = "none";
+              mediaVideo.pause();
             }
             mediaImg.style.display = "none";
           } else {
@@ -681,9 +753,56 @@
       // When running inside an iframe (WYSIWYG preview), presentationAPI is never injected.
       // postMessage listener below handles all data updates instead — so skip the IPC setup.
       if (window.self !== window.top) return;
-      if (window.presentationAPI?.onVerse)
+      if (window.presentationAPI?.onVerse) {
         window.presentationAPI.onVerse(updateDisplay);
-      else setTimeout(waitAPI, 50);
+
+        if (window.presentationAPI?.onVideoCommand) {
+          window.presentationAPI.onVideoCommand((cmd) => {
+            const v = document.getElementById("mediaVideo");
+            if (!v) return;
+            if (cmd.action === "play") {
+              if (cmd.currentTime !== undefined && Math.abs(v.currentTime - cmd.currentTime) > 1.0) {
+                try { v.currentTime = cmd.currentTime; } catch (e) {}
+              }
+              v.play().catch((e) => console.error("Play error:", e));
+            } else if (cmd.action === "pause") {
+              v.pause();
+              if (cmd.currentTime !== undefined && Math.abs(v.currentTime - cmd.currentTime) > 1.0) {
+                try { v.currentTime = cmd.currentTime; } catch (e) {}
+              }
+            } else if (cmd.action === "seek") {
+              if (cmd.currentTime !== undefined) {
+                try { v.currentTime = cmd.currentTime; } catch (e) {}
+              }
+              if (cmd.isPlaying) {
+                v.play().catch((e) => console.error("Play error:", e));
+              } else {
+                v.pause();
+              }
+            } else if (cmd.action === "sync") {
+              if (cmd.currentTime !== undefined && Math.abs(v.currentTime - cmd.currentTime) > 1.5) {
+                try { v.currentTime = cmd.currentTime; } catch (e) {}
+              }
+              if (cmd.isPlaying !== undefined) {
+                if (cmd.isPlaying && v.paused) {
+                  v.play().catch(() => {});
+                } else if (!cmd.isPlaying && !v.paused) {
+                  v.pause();
+                }
+              }
+            } else if (cmd.action === "volume") {
+              if (cmd.volume !== undefined) {
+                v.volume = Math.max(0, Math.min(1, cmd.volume));
+              }
+              if (cmd.isMuted !== undefined) {
+                v.muted = !!cmd.isMuted;
+              }
+            }
+          });
+        }
+      } else {
+        setTimeout(waitAPI, 50);
+      }
     })();
 
     const exitBtn = document.getElementById("presentationExit");

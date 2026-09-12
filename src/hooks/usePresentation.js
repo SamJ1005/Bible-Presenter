@@ -4,7 +4,24 @@ import { getTamilBookName } from "../utils/bibleBooks";
 export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilBookDataRef }) {
   const lastPayloadParamsRef = useRef(null);
 
-  function buildPayload({ selectedBook, selectedChapter, selectedVerse, settings = {}, tamilDataOverride = null, englishText = null, tamilText = null, viewMode = "bible", type = "bible", fileData = null, fontSizeOffset = 0, index = null }) {
+  function buildPayload(params = {}) {
+    const {
+      selectedBook,
+      selectedChapter,
+      selectedVerse,
+      settings = {},
+      tamilDataOverride = null,
+      englishText = null,
+      tamilText = null,
+      viewMode = "bible",
+      type = "bible",
+      fileData = null,
+      fontSizeOffset = 0,
+      index = null,
+      currentTime = 0,
+      isPlaying = undefined,
+    } = params;
+
     // If viewMode is prelist or type is file, and only lower third is enabled in settings,
     // forcefully enable showFullscreenWindow so playlist items display on screen!
     const forceFullscreen = (viewMode === "prelist" || type === "file") && (settings.showLowerThirdWindow === true && settings.showFullscreenWindow === false);
@@ -29,14 +46,25 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
       };
     }
 
-    if (type === "file" && fileData) {
+    if (type === "file" && (fileData || params.url)) {
+      const activeFileData = fileData || {
+        url: params.url,
+        fileType: params.fileType,
+        name: params.name,
+      };
       return {
         viewMode,
         type: "file",
-        url: fileData.url,
-        fileType: fileData.fileType,
-        name: fileData.name,
-        localPreview: fileData.localPreview || fileData.url,
+        url: params.url || activeFileData.url,
+        fileType: activeFileData.fileType,
+        name: activeFileData.name,
+        localPreview: activeFileData.localPreview || activeFileData.url || params.url,
+        fileData: activeFileData,
+        currentTime: params.currentTime !== undefined ? params.currentTime : currentTime,
+        isPlaying: params.isPlaying,
+        volume: params.volume !== undefined ? params.volume : 1,
+        isMuted: params.isMuted !== undefined ? params.isMuted : false,
+        settings,
         presentationBgType: settings.presentationBgType ?? "color",
         presentationBgImage: settings.presentationBgImage ?? "",
         lowerThirdBgImage: settings.lowerThirdBgImage ?? "",
@@ -98,7 +126,7 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
       }
     }
 
-    const payload = buildPayload({ selectedBook, selectedChapter, selectedVerse, settings, tamilDataOverride, englishText, tamilText, viewMode, type, fileData, fontSizeOffset, index });
+    const payload = buildPayload(params);
 
     // Store the exact parameters needed to rebuild this slide with new settings later
     lastPayloadParamsRef.current = params;

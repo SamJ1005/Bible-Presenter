@@ -21,20 +21,20 @@ export default function useTheme() {
     }
   }, []);
 
-  const applyThemeGlobals = useCallback(() => {
+  const applyThemeGlobals = useCallback((targetTheme = theme) => {
     // Update html class for global CSS
     document.documentElement.classList.remove("light", "dark");
-    document.documentElement.classList.add(theme);
+    document.documentElement.classList.add(targetTheme);
 
     // Body color
-    document.body.style.background = theme === "dark" ? "#0f0e0e" : "#ffffff";
-    document.body.style.color = theme === "dark" ? "white" : "black";
+    document.body.style.background = targetTheme === "dark" ? "#0f0e0e" : "#ffffff";
+    document.body.style.color = targetTheme === "dark" ? "white" : "black";
 
     // Scrollbar
     const style = document.getElementById("bp-scroll-style");
     if (!style) return;
 
-    if (theme === "light") {
+    if (targetTheme === "light") {
       style.innerHTML = `
         ::-webkit-scrollbar { width: 14px; }
         ::-webkit-scrollbar-track { background: #eee; }
@@ -57,6 +57,7 @@ export default function useTheme() {
 
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
+    applyThemeGlobals(next);
     setTheme(next);
     saveMemory("theme", next);
   };

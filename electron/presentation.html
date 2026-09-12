@@ -132,7 +132,7 @@
       bottom: 15px;
       right: 25px;
       font-size: 1.5vw;
-      opacity: 1.5;
+      opacity: 2;
     }
 
     #bgLayer {
@@ -350,10 +350,9 @@
         }
       }
 
-      // Apply index font offset
+      // Apply index font offset (resize button affects verse only, not reference)
       const indexOffset = (data && data.indexFontOffset ? data.indexFontOffset : 0) * 0.15;
-      const localOffset = (data && data.fontSizeOffset ? data.fontSizeOffset : 0) * 0.10;
-      vw += indexOffset + localOffset;
+      vw += indexOffset;
       el.style.fontSize = vw + "vw";
     }
 

@@ -1,8 +1,10 @@
 import React, { useRef, useState, useEffect } from "react";
+import { toStreamableMediaUrl } from "../../utils/mediaUrl";
 
-export default function PrelistVideoPlayer({ src, name, theme }) {
+export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, isActive, onPresent }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
+  const resolvedSrc = toStreamableMediaUrl(src, rawPath || item?.path);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -10,7 +12,46 @@ export default function PrelistVideoPlayer({ src, name, theme }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [videoError, setVideoError] = useState(null);
   const controlsTimeoutRef = useRef(null);
+  const isRemoteUpdatingRef = useRef(false);
+  const lastSyncRef = useRef(0);
+
+  useEffect(() => {
+    setVideoError(null);
+  }, [resolvedSrc]);
+
+  const getPlayableDuration = (video = videoRef.current) => {
+    if (!video) return 0;
+    if (Number.isFinite(video.duration) && video.duration > 0) return video.duration;
+    const ranges = video.seekable;
+    if (ranges?.length) {
+      const end = ranges.end(ranges.length - 1);
+      if (Number.isFinite(end) && end > 0) return end;
+    }
+    return 0;
+  };
+
+  // Selecting an active card prepares playback and syncs presentation window
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!isActive || !video || !resolvedSrc) return;
+
+    ensurePresented({ isPlaying: true, currentTime: video.currentTime || 0 });
+
+    const startCardPlayback = () => {
+      video.play().catch((err) => {
+        console.warn("[PrelistVideoPlayer] Autoplay note:", err);
+      });
+    };
+
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      startCardPlayback();
+    } else {
+      video.addEventListener("loadedmetadata", startCardPlayback, { once: true });
+      return () => video.removeEventListener("loadedmetadata", startCardPlayback);
+    }
+  }, [isActive, resolvedSrc]);
 
   const formatTime = (seconds) => {
     if (isNaN(seconds) || seconds < 0) return "0:00";
@@ -19,51 +60,165 @@ export default function PrelistVideoPlayer({ src, name, theme }) {
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
+  const sendSync = (action, time, playing) => {
+    if (isRemoteUpdatingRef.current) return;
+    if (window.electron?.sendVideoCommand) {
+      window.electron.sendVideoCommand({
+        action,
+        currentTime: time,
+        isPlaying: playing,
+      });
+    }
+  };
+
+  // Listen to remote commands from presentation window
+  useEffect(() => {
+    if (!window.electron?.onVideoCommand) return;
+
+    const cleanup = window.electron.onVideoCommand((cmd) => {
+      if (!videoRef.current || !isActive) return;
+      isRemoteUpdatingRef.current = true;
+      try {
+        if (cmd.action === "play") {
+          if (cmd.currentTime !== undefined && Math.abs(videoRef.current.currentTime - cmd.currentTime) > 0.5) {
+            videoRef.current.currentTime = cmd.currentTime;
+            setCurrentTime(cmd.currentTime);
+          }
+          videoRef.current.play().catch(() => {});
+          setIsPlaying(true);
+        } else if (cmd.action === "pause") {
+          videoRef.current.pause();
+          setIsPlaying(false);
+          if (cmd.currentTime !== undefined && Math.abs(videoRef.current.currentTime - cmd.currentTime) > 0.5) {
+            videoRef.current.currentTime = cmd.currentTime;
+            setCurrentTime(cmd.currentTime);
+          }
+        } else if (cmd.action === "seek") {
+          if (cmd.currentTime !== undefined) {
+            videoRef.current.currentTime = cmd.currentTime;
+            setCurrentTime(cmd.currentTime);
+          }
+          if (cmd.isPlaying) {
+            videoRef.current.play().catch(() => {});
+            setIsPlaying(true);
+          } else {
+            videoRef.current.pause();
+            setIsPlaying(false);
+          }
+        } else if (cmd.action === "sync") {
+          if (cmd.currentTime !== undefined && Math.abs(videoRef.current.currentTime - cmd.currentTime) > 1.0) {
+            videoRef.current.currentTime = cmd.currentTime;
+            setCurrentTime(cmd.currentTime);
+          }
+        }
+      } finally {
+        setTimeout(() => { isRemoteUpdatingRef.current = false; }, 80);
+      }
+    });
+
+    return cleanup;
+  }, [isActive]);
+
+  // Pause playback if the card is no longer active
+  useEffect(() => {
+    if (!isActive && isPlaying && videoRef.current) {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
+  }, [isActive]);
+
+  const ensurePresented = (extra = {}) => {
+    if (onPresent) {
+      onPresent({
+        currentTime: videoRef.current?.currentTime || 0,
+        volume: isMuted ? 0 : volume,
+        isMuted,
+        ...extra,
+      });
+    }
+  };
+
   const togglePlay = (e) => {
     e?.stopPropagation();
     if (!videoRef.current) return;
+    const willPlay = !isPlaying;
+    ensurePresented({ isPlaying: willPlay, currentTime: videoRef.current.currentTime });
+
     if (isPlaying) {
       videoRef.current.pause();
+      setIsPlaying(false);
+      sendSync("pause", videoRef.current.currentTime, false);
     } else {
-      videoRef.current.play();
+      videoRef.current.play().catch((err) => console.warn("Video play error:", err));
+      setIsPlaying(true);
+      sendSync("play", videoRef.current.currentTime, true);
     }
   };
 
   const skipTime = (delta, e) => {
     e?.stopPropagation();
     if (!videoRef.current) return;
-    videoRef.current.currentTime = Math.max(
-      0,
-      Math.min(duration, videoRef.current.currentTime + delta)
-    );
+    const cur = Number.isFinite(videoRef.current.currentTime) ? videoRef.current.currentTime : (currentTime || 0);
+    const dur = getPlayableDuration() || duration || Infinity;
+    const newTime = Math.max(0, Math.min(dur, cur + delta));
+    videoRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+    sendSync("seek", newTime, isPlaying);
   };
 
   const handleSeek = (e) => {
     e?.stopPropagation();
-    if (!videoRef.current || !duration) return;
+    if (!videoRef.current) return;
+    const dur = getPlayableDuration() || duration;
+    if (!dur) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const pos = (e.clientX - rect.left) / rect.width;
-    const newTime = Math.max(0, Math.min(duration, pos * duration));
+    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const newTime = pos * dur;
     videoRef.current.currentTime = newTime;
     setCurrentTime(newTime);
+    sendSync("seek", newTime, isPlaying);
+  };
+
+  const handleTimeUpdate = () => {
+    const cur = videoRef.current?.currentTime || 0;
+    setCurrentTime(cur);
+    const playableDuration = getPlayableDuration();
+    if (playableDuration && playableDuration !== duration) setDuration(playableDuration);
+    if (isActive && isPlaying) {
+      const now = Date.now();
+      if (now - lastSyncRef.current > 1000) {
+        lastSyncRef.current = now;
+        sendSync("sync", cur, true);
+      }
+    }
   };
 
   const toggleMute = (e) => {
     e?.stopPropagation();
     if (!videoRef.current) return;
     const nextMute = !isMuted;
-    videoRef.current.muted = nextMute;
     setIsMuted(nextMute);
+    if (window.electron?.sendVideoCommand) {
+      window.electron.sendVideoCommand({
+        action: "volume",
+        volume: nextMute ? 0 : volume,
+        isMuted: nextMute,
+      });
+    }
   };
 
   const handleVolumeChange = (e) => {
     e?.stopPropagation();
     const newVol = parseFloat(e.target.value);
     setVolume(newVol);
-    if (videoRef.current) {
-      videoRef.current.volume = newVol;
-      videoRef.current.muted = newVol === 0;
-      setIsMuted(newVol === 0);
+    const nextMute = newVol === 0;
+    setIsMuted(nextMute);
+    if (window.electron?.sendVideoCommand) {
+      window.electron.sendVideoCommand({
+        action: "volume",
+        volume: newVol,
+        isMuted: nextMute,
+      });
     }
   };
 
@@ -86,7 +241,19 @@ export default function PrelistVideoPlayer({ src, name, theme }) {
       setIsFullscreen(!!document.fullscreenElement);
     };
     document.addEventListener("fullscreenchange", handleFsChange);
-    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFsChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        try {
+          videoRef.current.pause();
+        } catch {}
+      }
+    };
   }, []);
 
   const handleMouseMove = () => {
@@ -116,26 +283,94 @@ export default function PrelistVideoPlayer({ src, name, theme }) {
         boxShadow: "0 4px 14px rgba(0,0,0,0.3)",
         userSelect: "none",
       }}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        ensurePresented();
+      }}
     >
       <video
         ref={videoRef}
-        src={src}
-        preload="metadata"
+        src={resolvedSrc}
+        key={resolvedSrc}
+        preload="auto"
+        muted={true}
+        playsInline
         onClick={togglePlay}
-        onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
-        onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={() => {
+          const video = videoRef.current;
+          setDuration(getPlayableDuration(video));
+          setCurrentTime(video?.currentTime || 0);
+          setVideoError(null);
+        }}
+        onLoadedData={() => {
+          setDuration(getPlayableDuration());
+          setVideoError(null);
+        }}
+        onProgress={() => setDuration(getPlayableDuration())}
+        onDurationChange={() => setDuration(getPlayableDuration())}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
-        onEnded={() => setIsPlaying(false)}
+        onEnded={() => {
+          setIsPlaying(false);
+          sendSync("pause", duration, false);
+        }}
+        onError={(e) => {
+          const err = e.target.error;
+          console.error("[PrelistVideoPlayer] video loading error:", err, resolvedSrc);
+          setVideoError(err ? `Video error (${err.code}): Failed to load file` : "Failed to load video file");
+        }}
         style={{
           width: "100%",
           height: "100%",
           objectFit: "contain",
-          display: "block",
+          display: videoError ? "none" : "block",
           cursor: "pointer",
         }}
       />
+
+      {videoError && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+            color: "#ff6b6b",
+            fontSize: "12px",
+            textAlign: "center",
+            background: "rgba(0,0,0,0.85)",
+            gap: "8px",
+          }}
+        >
+          <span style={{ fontSize: "20px" }}>⚠</span>
+          <span>{videoError}</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setVideoError(null);
+              if (videoRef.current) {
+                videoRef.current.load();
+              }
+            }}
+            style={{
+              padding: "4px 10px",
+              background: "#333",
+              border: "1px solid #555",
+              borderRadius: "4px",
+              color: "#fff",
+              cursor: "pointer",
+              fontSize: "11px",
+            }}
+          >
+            Retry Loading
+          </button>
+        </div>
+      )}
 
       {/* Center Big Play Button (shown when paused) */}
       {!isPlaying && (

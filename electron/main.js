@@ -1,8 +1,36 @@
 // electron/main.js
-const { app, BrowserWindow, ipcMain, screen, Menu, protocol } = require("electron");
+const { app, BrowserWindow, ipcMain, screen, Menu, protocol, net } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const { Readable } = require("stream");
+const { pathToFileURL } = require("url");
 const bibleKJV = require("./assets/bible/kjv.json");
+
+// Register custom privileged schemes before app is ready for zero-copy video streaming and byte-range seeking
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "local-file",
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      bypassCSP: true,
+      stream: true,
+    },
+  },
+  {
+    scheme: "local-media",
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      bypassCSP: true,
+      stream: true,
+    },
+  },
+]);
 
 // Helper function to get icon path (call after app is ready)
 function getIconPath() {
@@ -22,6 +50,7 @@ let currentPresentationFile = { fullscreen: null, lowerThird: null };
 app.setAppUserModelId("com.scripturescreen.app");
 app.commandLine.appendSwitch("disable-gpu-vsync");
 app.commandLine.appendSwitch("disable-quic"); // Fix for Firebase Storage net::ERR_QUIC_PROTOCOL_ERROR
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required"); // Allow seamless video playback on presentation displays
 app.commandLine.appendSwitch(
   "disable-features",
   "CalculateNativeWinOcclusion"
@@ -48,7 +77,7 @@ function createMainWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       sandbox: false,
-      webSecurity: app.isPackaged, // Allow file:// font loads in dev from http:// localhost
+      webSecurity: false, // Allow local file streaming and custom protocols in control panel
       devTools: !app.isPackaged, // Enable DevTools only during development, disabled in production build
     },
   });
@@ -117,8 +146,8 @@ function createPresentationWindow(type = 'fullscreen', startFile = "presentation
       nodeIntegration: false,
       sandbox: false,
       devTools: !app.isPackaged,
+      webSecurity: false,
     },
-    webSecurity: false,
   });
 
   win.setIcon(iconPath);
@@ -158,10 +187,13 @@ function sendDisplayVerse(win, payload, presentationLayout) {
   if (!win || win.isDestroyed()) return;
   const primary = screen.getPrimaryDisplay();
   const windowDisplay = screen.getDisplayMatching(win.getBounds());
+  const isPrimary = windowDisplay.id === primary.id;
   win.webContents.send("display-verse", {
     ...(payload || {}),
     presentationLayout,
-    showExitControl: windowDisplay.id === primary.id,
+    showExitControl: isPrimary,
+    isPrimaryDisplay: isPrimary,
+    isSecondaryDisplay: !isPrimary,
   });
 }
 
@@ -183,7 +215,7 @@ ipcMain.on("send-presentation", (_, payload) => {
   console.log('[MAIN] Received presentation payload.');
   currentPresentationPayload = payload;
 
-  const targetFile = (payload && payload.viewMode === "prelist")
+  const targetFile = (payload && (payload.viewMode === "prelist" || payload.type === "file" || payload.type === "custom"))
     ? "presentation_prelist.html"
     : "presentation.html";
 
@@ -263,6 +295,29 @@ ipcMain.on("presentation-next-verse", () => {
 ipcMain.on("presentation-prev-verse", () => {
   mainWin?.webContents.send("navigate-prev-verse");
 });
+
+ipcMain.on("control-presentation-video", (event, command) => {
+  // If sent from main control window, forward to presentation windows
+  if (mainWin && !mainWin.isDestroyed() && event.sender === mainWin.webContents) {
+    if (presentationWin && !presentationWin.isDestroyed()) {
+      presentationWin.webContents.send("control-video", command);
+    }
+    if (lowerThirdWin && !lowerThirdWin.isDestroyed()) {
+      lowerThirdWin.webContents.send("control-video", command);
+    }
+  } else {
+    // If sent from a presentation window (e.g. primary screen controls), forward to main window
+    if (mainWin && !mainWin.isDestroyed()) {
+      mainWin.webContents.send("control-video", command);
+    }
+    if (presentationWin && !presentationWin.isDestroyed() && event.sender !== presentationWin.webContents) {
+      presentationWin.webContents.send("control-video", command);
+    }
+    if (lowerThirdWin && !lowerThirdWin.isDestroyed() && event.sender !== lowerThirdWin.webContents) {
+      lowerThirdWin.webContents.send("control-video", command);
+    }
+  }
+});
 ipcMain.handle("get-verse", (_, ref) => {
   try {
     return (
@@ -276,6 +331,15 @@ ipcMain.handle("get-verse", (_, ref) => {
 // Save media file to local userData folder and return path
 ipcMain.handle("save-media-file", async (_, sourcePath) => {
   try {
+    if (!sourcePath || !fs.existsSync(sourcePath)) return null;
+
+    // For videos or large media (>25MB), DO NOT copy synchronously or duplicate GBs to userData!
+    // Return direct file:// protocol URL immediately for instant zero-copy streaming!
+    const stats = fs.statSync(sourcePath);
+    if (stats.size > 25 * 1024 * 1024 || /\.(mp4|webm|mov|mkv|avi|flv|wmv|m4v|3gp|ts)$/i.test(sourcePath)) {
+      return `file:///${sourcePath.replace(/\\/g, "/")}`;
+    }
+
     const mediaDir = path.join(app.getPath("userData"), "media");
     if (!fs.existsSync(mediaDir)) {
       fs.mkdirSync(mediaDir, { recursive: true });
@@ -285,15 +349,15 @@ ipcMain.handle("save-media-file", async (_, sourcePath) => {
     const destPath = path.join(mediaDir, fileName);
 
     // Only copy if it exists and is not already at the destination
-    if (fs.existsSync(sourcePath) && sourcePath !== destPath) {
-      fs.copyFileSync(sourcePath, destPath);
+    if (sourcePath !== destPath) {
+      await fs.promises.copyFile(sourcePath, destPath);
     }
     
     // Return a URL using our custom protocol
     return `local-media://${fileName}`;
   } catch (err) {
     console.error("Failed to save media file:", err);
-    return null;
+    return sourcePath ? `file:///${sourcePath.replace(/\\/g, "/")}` : null;
   }
 });
 
@@ -413,16 +477,141 @@ ipcMain.on("set-preferred-display", (_, displayId) => {
   }
 });
 
+// Helper to parse custom standard scheme URL into a real filesystem path on Windows/Unix
+function urlToLocalFilePath(requestUrl) {
+  try {
+    const parsed = new URL(requestUrl);
+    let drive = parsed.host;
+    let restPath = decodeURIComponent(parsed.pathname);
+
+    let filePath = "";
+    if (process.platform === "win32") {
+      // Chromium treats "C:" in standard URLs as the host "c"
+      if (drive && drive.length === 1 && /^[a-zA-Z]$/.test(drive)) {
+        filePath = `${drive.toUpperCase()}:${restPath}`;
+      } else if (/^\/?[a-zA-Z]:/.test(restPath)) {
+        filePath = restPath.replace(/^\//, "");
+      } else {
+        filePath = path.join(drive, restPath);
+      }
+    } else {
+      filePath = path.join(drive, restPath);
+    }
+    return path.normalize(filePath);
+  } catch (e) {
+    let raw = requestUrl.replace(/^local-file:\/\/\/?/, "");
+    return decodeURIComponent(raw);
+  }
+}
+
+// MIME types map for common media and asset formats
+const MEDIA_MIME_TYPES = {
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
+  ".mov": "video/quicktime",
+  ".mkv": "video/x-matroska",
+  ".avi": "video/x-msvideo",
+  ".flv": "video/x-flv",
+  ".wmv": "video/x-ms-wmv",
+  ".m4v": "video/mp4",
+  ".3gp": "video/3gpp",
+  ".ts": "video/mp2t",
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
+  ".ogg": "audio/ogg",
+  ".aac": "audio/aac",
+  ".m4a": "audio/mp4",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+};
+
+// Robust HTTP 206 Partial Content responder for media files supporting timeline scrubber seeking
+function serveLocalFileWithRange(realPath, request) {
+  try {
+    if (!fs.existsSync(realPath)) {
+      console.warn("[MAIN] local-file not found:", realPath);
+      return new Response("File not found", { status: 404 });
+    }
+
+    const stat = fs.statSync(realPath);
+    const fileSize = stat.size;
+    const ext = path.extname(realPath).toLowerCase();
+    const contentType = MEDIA_MIME_TYPES[ext] || "application/octet-stream";
+    const rangeHeader = request.headers.get("range");
+
+    if (rangeHeader) {
+      const parts = rangeHeader.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+      if (isNaN(start) || start >= fileSize || end >= fileSize || start > end) {
+        return new Response("Requested range not satisfiable", {
+          status: 416,
+          headers: { "Content-Range": `bytes */${fileSize}` },
+        });
+      }
+
+      const chunksize = end - start + 1;
+      const stream = fs.createReadStream(realPath, { start, end });
+
+      return new Response(Readable.toWeb(stream), {
+        status: 206,
+        statusText: "Partial Content",
+        headers: {
+          "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+          "Accept-Ranges": "bytes",
+          "Content-Length": chunksize.toString(),
+          "Content-Type": contentType,
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+
+    // Full file response with Accept-Ranges so Chromium knows seeking is supported
+    const stream = fs.createReadStream(realPath);
+    return new Response(Readable.toWeb(stream), {
+      status: 200,
+      headers: {
+        "Accept-Ranges": "bytes",
+        "Content-Length": fileSize.toString(),
+        "Content-Type": contentType,
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  } catch (err) {
+    console.error("[MAIN] serveLocalFileWithRange error:", err);
+    return new Response("File error", { status: 500 });
+  }
+}
+
 /* ------------ App Lifecycle ------------ */
 app.whenReady().then(() => {
-  // Register custom protocol to serve media from userData
-  // This allows us to load local files without disabling all web security
-  protocol.registerFileProtocol('local-media', (request, callback) => {
-    const filePath = request.url.replace('local-media://', '');
-    const mediaDir = path.join(app.getPath("userData"), "media");
-    // decodeURIComponent handles spaces and special chars in filenames
-    const fullPath = path.join(mediaDir, decodeURIComponent(filePath));
-    callback({ path: fullPath });
+  // Protocol handlers for streaming local media files with byte-range (HTTP 206) support
+  protocol.handle("local-file", (request) => {
+    try {
+      const realPath = urlToLocalFilePath(request.url);
+      return serveLocalFileWithRange(realPath, request);
+    } catch (err) {
+      console.error("[MAIN] local-file protocol error:", err);
+      return new Response("File error", { status: 500 });
+    }
+  });
+
+  protocol.handle("local-media", (request) => {
+    try {
+      const parsed = new URL(request.url);
+      const fileName = decodeURIComponent(parsed.pathname.replace(/^\//, "") || parsed.host);
+      const mediaDir = path.join(app.getPath("userData"), "media");
+      const fullPath = path.join(mediaDir, fileName);
+      return serveLocalFileWithRange(fullPath, request);
+    } catch (err) {
+      console.error("[MAIN] local-media protocol error:", err);
+      return new Response("File error", { status: 500 });
+    }
   });
 
   const isDev = !app.isPackaged;
@@ -432,10 +621,14 @@ app.whenReady().then(() => {
     {
       label: 'View',
       submenu: [
-        { role: 'reload' },
-        { role: 'forceReload' },
-        ...(isDev ? [{ role: 'toggleDevTools' }] : []),
-        { type: 'separator' },
+        ...(isDev
+          ? [
+              { role: 'reload' },
+              { role: 'forceReload' },
+              { role: 'toggleDevTools' },
+              { type: 'separator' },
+            ]
+          : []),
         { role: 'resetZoom' },
         {
           role: 'zoomIn',

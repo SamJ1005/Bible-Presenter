@@ -1,3 +1,5 @@
+import React, { useState } from "react";
+
 export default function Header({
   theme,
   toggleTheme,
@@ -22,6 +24,13 @@ export default function Header({
   // Clamp helper for font offset
   const clampOffset = (v) => Math.max(-15, Math.min(15, v));
 
+  // Maintenance tab access check (no hardcoded email committed to git)
+  const isMaintenanceAllowed = Boolean(
+    (user?.email && import.meta.env.VITE_MAINTENANCE_EMAIL && user.email === import.meta.env.VITE_MAINTENANCE_EMAIL) ||
+    import.meta.env.VITE_ENABLE_MAINTENANCE === "true" ||
+    (typeof window !== "undefined" && localStorage.getItem("enable_maintenance") === "true")
+  );
+
   return (
     <header
       style={{
@@ -37,9 +46,10 @@ export default function Header({
         minHeight: "55px",
         flexShrink: 0,
         minWidth: "600px",
+        position: "relative",
       }}
     >
-      {/* LEFT SIDE: Buttons + Navi Tabs + Scripture Screen Title */}
+      {/* LEFT SIDE: Buttons + Navi Tabs */}
       <div
         style={{
           display: "flex",
@@ -50,37 +60,21 @@ export default function Header({
       >
         {/* Blank + Close buttons tightly clustered */}
         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-          <button
+          <HeaderIconButton
             onClick={openBlankPresentation}
             title="Blank Presentation"
-            style={buttonStyle(theme)}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background =
-                theme === "dark" ? "#838383bd" : "#d3d3d3ff";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background =
-                theme === "dark" ? "#0f0e0e" : "#ffffff";
-            }}
+            theme={theme}
           >
             ☐
-          </button>
+          </HeaderIconButton>
 
-          <button
+          <HeaderIconButton
             onClick={closePresentation}
             title="Close Presentation"
-            style={buttonStyle(theme)}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background =
-                theme === "dark" ? "#838383bd" : "#d3d3d3ff";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background =
-                theme === "dark" ? "#0f0e0eff" : "#ffffff";
-            }}
+            theme={theme}
           >
             ☒
-          </button>
+          </HeaderIconButton>
         </div>
 
         {/* Subtle divider */}
@@ -115,7 +109,7 @@ export default function Header({
             tabHoverBg,
             text
           )}
-          {user && user.email === 'samjac75@gmail.com' && renderTab(
+          {isMaintenanceAllowed && renderTab(
             "maintenance",
             "Maintenance",
             activeTab,
@@ -125,22 +119,23 @@ export default function Header({
             text
           )}
         </div>
+      </div>
 
-        {/* Subtle divider */}
-        <div style={{ width: "1px", height: "18px", background: border, opacity: 0.35 }} />
-
-        {/* TITLE TEXT: Closer to left navigation */}
-        <div
-          style={{
-            fontSize: "23px",
-            fontWeight: "600",
-            whiteSpace: "nowrap",
-            color: theme === "dark" ? "#00ff99" : "#003399",
-            marginLeft: "2px",
-          }}
-        >
-          Scripture Screen
-        </div>
+      {/* CENTER: Scripture Screen Title Anchored to Center */}
+      <div
+        style={{
+          position: "absolute",
+          left: "50%",
+          transform: "translateX(-50%)",
+          fontSize: "22px",
+          fontWeight: "700",
+          letterSpacing: "0.5px",
+          whiteSpace: "nowrap",
+          color: theme === "dark" ? "#00ff99" : "#003399",
+          pointerEvents: "none",
+        }}
+      >
+        Scripture Screen
       </div>
 
       {/* RIGHT — Font controls (Bible tab only) + Theme Toggle */}
@@ -174,44 +169,128 @@ export default function Header({
           </div>
         )}
 
-        {/* Theme Toggle */}
-        <div
-          title="Switch Theme"
-          onClick={toggleTheme}
-          style={{
-            width: "52px",
-            height: "28px",
-            background: theme === "dark" ? "#2b2b2b" : "#dddddd",
-            borderRadius: "50px",
-            cursor: "pointer",
-            padding: "2px",
-            display: "flex",
-            alignItems: "center",
-            position: "relative",
-            transition: "background 0.3s ease",
-            boxSizing: "border-box",
-          }}
-        >
-          <div
-            style={{
-              width: "24px",
-              height: "24px",
-              borderRadius: "50%",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              fontSize: "18px",
-              transform: `translateX(${
-                theme === "dark" ? "24px" : "0px"
-              }) rotate(${theme === "dark" ? "360deg" : "0deg"})`,
-              transition: "0.35s",
-            }}
-          >
-            {theme === "dark" ? "🌛" : "🌞"}
-          </div>
-        </div>
+        {/* Dark Inner Theme Toggle Button (from toggles.dev with Blue & Green app colors) */}
+        <DarkInnerToggle theme={theme} toggleTheme={toggleTheme} />
       </div>
     </header>
+  );
+}
+
+/* ----------------------------------------
+   DarkInnerToggle — Animated split-contrast circular toggle
+   Matches https://toggles.dev/r/dark-inner
+----------------------------------------- */
+function DarkInnerToggle({ theme, toggleTheme }) {
+  const isDark = theme === "dark";
+  const [hover, setHover] = React.useState(false);
+
+  return (
+    <button
+      type="button"
+      title={`Switch to ${isDark ? "Light" : "Dark"} Theme`}
+      onClick={toggleTheme}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        background: "transparent",
+        border: "none",
+        padding: "2px",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: "50%",
+        outline: "none",
+        transition: "transform 0.2s ease, opacity 0.2s ease",
+        transform: hover ? "scale(1.12)" : "scale(1)",
+        opacity: hover ? 1 : 0.92,
+      }}
+    >
+      <svg
+        width="30"
+        height="30"
+        viewBox="0 0 32 32"
+      >
+        {/* Outer Circle Group - Rotates Clockwise (180deg) */}
+        <g
+          style={{
+            transform: isDark ? "rotate(180deg)" : "rotate(0deg)",
+            transformOrigin: "16px 16px",
+            transition: "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+          }}
+        >
+          {/* Left half outer: Blue (#003399) in light mode, Green (#00ff99) in dark mode */}
+          <path
+            d="M 16,2 A 14,14 0 0,0 16,30 Z"
+            fill={isDark ? "#00ff99" : "#003399"}
+          />
+          {/* Right half outer: Light/White in light mode, Dark/Black in dark mode */}
+          <path
+            d="M 16,2 A 14,14 0 0,1 16,30 Z"
+            fill={isDark ? "#121620" : "#ffffff"}
+          />
+          <circle
+            cx="16"
+            cy="16"
+            r="14"
+            fill="none"
+            stroke={isDark ? "#00ff99" : "#003399"}
+            strokeWidth="1.5"
+          />
+        </g>
+
+        {/* Inner Core Group - Rotates Counter-Clockwise (-180deg, OPPOSITE!) */}
+        <g
+          style={{
+            transform: isDark ? "rotate(-180deg)" : "rotate(0deg)",
+            transformOrigin: "16px 16px",
+            transition: "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+          }}
+        >
+          {/* Left half inner: Light/White in light mode, Dark/Black in dark mode */}
+          <path
+            d="M 16,9 A 7,7 0 0,0 16,23 Z"
+            fill={isDark ? "#121620" : "#ffffff"}
+          />
+          {/* Right half inner: Blue (#003399) in light mode, Green (#00ff99) in dark mode */}
+          <path
+            d="M 16,9 A 7,7 0 0,1 16,23 Z"
+            fill={isDark ? "#00ff99" : "#003399"}
+          />
+        </g>
+      </svg>
+    </button>
+  );
+}
+
+/* ----------------------------------------
+   HeaderIconButton — Stateful button to avoid inline DOM style mutations
+----------------------------------------- */
+function HeaderIconButton({ onClick, title, theme, children }) {
+  const [hovered, setHovered] = React.useState(false);
+  const bg = hovered
+    ? (theme === "dark" ? "#838383bd" : "#d3d3d3ff")
+    : (theme === "dark" ? "#0f0e0eff" : "#ffffff");
+
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: bg,
+        color: theme === "dark" ? "#ffffff" : "#000000",
+        border: `1px solid ${theme === "dark" ? "#555" : "#999"}`,
+        padding: "4px 8px",
+        borderRadius: "6px",
+        cursor: "pointer",
+        fontSize: "18px",
+        transition: "background 0.2s ease, border-color 0.2s ease, color 0.2s ease",
+      }}
+    >
+      {children}
+    </button>
   );
 }
 

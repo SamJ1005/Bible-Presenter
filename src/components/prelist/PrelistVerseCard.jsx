@@ -9,7 +9,6 @@ const VIRTUAL_H = 1080;
 
 const ISSUE_DOT_COLORS = {
   reported:  '#ffc107',
-  reviewing: '#42a5f5',
   resolved:  '#66bb6a',
 };
 
@@ -41,6 +40,8 @@ const PrelistVerseCard = ({
   onReportVerse,
   user,
   updateQueueItem,
+  pasteContent,
+  hasCopiedItem,
 }) => {
   const [localFontOffset, setLocalFontOffset] = useState(
     item.fontSizeOffset || 0,
@@ -53,11 +54,31 @@ const PrelistVerseCard = ({
   const tamilTextRef = useRef(null);
   const engTextRef = useRef(null);
   const indexTextRef = useRef(null);
+  const tamilEditorRef = useRef(null);
+  const englishEditorRef = useRef(null);
 
   // 3D Flip Card State & Back-Face Settings
   const [isFlipped, setIsFlipped] = useState(false);
   const [editTextTamil, setEditTextTamil] = useState(displayTamil || "");
   const [editTextEnglish, setEditTextEnglish] = useState(displayEnglish || "");
+
+  // Verse count calculation
+  const getVerseCount = () => {
+    if (item.versesPayload && item.versesPayload.length > 0) return item.versesPayload.length;
+    if (displayTamil) {
+      const brLines = displayTamil.split(/<br\s*\/?>/i).filter((l) => l.trim()).length;
+      if (brLines > 1) return brLines;
+    }
+    const rangeMatch = String(item.verse || "").match(/^(\d+)-(\d+)$/);
+    if (rangeMatch) return parseInt(rangeMatch[2], 10) - parseInt(rangeMatch[1], 10) + 1;
+    const commaCount = String(item.verse || "").split(",").length;
+    if (commaCount > 1) return commaCount;
+    return 1;
+  };
+  const verseCount = getVerseCount();
+
+  const initialLangMode = item.languageMode || (verseCount >= 3 ? "tamil" : "both");
+  const [cardLangMode, setCardLangMode] = useState(initialLangMode);
 
   useEffect(() => {
     setLocalFontOffset(item.fontSizeOffset || 0);
@@ -70,6 +91,12 @@ const PrelistVerseCard = ({
   useEffect(() => {
     setEditTextEnglish(displayEnglish || "");
   }, [displayEnglish]);
+
+  useEffect(() => {
+    if (item.languageMode) {
+      setCardLangMode(item.languageMode);
+    }
+  }, [item.languageMode]);
 
   // Track actual container width for 1920x1080 virtual scaling
   useEffect(() => {
@@ -86,34 +113,22 @@ const PrelistVerseCard = ({
   }, []);
 
   // ─── Reference string
-  const bookName = item.book || "";
-  const tamilBook = getTamilBookName(bookName);
-  const indexStr = `${tamilBook} (${bookName}) ${item.chapter}:${item.verse}`;
+  const isCustomSlide = item.type === "custom";
+  const bookName = item.book || (isCustomSlide ? "Custom Slide" : "");
+  const tamilBook = isCustomSlide ? "" : getTamilBookName(bookName);
+  const indexStr = isCustomSlide
+    ? (item.title || item.name || "Custom Slide")
+    : (item.chapter || item.verse ? `${tamilBook} (${bookName}) ${item.chapter}:${item.verse}` : (bookName || "Slide"));
 
-  // ─── Verse count calculation
-  const getVerseCount = () => {
-    if (item.versesPayload && item.versesPayload.length > 0) return item.versesPayload.length;
-    if (displayTamil) {
-      const brLines = displayTamil.split(/<br\s*\/?>/i).filter((l) => l.trim()).length;
-      if (brLines > 1) return brLines;
-    }
-    const rangeMatch = String(item.verse || "").match(/^(\d+)-(\d+)$/);
-    if (rangeMatch) return parseInt(rangeMatch[2], 10) - parseInt(rangeMatch[1], 10) + 1;
-    const commaCount = String(item.verse || "").split(",").length;
-    if (commaCount > 1) return commaCount;
-    return 1;
-  };
-  const verseCount = getVerseCount();
   const isSingle = verseCount === 1 && !indexStr.includes(",") && !indexStr.includes("-");
 
   // ─── Per-card language configuration
-  // Multi-verse defaults to Tamil only unless user explicitly chose 'both' or 'english'
-  const effectiveLangMode = item.languageMode || (verseCount > 2 && item.showEnglish === false ? "tamil" : "both");
-  const showTamilOnCard = effectiveLangMode === "both" || effectiveLangMode === "tamil";
-  const showEnglishOnCard = effectiveLangMode === "both" || effectiveLangMode === "english";
+  const currentLangMode = cardLangMode;
+  const showTamilOnCard = currentLangMode === "both" || currentLangMode === "tamil";
+  const showEnglishOnCard = currentLangMode === "both" || currentLangMode === "english";
 
   const tamilEnabled = settings?.isTamilEnabled !== false && showTamilOnCard;
-  const englishEnabled = settings?.isEnglishEnabled !== false && showEnglishOnCard && (verseCount <= 2 || item.languageMode === "both" || item.languageMode === "english");
+  const englishEnabled = settings?.isEnglishEnabled !== false && showEnglishOnCard;
 
   // ─── Verse type
   const cleanText = (html) => (html || "").replace(/<[^>]*>/g, "");
@@ -133,9 +148,8 @@ const PrelistVerseCard = ({
     large: { tamil: 4.7, eng: 3.9, min: 2.8 },
     huge: { tamil: 9.8, eng: 7.8, min: 3.0 },
     multi2: { tamil: 5.5, eng: 4.5, min: 3.0 },
-    // Specifically enhanced for 3 verses so card text never looks microscopic
-    multi3: { tamil: 5.4, eng: 4.4, min: 2.8 },
-    multi: { tamil: 4.6, eng: 3.7, min: 2.0 },
+    multi3: { tamil: 5.4, eng: 0, min: 2.8 },
+    multi: { tamil: 4.6, eng: 0, min: 2.0 },
   };
 
   let effectiveType = type;
@@ -153,21 +167,37 @@ const PrelistVerseCard = ({
   const preset = FONT_PRESETS[effectiveType] || FONT_PRESETS.medium;
 
   useLayoutEffect(() => {
-    if (!tamilTextRef.current || !boxRef.current || !verseAreaRef.current)
-      return;
+    if (!boxRef.current || !verseAreaRef.current) return;
+    if (tamilEnabled && !tamilTextRef.current) return;
+    if (englishEnabled && !engTextRef.current) return;
 
     const offset = localFontOffset;
     let tamilVW = preset.tamil;
     let engVW = preset.eng;
 
     // Scale up Tamil when English is hidden/disabled
-    if (!englishEnabled) {
-      if (verseCount === 3) {
-        tamilVW = 5.8;
+    if (!englishEnabled && tamilEnabled) {
+      if (isSingle) {
+        tamilVW = 9.8;
       } else if (verseCount === 2) {
         tamilVW = 6.2;
-      } else if (verseCount > 3) {
+      } else if (verseCount === 3) {
+        tamilVW = 5.8;
+      } else {
         tamilVW = 5.0;
+      }
+    }
+
+    // Scale up English when Tamil is hidden/disabled (English Only!)
+    if (!tamilEnabled && englishEnabled) {
+      if (isSingle) {
+        engVW = 8.5; // Beautiful, clear English font
+      } else if (verseCount === 2) {
+        engVW = 5.6;
+      } else if (verseCount === 3) {
+        engVW = 5.0;
+      } else {
+        engVW = 4.4;
       }
     }
 
@@ -177,7 +207,9 @@ const PrelistVerseCard = ({
     const vwUnit = VIRTUAL_W / 100;
 
     // Apply initial sizes
-    tamilTextRef.current.style.fontSize = `${tamilVW * vwUnit}px`;
+    if (tamilTextRef.current && tamilEnabled) {
+      tamilTextRef.current.style.fontSize = `${tamilVW * vwUnit}px`;
+    }
     if (engTextRef.current && englishEnabled) {
       engTextRef.current.style.fontSize = `${engVW * vwUnit}px`;
     }
@@ -189,20 +221,23 @@ const PrelistVerseCard = ({
     const globalEngOffset = (settings?.englishFontOffset || 0) * 0.12;
 
     if (boxWidth > 0 && boxHeight > 0) {
-      // Auto-shrink to fit screen bounds with protected minimum for 3 verses
       let safety = 0;
-      const minTamil = verseCount === 3 ? (!englishEnabled ? 3.2 : 2.8) : preset.min;
+      const minTamil = verseCount >= 2 ? 1.8 : preset.min;
+      const minEng = verseCount >= 2 ? 1.6 : (preset.min * 0.85);
+
       while (
         (boxRef.current.scrollHeight > boxRef.current.clientHeight ||
-          tamilTextRef.current.scrollWidth > boxRef.current.clientWidth ||
+          (tamilTextRef.current && tamilEnabled && tamilTextRef.current.scrollWidth > boxRef.current.clientWidth) ||
           (engTextRef.current && englishEnabled && engTextRef.current.scrollWidth > boxRef.current.clientWidth)) &&
-        tamilVW > minTamil &&
+        ((tamilEnabled && tamilVW > minTamil) || (englishEnabled && engVW > minEng)) &&
         safety < 120
       ) {
-        tamilVW -= 0.1;
-        engVW -= 0.08;
+        if (tamilEnabled && tamilVW > minTamil) tamilVW -= 0.1;
+        if (englishEnabled && engVW > minEng) engVW -= 0.08;
 
-        tamilTextRef.current.style.fontSize = `${tamilVW * vwUnit}px`;
+        if (tamilTextRef.current && tamilEnabled) {
+          tamilTextRef.current.style.fontSize = `${tamilVW * vwUnit}px`;
+        }
         if (engTextRef.current && englishEnabled) {
           engTextRef.current.style.fontSize = `${engVW * vwUnit}px`;
         }
@@ -214,25 +249,26 @@ const PrelistVerseCard = ({
     tamilVW += offset * 0.15 + globalTamilOffset;
     engVW += offset * 0.12 + globalEngOffset;
 
-    tamilTextRef.current.style.fontSize = `${tamilVW * vwUnit}px`;
+    if (tamilTextRef.current && tamilEnabled) {
+      tamilTextRef.current.style.fontSize = `${tamilVW * vwUnit}px`;
+    }
     if (engTextRef.current && englishEnabled) {
       engTextRef.current.style.fontSize = `${Math.max(0, engVW) * vwUnit}px`;
     }
-  }, [displayTamil, displayEnglish, localFontOffset, preset, settings, isEditing, englishEnabled, verseCount]);
+  }, [displayTamil, displayEnglish, localFontOffset, preset, settings, isEditing, tamilEnabled, englishEnabled, verseCount, isSingle]);
 
-  // Reference sizing logic
+  // Reference sizing logic — NOT affected by verse font resize button
   useLayoutEffect(() => {
     if (!indexTextRef.current) return;
     const refLen = indexStr.length;
     const indexOffset = (settings?.indexFontOffset || 0) * 0.12;
-    const localOffset = localFontOffset * 0.10;
 
-    let vw = (refLen > 38 ? 2.5 : refLen > 26 ? 3.2 : 3.8) + indexOffset + localOffset;
+    let vw = (refLen > 38 ? 2.5 : refLen > 26 ? 3.2 : 3.8) + indexOffset;
     if (vw < 2.0) vw = 2.0;
 
     const vwUnit = VIRTUAL_W / 100;
     indexTextRef.current.style.fontSize = `${vw * vwUnit}px`;
-  }, [indexStr, settings?.indexFontOffset, isEditing, localFontOffset]);
+  }, [indexStr, settings?.indexFontOffset, isEditing]);
 
   const handleFontSizeClick = (delta, e) => {
     if (e) {
@@ -242,7 +278,6 @@ const PrelistVerseCard = ({
     const next = Math.max(-15, Math.min(15, localFontOffset + delta));
     setLocalFontOffset(next);
     if (onFontSizeChange) onFontSizeChange(item.id, next);
-    if (updateQueueItem) updateQueueItem(item.id, { fontSizeOffset: next });
   };
 
   const handleFontReset = (e) => {
@@ -252,7 +287,6 @@ const PrelistVerseCard = ({
     }
     setLocalFontOffset(0);
     if (onFontSizeChange) onFontSizeChange(item.id, 0);
-    if (updateQueueItem) updateQueueItem(item.id, { fontSizeOffset: 0 });
   };
 
   const handlePresentClick = (e) => {
@@ -261,11 +295,16 @@ const PrelistVerseCard = ({
       e.preventDefault();
       e.stopPropagation();
     }
+    if (hasCopiedItem) {
+      pasteContent?.(item.id);
+      return;
+    }
     handleItemClick(item.id);
     handlePresent(item);
   };
 
   const handleLanguageChange = (mode) => {
+    setCardLangMode(mode);
     if (updateQueueItem) {
       updateQueueItem(item.id, {
         languageMode: mode,
@@ -282,9 +321,9 @@ const PrelistVerseCard = ({
         englishHtml: editTextEnglish,
         tamilText: editTextTamil.replace(/<[^>]*>/g, ""),
         fontSizeOffset: localFontOffset,
-        languageMode: effectiveLangMode,
-        showEnglish: effectiveLangMode === "both" || effectiveLangMode === "english",
-        showTamil: effectiveLangMode === "both" || effectiveLangMode === "tamil",
+        languageMode: cardLangMode,
+        showEnglish: cardLangMode === "both" || cardLangMode === "english",
+        showTamil: cardLangMode === "both" || cardLangMode === "tamil",
       });
     }
     toast.success("Card settings saved!");
@@ -292,12 +331,14 @@ const PrelistVerseCard = ({
   };
 
   const handleResetCardText = () => {
+    const defaultMode = verseCount >= 3 ? "tamil" : "both";
+    setCardLangMode(defaultMode);
     if (updateQueueItem) {
       updateQueueItem(item.id, {
         tamilHtml: null,
         englishHtml: null,
-        languageMode: "both",
-        showEnglish: true,
+        languageMode: defaultMode,
+        showEnglish: defaultMode !== "tamil",
         showTamil: true,
         fontSizeOffset: 0,
       });
@@ -305,6 +346,16 @@ const PrelistVerseCard = ({
     setLocalFontOffset(0);
     toast.success("Reset to default scripture!");
     setIsFlipped(false);
+  };
+
+  const formatCardText = (editorRef, command) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    document.execCommand(command, false, null);
+    const html = editor.innerHTML;
+    if (editor === tamilEditorRef.current) setEditTextTamil(html);
+    if (editor === englishEditorRef.current) setEditTextEnglish(html);
   };
 
   // Read Custom Slide Layout Overrides
@@ -323,7 +374,9 @@ const PrelistVerseCard = ({
   const vwUnit = VIRTUAL_W / 100;
 
   const isSmallMedium = type === "small" || type === "medium";
-  const refAreaHeight = (isSmallMedium && isSingle ? 6 : 5) * vhUnit;
+  // Match the presentation window: this is a minimum, not a fixed height.
+  // The reference text plus its padding can grow beyond it before verse layout starts.
+  const refAreaMinHeight = (isSmallMedium && isSingle ? 6 : 5) * vhUnit;
 
   const primaryIsEnglish = settings?.primaryTranslation === "English";
   const tamilOrder = primaryIsEnglish ? 2 : 1;
@@ -337,7 +390,10 @@ const PrelistVerseCard = ({
   if (layout.versePaddingTop !== undefined) {
     verseAreaPaddingTop = layout.versePaddingTop * vhUnit;
   }
-  const verseAreaPadding = `${verseAreaPaddingTop}px ${verseAreaPaddingSides}px 0`;
+  // Keep scripture above the watermark exactly as a safe lower boundary.
+  // This prevents long verses from running through the watermark in the card preview.
+  const watermarkReserve = (settings?.customWatermark ? 11 : 9) * vhUnit;
+  const verseAreaPadding = `${verseAreaPaddingTop}px ${verseAreaPaddingSides}px ${watermarkReserve}px`;
   const verseBoxJustify = isSingle ? "center" : "flex-start";
 
   const tamilLineHeight = layout.tamilLineHeight !== undefined ? layout.tamilLineHeight : (isSingle ? 1.28 : 1.35);
@@ -442,11 +498,11 @@ const PrelistVerseCard = ({
                   opacity: 0.9,
                 }}
               >
-                {item.book} {item.chapter}:{item.verse}
+                {isCustomSlide ? (item.title || "Custom Slide") : `${item.book} ${item.chapter}:${item.verse}`}
               </div>
 
               {/* Multi-verse language badge indicator */}
-              {effectiveLangMode !== "both" && (
+              {cardLangMode !== "both" && (
                 <span
                   style={{
                     fontSize: "10px",
@@ -458,7 +514,7 @@ const PrelistVerseCard = ({
                     border: `1px solid ${theme === "dark" ? "#333" : "#ccc"}`,
                   }}
                 >
-                  {effectiveLangMode === "tamil" ? "Tamil Only" : "English Only"}
+                  {cardLangMode === "tamil" ? "Tamil Only" : "English Only"}
                 </span>
               )}
 
@@ -698,13 +754,13 @@ const PrelistVerseCard = ({
               {/* ── Reference Area ── */}
               <div
                 style={{
-                  height: `${refAreaHeight}px`,
+                  minHeight: `${refAreaMinHeight}px`,
+                  flexShrink: 0,
                   display: "flex",
                   alignItems: "flex-start",
                   justifyContent: "center",
                   paddingTop: `${REF_PAD_TOP}px`,
                   paddingBottom: `${REF_PAD_BOTTOM}px`,
-                  boxSizing: "border-box",
                 }}
               >
                 <div
@@ -734,7 +790,7 @@ const PrelistVerseCard = ({
                 style={{
                   flex: 1,
                   display: "flex",
-                  alignItems: "flex-start",
+                  alignItems: "center",
                   justifyContent: "flex-start",
                   padding: verseAreaPadding,
                   boxSizing: "border-box",
@@ -745,7 +801,7 @@ const PrelistVerseCard = ({
                   ref={boxRef}
                   style={{
                     width: "100%",
-                    maxHeight: "94%",
+                    maxHeight: "95%",
                     overflow: "hidden",
                     display: "flex",
                     flexDirection: "column",
@@ -776,7 +832,7 @@ const PrelistVerseCard = ({
                         outline: isEditing ? "2px dashed #007bff" : "none",
                         outlineOffset: "4px",
                         border: "none",
-                        padding: "0",
+                        padding: "0 0 0.35em 0",
                         textDecorationSkipInk: "none",
                         WebkitTextDecorationSkipInk: "none",
                         wordBreak: "keep-all",
@@ -805,7 +861,7 @@ const PrelistVerseCard = ({
                         outline: isEditing ? "2px dashed #007bff" : "none",
                         outlineOffset: "4px",
                         border: "none",
-                        padding: "0",
+                        padding: "0 0 0.35em 0",
                         textDecorationSkipInk: "none",
                         WebkitTextDecorationSkipInk: "none",
                         wordBreak: "keep-all",
@@ -821,11 +877,12 @@ const PrelistVerseCard = ({
                 <div
                   style={{
                     position: "absolute",
-                    bottom: "25px",
-                    right: "40px",
-                    fontSize: "18px",
+                    bottom: "15px",
+                    right: "25px",
+                    fontSize: `${1.5 * vwUnit}px`,
                     color: textColor,
                     opacity: 0.35,
+                    zIndex: 100,
                   }}
                 >
                   {settings.customWatermark}
@@ -1048,7 +1105,7 @@ const PrelistVerseCard = ({
                   { id: "tamil", label: "Tamil Only (BSI)" },
                   { id: "english", label: "English Only (NKJV)" },
                 ].map((opt) => {
-                  const isSelected = effectiveLangMode === opt.id;
+                  const isSelected = cardLangMode === opt.id;
                   return (
                     <button
                       key={opt.id}
@@ -1102,71 +1159,41 @@ const PrelistVerseCard = ({
               )}
             </div>
 
-            {/* Section 2: Font Size Adjustment */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                flexWrap: "wrap",
-                padding: "8px 12px",
-                background: theme === "dark" ? "#1e1e1e" : "#f7f7f7",
-                borderRadius: "6px",
-              }}
-            >
-              <span style={{ fontWeight: 700 }}>Card Font Size:</span>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <button
-                  type="button"
-                  onClick={(e) => handleFontSizeClick(-1, e)}
-                  style={btnStyle({ padding: "4px 10px", fontSize: "13px" })}
-                >
-                  − Smaller
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => handleFontReset(e)}
-                  style={btnStyle({ padding: "4px 8px", fontSize: "12px" })}
-                >
-                  ↺ Reset
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => handleFontSizeClick(1, e)}
-                  style={btnStyle({ padding: "4px 10px", fontSize: "13px" })}
-                >
-                  + Larger
-                </button>
-              </div>
-              <span style={{ fontSize: "12px", opacity: 0.8 }}>
-                Offset: <strong>{localFontOffset > 0 ? `+${localFontOffset}` : localFontOffset}</strong>
-              </span>
-            </div>
-
-            {/* Section 3: Editable Textareas */}
+            {/* Section 3: Editable Verse Content */}
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <span style={{ fontWeight: 700 }}>Edit Verse Content (Overrides Default):</span>
+              <span style={{ fontSize: "11px", opacity: 0.75 }}>Select text, then use Bold or Italic. The formatting is preserved on the presentation.</span>
 
               {showTamilOnCard && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: theme === "dark" ? "#aaa" : "#555" }}>
-                    Tamil Text:
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={editTextTamil}
-                    onChange={(e) => setEditTextTamil(e.target.value)}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <label style={{ fontSize: "12px", fontWeight: 600, color: theme === "dark" ? "#aaa" : "#555" }}>Tamil Text:</label>
+                    <div style={{ display: "flex", gap: "4px" }}>
+                      <button type="button" onClick={() => formatCardText(tamilEditorRef, "bold")} style={btnStyle({ fontWeight: 800 })}>B</button>
+                      <button type="button" onClick={() => formatCardText(tamilEditorRef, "italic")} style={btnStyle({ fontStyle: "italic" })}>I</button>
+                    </div>
+                  </div>
+                  <div
+                    ref={tamilEditorRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    dangerouslySetInnerHTML={{ __html: editTextTamil }}
+                    onInput={(e) => setEditTextTamil(e.currentTarget.innerHTML)}
                     style={{
                       width: "100%",
                       boxSizing: "border-box",
-                      padding: "8px",
+                      minHeight: "150px",
+                      padding: "12px",
                       borderRadius: "6px",
                       border: `1px solid ${theme === "dark" ? "#444" : "#ccc"}`,
                       background: theme === "dark" ? "#222" : "#fff",
                       color: theme === "dark" ? "#fff" : "#000",
                       fontFamily: '"TamilBibleFont", Arial, sans-serif',
-                      fontSize: "14px",
-                      resize: "vertical",
+                      fontSize: "17px",
+                      lineHeight: 1.55,
+                      whiteSpace: "pre-wrap",
+                      overflowY: "auto",
+                      outline: "none",
                     }}
                   />
                 </div>
@@ -1174,23 +1201,33 @@ const PrelistVerseCard = ({
 
               {showEnglishOnCard && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: theme === "dark" ? "#aaa" : "#555" }}>
-                    English Text (NKJV):
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={editTextEnglish}
-                    onChange={(e) => setEditTextEnglish(e.target.value)}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <label style={{ fontSize: "12px", fontWeight: 600, color: theme === "dark" ? "#aaa" : "#555" }}>English Text (NKJV):</label>
+                    <div style={{ display: "flex", gap: "4px" }}>
+                      <button type="button" onClick={() => formatCardText(englishEditorRef, "bold")} style={btnStyle({ fontWeight: 800 })}>B</button>
+                      <button type="button" onClick={() => formatCardText(englishEditorRef, "italic")} style={btnStyle({ fontStyle: "italic" })}>I</button>
+                    </div>
+                  </div>
+                  <div
+                    ref={englishEditorRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    dangerouslySetInnerHTML={{ __html: editTextEnglish }}
+                    onInput={(e) => setEditTextEnglish(e.currentTarget.innerHTML)}
                     style={{
                       width: "100%",
                       boxSizing: "border-box",
-                      padding: "8px",
+                      minHeight: "150px",
+                      padding: "12px",
                       borderRadius: "6px",
                       border: `1px solid ${theme === "dark" ? "#444" : "#ccc"}`,
                       background: theme === "dark" ? "#222" : "#fff",
                       color: theme === "dark" ? "#fff" : "#000",
-                      fontSize: "13px",
-                      resize: "vertical",
+                      fontSize: "16px",
+                      lineHeight: 1.55,
+                      whiteSpace: "pre-wrap",
+                      overflowY: "auto",
+                      outline: "none",
                     }}
                   />
                 </div>

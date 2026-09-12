@@ -30,6 +30,8 @@ const PrelistMainView = ({
   onReportVerse,
   user,
   updateQueueItem,
+  pasteContent,
+  hasCopiedItem,
 }) => {
   // Helper to lookup verse text
   const getVerseText = (bookName, chapter, verse) => {
@@ -92,15 +94,18 @@ const PrelistMainView = ({
           // --- FILE RENDERING ---
           if (item.type === 'file') {
             return (
-              <PrelistFileCard
-                key={item.id || i}
-                item={item}
-                theme={theme}
-                isActive={activeId === item.id}
-                handlePresent={handlePresent}
-                handleItemClick={handleItemClick}
-                itemRefs={itemRefs}
-              />
+              <React.Fragment key={item.id || i}>
+                <PrelistFileCard
+                  item={item}
+                  theme={theme}
+                  isActive={activeId === item.id}
+                  handlePresent={handlePresent}
+                  handleItemClick={handleItemClick}
+                  itemRefs={itemRefs}
+                  pasteContent={pasteContent}
+                  hasCopiedItem={hasCopiedItem}
+                />
+              </React.Fragment>
             );
           }
 
@@ -127,35 +132,38 @@ const PrelistMainView = ({
           const isEditing = editingTextId === item.id;
 
           return (
-            <PrelistVerseCard
-              key={item.id || i}
-              item={item}
-              theme={theme}
-              isEditing={isEditing}
-              isActive={activeId === item.id}
-              displayEnglish={displayEnglish}
-              displayTamil={displayTamil}
-              editingRefId={editingRefId}
-              startEditingText={startEditingText}
-              saveTextEdit={saveTextEdit}
-              cancelTextEdit={cancelTextEdit}
-              applyStyle={applyStyle}
-              applyCustomFontSize={applyCustomFontSize}
-              tamilContentRef={tamilContentRef}
-              englishContentRef={englishContentRef}
-              handleItemClick={handleItemClick}
-              handlePresent={handlePresent}
-              itemRefs={itemRefs}
-              onFontSizeChange={onFontSizeChange}
-              onLivePreviewUpdate={onLivePreviewUpdate}
-              settings={settings}
-              pendingLayoutOverrides={isEditing ? pendingLayoutOverrides : null}
-              setPendingLayoutOverrides={setPendingLayoutOverrides}
-              verseIssues={verseIssues}
-              onReportVerse={onReportVerse}
-              user={user}
-              updateQueueItem={updateQueueItem}
-            />
+            <React.Fragment key={item.id || i}>
+              <PrelistVerseCard
+                item={item}
+                theme={theme}
+                isEditing={isEditing}
+                isActive={activeId === item.id}
+                displayEnglish={displayEnglish}
+                displayTamil={displayTamil}
+                editingRefId={editingRefId}
+                startEditingText={startEditingText}
+                saveTextEdit={saveTextEdit}
+                cancelTextEdit={cancelTextEdit}
+                applyStyle={applyStyle}
+                applyCustomFontSize={applyCustomFontSize}
+                tamilContentRef={tamilContentRef}
+                englishContentRef={englishContentRef}
+                handleItemClick={handleItemClick}
+                handlePresent={handlePresent}
+                itemRefs={itemRefs}
+                onFontSizeChange={onFontSizeChange}
+                onLivePreviewUpdate={onLivePreviewUpdate}
+                settings={settings}
+                pendingLayoutOverrides={isEditing ? pendingLayoutOverrides : null}
+                setPendingLayoutOverrides={setPendingLayoutOverrides}
+                verseIssues={verseIssues}
+                onReportVerse={onReportVerse}
+                user={user}
+                updateQueueItem={updateQueueItem}
+                pasteContent={pasteContent}
+                hasCopiedItem={hasCopiedItem}
+              />
+            </React.Fragment>
           );
         })}
 
@@ -166,9 +174,13 @@ const PrelistMainView = ({
               marginTop: "100px",
               color: "#888",
               fontSize: "18px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "14px",
             }}
           >
-            Search for a verse to add it to the list.
+            <div>Search for a verse to add it to the list.</div>
           </div>
         )}
       </div>

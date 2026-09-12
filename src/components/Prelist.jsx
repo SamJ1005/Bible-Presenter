@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import "./prelist/Prelist.css";
 import { parseReferenceIncludeRange } from "../utils/referenceParser";
 import { getTamilBookName } from "../utils/bibleBooks";
+import { toStreamableMediaUrl } from "../utils/mediaUrl";
 import PrelistSidebar from "./prelist/PrelistSidebar";
 import PrelistMainView from "./prelist/PrelistMainView";
 
@@ -118,27 +119,26 @@ const Prelist = React.forwardRef((
 
     // Handle "File" type or other legacy types
     if (item.type === "file") {
-      const isInvalidUrl = (u) => !u || ["[uploading]", "[upload-failed]", "[offline-or-failed-upload]", "[local-file]"].includes(u);
-      let mediaSrc = !isInvalidUrl(item.imageUrl)
-        ? item.imageUrl
-        : (!isInvalidUrl(item.url)
-          ? item.url
-          : (item.localUrl || item.localPreview || null));
-
-      if (!mediaSrc && item.path) {
-        const fixedPath = item.path.replace(/\\/g, "/");
-        mediaSrc = `file:///${fixedPath}`;
-      }
+      const streamUrl = toStreamableMediaUrl(
+        item.url || item.imageUrl || item.localUrl || item.localPreview,
+        item.path
+      );
 
       sendToPresentation({
         viewMode: "prelist",
         type: "file",
+        url: streamUrl,
         fileData: {
-          url: mediaSrc,
+          ...item,
+          url: streamUrl,
           fileType: item.fileType,
           name: item.name,
-          localPreview: item.localPreview || item.imageUrl || item.url,
+          localPreview: streamUrl,
         },
+        currentTime: item.currentTime || 0,
+        isPlaying: item.isPlaying !== false,
+        volume: item.volume !== undefined ? item.volume : 1,
+        isMuted: item.isMuted !== undefined ? item.isMuted : false,
         settings,
       });
       return;
@@ -169,8 +169,10 @@ const Prelist = React.forwardRef((
       const tamilName = getTamilBookName(item.book);
       const indexStr = `${tamilName} (${item.book}) ${item.chapter}:${item.verse}`;
 
-      const isEnglishDisabled = item.languageMode === 'tamil' || item.showEnglish === false;
-      const isTamilDisabled = item.languageMode === 'english' || item.showTamil === false;
+      const verseCount = item.versesPayload?.length || (String(item.verse || "").split(",").length > 1 ? String(item.verse || "").split(",").length : 1);
+      const effectiveLangMode = item.languageMode || (verseCount >= 3 ? 'tamil' : 'both');
+      const isEnglishDisabled = effectiveLangMode === 'tamil' || item.showEnglish === false;
+      const isTamilDisabled = effectiveLangMode === 'english' || item.showTamil === false;
 
       sendToPresentation({
         selectedBook: item.book,
@@ -360,6 +362,8 @@ const Prelist = React.forwardRef((
 
     const isMulti = versesToFetch.length > 1;
     const firstVersePayload = versesPayload[0];
+    const isThreeOrMore = versesToFetch.length >= 3;
+    const defaultLangMode = isThreeOrMore ? "tamil" : "both";
 
     const updates = {
         book: bookName,
@@ -368,6 +372,9 @@ const Prelist = React.forwardRef((
         isMulti: isMulti,
         versesPayload: versesPayload,
         verseNum: versesToFetch[0],
+        languageMode: defaultLangMode,
+        showTamil: true,
+        showEnglish: !isThreeOrMore,
         tamilText: firstVersePayload ? firstVersePayload.tam : "",
         text: firstVersePayload ? firstVersePayload.eng : "",
         // Clear manual HTML edits when reference changes
@@ -475,6 +482,11 @@ const Prelist = React.forwardRef((
       }
     }
 
+    const verseCount = item.versesPayload?.length || (String(item.verse || "").split(",").length > 1 ? String(item.verse || "").split(",").length : 1);
+    const effectiveLangMode = item.languageMode || (verseCount >= 3 ? 'tamil' : 'both');
+    const isEnglishDisabled = effectiveLangMode === 'tamil' || item.showEnglish === false;
+    const isTamilDisabled = effectiveLangMode === 'english' || item.showTamil === false;
+
     const tamilName = getTamilBookName(item.book);
     const indexStr = `${tamilName} (${item.book}) ${item.chapter}:${item.verse}`;
 
@@ -483,12 +495,12 @@ const Prelist = React.forwardRef((
       window.electron?.sendPresentation?.({
         viewMode: 'prelist',
         type: 'bible',
-        tamilText: finalTamil,
-        englishText: finalEnglish,
+        tamilText: isTamilDisabled ? '' : finalTamil,
+        englishText: isEnglishDisabled ? '' : finalEnglish,
         index: indexStr,
         fontSizeOffset: fontOffset,
-        tamilEnabled: settings?.isTamilEnabled ?? true,
-        englishEnabled: settings?.isEnglishEnabled ?? true,
+        tamilEnabled: isTamilDisabled ? false : (settings?.isTamilEnabled ?? true),
+        englishEnabled: isEnglishDisabled ? false : (settings?.isEnglishEnabled ?? true),
         presentationBgType: settings?.presentationBgType ?? 'color',
         presentationBgImage: settings?.presentationBgImage ?? '',
         presentationBgColor: settings?.presentationBgColor ?? 'black',
@@ -654,6 +666,8 @@ const Prelist = React.forwardRef((
     // Create Queue Item
     const isMulti = versesToFetch.length > 1;
     const firstVersePayload = versesPayload[0];
+    const isThreeOrMore = versesToFetch.length >= 3;
+    const defaultLangMode = isThreeOrMore ? "tamil" : "both";
 
     const newItem = {
       id: Date.now() + Math.random(),
@@ -668,6 +682,9 @@ const Prelist = React.forwardRef((
       versesPayload: versesPayload, // Store full payload for later use
       // Compatibility fields for single verse logic (will use first verse as primary for sorting/filters)
       verseNum: versesToFetch[0],
+      languageMode: defaultLangMode,
+      showTamil: true,
+      showEnglish: !isThreeOrMore,
 
       // FIX: Explicitly store text for single verse view (so "English only" bug is fixed)
       // For multi-verse, renderer uses payload, but good to have fallback

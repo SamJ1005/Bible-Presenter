@@ -1,23 +1,43 @@
 import React, { useState } from "react";
 import PrelistVideoPlayer from "./PrelistVideoPlayer";
+import { toStreamableMediaUrl } from "../../utils/mediaUrl";
 
-const PrelistFileCard = ({ item, theme, isActive, handlePresent, handleItemClick, itemRefs }) => {
+const PrelistFileCard = ({ item, theme, isActive, handlePresent, handleItemClick, itemRefs, pasteContent, hasCopiedItem }) => {
   const isImage = item.fileType && item.fileType.startsWith('image');
   const isVideo = item.fileType && item.fileType.startsWith('video');
   const [imgError, setImgError] = useState(false);
 
-  // Check if the URL is valid for display
+  // Robust display URL resolution: handles cloud URLs, local paths, and post-sync states
+  const displayUrl = toStreamableMediaUrl(
+    item.url || item.imageUrl || item.localUrl || item.localPreview,
+    item.path
+  );
+
   const isPending = item.url === '[uploading]';
-  const isFailed = item.url === '[upload-failed]' || item.url === '[offline-or-failed-upload]' || item.url === '[local-file]';
-  const hasValidUrl = item.url && !isPending && !isFailed;
-  
-  const displayUrl = hasValidUrl ? item.url : (item.localPreview || null);
+  const isFailed = !displayUrl && (item.url === '[upload-failed]' || item.url === '[offline-or-failed-upload]');
+
+  const triggerPresent = (extra = {}) => {
+    handleItemClick(item.id);
+    handlePresent({
+      ...item,
+      url: displayUrl || item.url,
+      localUrl: displayUrl || item.localUrl,
+      localPreview: displayUrl || item.localPreview,
+      ...extra,
+    });
+  };
 
   return (
     <div
       key={item.id}
       ref={el => itemRefs.current[item.id] = el}
-      onClick={() => { handleItemClick(item.id); handlePresent(item); }}
+      onClick={() => {
+        if (hasCopiedItem) {
+          pasteContent?.(item.id);
+        } else {
+          triggerPresent();
+        }
+      }}
       style={{
         cursor: "pointer",
         background: theme === "dark" ? "#1e1e1e" : "#fafafaff",
@@ -31,8 +51,8 @@ const PrelistFileCard = ({ item, theme, isActive, handlePresent, handleItemClick
         outline: isActive ? `2px solid ${theme === 'dark' ? '#00ff99' : '#003399'}` : 'none'
       }}
     >
-      <div style={{ marginBottom: '10px', fontSize: '14px', fontWeight: 'bold', textAlign: 'left' }}>
-        📄 {item.name}
+      <div style={{ marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
+        <span>📄 {item.name}</span>
       </div>
       {isImage && displayUrl && !imgError && (
         <img
@@ -82,7 +102,14 @@ const PrelistFileCard = ({ item, theme, isActive, handlePresent, handleItemClick
         </div>
       )}
       {isVideo && displayUrl && (
-        <PrelistVideoPlayer src={displayUrl} name={item.name} theme={theme} />
+        <PrelistVideoPlayer
+          src={displayUrl}
+          name={item.name}
+          theme={theme}
+          item={item}
+          isActive={isActive}
+          onPresent={(extra = {}) => triggerPresent(extra)}
+        />
       )}
       {isVideo && !displayUrl && (
         <div style={{

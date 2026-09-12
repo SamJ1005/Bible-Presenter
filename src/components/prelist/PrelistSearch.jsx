@@ -20,7 +20,9 @@ const PrelistSearch = ({
         gap: "8px",
         alignItems: "center",
         width: "100%",
-        overflow: "hidden"
+        overflow: "visible",
+        padding: "2px 2px",
+        boxSizing: "border-box",
       }}
     >
       {/* Search bar container with focus styling */}
@@ -101,113 +103,113 @@ const PrelistSearch = ({
             </svg>
           )}
 
-          <svg
+          <SearchActionIcon
+            theme={theme}
+            isEditing={isEditing}
             onClick={isEditing ? saveRefEdit : handleSearchOverride}
-            width="17"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke={isEditing ? (theme === "dark" ? "#00ee88" : "#00aa66") : (theme === "dark" ? "#888" : "#666")}
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{
-              flexShrink: 0,
-              marginLeft: "1px",
-              cursor: "pointer",
-              transition: "stroke 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.stroke =
-                theme === "dark" ? "#00ff99" : "#003399";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.stroke =
-                 isEditing ? (theme === "dark" ? "#00ee88" : "#00aa66") : (theme === "dark" ? "#888" : "#666");
-            }}
-          >
-            {isEditing ? (
-              <polyline points="20 6 9 17 4 12"></polyline>
-            ) : (
-              <>
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </>
-            )}
-          </svg>
+          />
         </span>
       </div>
 
       {/* Prev / Next buttons */}
-      <button
+      <NavRoundButton
         title="Previous Item"
         onClick={() => navigateList('prev')}
-        style={{
-          width: "20px",
-          height: "20px",
-          minWidth: "35px",
-          minHeight: "35px",
-          padding: "0",
-          borderRadius: "50%",
-          fontSize: "15px",
-          background: theme === "dark" ? "#0f0e0eff" : "#eee",
-          color: theme === "dark" ? "white" : "black",
-          border: theme === "dark" ? "1px solid #555" : "1px solid #999",
-          cursor: "pointer",
-          transition: "all 0.2s ease",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxSizing: "border-box",
-          outline: "none",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background =
-            theme === "dark" ? "#1a1a1a" : "#d3d3d3";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background =
-            theme === "dark" ? "#0f0e0eff" : "#eee";
-        }}
+        theme={theme}
       >
         🡨
-      </button>
+      </NavRoundButton>
 
-      <button
+      <NavRoundButton
         title="Next Item"
         onClick={() => navigateList('next')}
-        style={{
-          width: "35px",
-          height: "35px",
-          minWidth: "35px",
-          minHeight: "35px",
-          padding: "0",
-          borderRadius: "50%",
-          fontSize: "15px",
-          background: theme === "dark" ? "#0f0e0eff" : "#eee",
-          color: theme === "dark" ? "white" : "black",
-          border: theme === "dark" ? "1px solid #555" : "1px solid #999",
-          cursor: "pointer",
-          transition: "all 0.2s ease",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxSizing: "border-box",
-          outline: "none",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background =
-            theme === "dark" ? "#1a1a1a" : "#d3d3d3";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background =
-            theme === "dark" ? "#0f0e0eff" : "#eee";
-        }}
+        theme={theme}
       >
         🡪
-      </button>
+      </NavRoundButton>
     </div>
   );
 };
+
+function SearchActionIcon({ theme, isEditing, onClick }) {
+  const [hovered, setHovered] = React.useState(false);
+  const defaultStroke = isEditing 
+    ? (theme === "dark" ? "#00ee88" : "#00aa66") 
+    : (theme === "dark" ? "#888" : "#666");
+  const hoverStroke = theme === "dark" ? "#00ff99" : "#003399";
+
+  return (
+    <svg
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      width="17"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={hovered ? hoverStroke : defaultStroke}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{
+        flexShrink: 0,
+        marginLeft: "1px",
+        cursor: "pointer",
+        transition: "stroke 0.2s ease",
+      }}
+    >
+      {isEditing ? (
+        <polyline points="20 6 9 17 4 12"></polyline>
+      ) : (
+        <>
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+function NavRoundButton({ onClick, title, theme, children }) {
+  const [hovered, setHovered] = React.useState(false);
+  const bg = hovered
+    ? (theme === "dark" ? "#1a1a1a" : "#d3d3d3")
+    : (theme === "dark" ? "#0f0e0eff" : "#eee");
+
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        width: "35px",
+        height: "35px",
+        minWidth: "35px",
+        minHeight: "35px",
+        maxWidth: "35px",
+        maxHeight: "35px",
+        flexShrink: 0,
+        padding: "0",
+        borderRadius: "50%",
+        fontSize: "15px",
+        background: bg,
+        color: theme === "dark" ? "white" : "black",
+        border: theme === "dark" ? "1px solid #555" : "1px solid #999",
+        cursor: "pointer",
+        transition: "background 0.2s ease, border-color 0.2s ease, color 0.2s ease",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxSizing: "border-box",
+        overflow: "hidden",
+        outline: "none",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default PrelistSearch;

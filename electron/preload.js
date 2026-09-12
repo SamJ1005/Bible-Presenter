@@ -12,6 +12,12 @@ contextBridge.exposeInMainWorld("electron", {
   // WYSIWYG iframe preview — expose electron path and HTML content
   getElectronPath: () => ipcRenderer.invoke("get-electron-path"),
   getPrelistHtml: () => ipcRenderer.invoke("get-prelist-html"),
+  sendVideoCommand: (cmd) => ipcRenderer.send("control-presentation-video", cmd),
+  onVideoCommand: (cb) => {
+    const listener = (_, cmd) => cb && cb(cmd);
+    ipcRenderer.on("control-video", listener);
+    return () => ipcRenderer.removeListener("control-video", listener);
+  },
 });
 
 contextBridge.exposeInMainWorld("api", {
