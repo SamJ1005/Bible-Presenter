@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld("electron", {
     ipcRenderer.on("control-video", listener);
     return () => ipcRenderer.removeListener("control-video", listener);
   },
+  checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
+  openExternalUrl: (url) => ipcRenderer.invoke("open-external-url", url),
 });
 
 contextBridge.exposeInMainWorld("api", {
@@ -31,6 +33,8 @@ contextBridge.exposeInMainWorld("api", {
   setPreferredDisplay: (id) => ipcRenderer.send("set-preferred-display", id),
   saveMediaFile: (path) => ipcRenderer.invoke("save-media-file", path),
   downloadMediaFile: (url, uniqueId) => ipcRenderer.invoke("download-media-file", url, uniqueId),
+  checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
+  openExternalUrl: (url) => ipcRenderer.invoke("open-external-url", url),
 
   // React can listen for navigation requests coming from presentation window (arrow keys)
   onNavigateNext: (cb) => {

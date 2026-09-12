@@ -1,5 +1,5 @@
 // electron/main.js
-const { app, BrowserWindow, ipcMain, screen, Menu, protocol, net } = require("electron");
+const { app, BrowserWindow, ipcMain, screen, Menu, protocol, net, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { Readable } = require("stream");
@@ -475,6 +475,81 @@ ipcMain.on("set-preferred-display", (_, displayId) => {
       presentationWin.setKiosk(true);
     }
   }
+});
+
+/* ------------ Auto Update Checker (GitHub Releases) ------------ */
+const GITHUB_REPO_OWNER = "SamJ1005";
+const GITHUB_REPO_NAME = "Bible-Presenter";
+
+function isNewerVersion(latest, current) {
+  if (!latest || !current) return false;
+  const parseParts = (v) => v.replace(/^[^\d]*/, "").trim().split(/[-+.]/).map(n => parseInt(n, 10) || 0);
+  const l = parseParts(latest);
+  const c = parseParts(current);
+  const maxLen = Math.max(l.length, c.length);
+  for (let i = 0; i < maxLen; i++) {
+    const lPart = l[i] || 0;
+    const cPart = c[i] || 0;
+    if (lPart > cPart) return true;
+    if (lPart < cPart) return false;
+  }
+  return false;
+}
+
+ipcMain.handle("check-for-updates", async () => {
+  try {
+    const currentVersion = app.getVersion();
+    const fetchFn = typeof fetch === "function" ? fetch : net.fetch;
+    const response = await fetchFn(
+      `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/releases/latest`,
+      {
+        headers: {
+          "User-Agent": "Scripture-Screen-App",
+          "Accept": "application/vnd.github.v3+json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return { updateAvailable: false, error: `GitHub API status ${response.status}: ${response.statusText}` };
+    }
+
+    const release = await response.json();
+    const latestTag = release.tag_name || "";
+    const updateAvailable = isNewerVersion(latestTag, currentVersion);
+
+    let downloadUrl = release.html_url;
+    let exeAsset = null;
+    if (Array.isArray(release.assets)) {
+      exeAsset = release.assets.find(a => a.name && a.name.toLowerCase().endsWith(".exe"));
+      if (exeAsset && exeAsset.browser_download_url) {
+        downloadUrl = exeAsset.browser_download_url;
+      }
+    }
+
+    return {
+      updateAvailable,
+      currentVersion,
+      latestVersion: latestTag.replace(/^[^\d]*/, ""),
+      releaseNotes: release.body || "A new update is available with performance improvements and updates.",
+      downloadUrl,
+      releaseUrl: release.html_url,
+      publishedAt: release.published_at,
+      assetName: exeAsset ? exeAsset.name : null,
+      assetSize: exeAsset ? exeAsset.size : null,
+    };
+  } catch (err) {
+    console.error("[MAIN] Update check error:", err);
+    return { updateAvailable: false, error: err.message };
+  }
+});
+
+ipcMain.handle("open-external-url", async (_, url) => {
+  if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
+    await shell.openExternal(url);
+    return true;
+  }
+  return false;
 });
 
 // Helper to parse custom standard scheme URL into a real filesystem path on Windows/Unix

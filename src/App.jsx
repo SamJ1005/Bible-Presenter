@@ -23,8 +23,42 @@ import ChapterTable from "./components/ChapterTable";
 import Prelist from "./components/Prelist";
 import ReportVerseDialog from "./components/ReportVerseDialog";
 import BibleMaintenance from "./components/BibleMaintenance";
+import UpdateNotificationModal from "./components/UpdateNotificationModal";
 
 export default function App() {
+  const [updateInfo, setUpdateInfo] = useState(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+
+  // Background auto-check for new software releases on GitHub
+  useEffect(() => {
+    const checkUpdates = async () => {
+      try {
+        const checker = window.electron?.checkForUpdates || window.api?.checkForUpdates;
+        if (!checker) return;
+
+        const info = await checker();
+        if (info && info.updateAvailable) {
+          setUpdateInfo(info);
+          try {
+            const snooze = JSON.parse(localStorage.getItem("snooze_update") || "{}");
+            const isSameVersion = snooze.version === info.latestVersion;
+            const isWithin24Hours =
+              snooze.timestamp && Date.now() - snooze.timestamp < 24 * 60 * 60 * 1000;
+            if (!isSameVersion || !isWithin24Hours) {
+              setShowUpdateModal(true);
+            }
+          } catch {
+            setShowUpdateModal(true);
+          }
+        }
+      } catch (err) {
+        console.warn("[App] Auto update check failed:", err);
+      }
+    };
+
+    const timer = setTimeout(checkUpdates, 2500);
+    return () => clearTimeout(timer);
+  }, []);
   
   const [settings, setSettings] = useState(() =>
     loadMemory("settings", {
@@ -1581,7 +1615,16 @@ export default function App() {
 
 {activeTab === "settings" && (
         <div style={{ background: theme === "dark" ? "#0f0e0eff" : "#fff" }}>
-          <Settings settings={settings} setSettings={setSettings} user={user} />
+          <Settings
+            settings={settings}
+            setSettings={setSettings}
+            user={user}
+            theme={theme}
+            onShowUpdateModal={(info) => {
+              setUpdateInfo(info);
+              setShowUpdateModal(true);
+            }}
+          />
         </div>
       )}
 
@@ -1653,6 +1696,15 @@ export default function App() {
         theme={theme}
         onReportSubmitted={refreshIssues}
       />
+
+      {/* ── Auto Update Notification Modal ── */}
+      {showUpdateModal && updateInfo && (
+        <UpdateNotificationModal
+          updateInfo={updateInfo}
+          onClose={() => setShowUpdateModal(false)}
+          theme={theme}
+        />
+      )}
     </div>
   );
 }

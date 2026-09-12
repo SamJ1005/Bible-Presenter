@@ -2,6 +2,8 @@
   "name": "scripture-screen",
   "productName": "Scripture Screen",
   "version": "4.4.1",
+  "description": "Scripture Screen - Modern Church Bible Presentation Software",
+  "author": "Sam J",
   "main": "electron/main.js",
   "build": {
     "appId": "com.scripturescreen.app",

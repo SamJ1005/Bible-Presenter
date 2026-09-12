@@ -165,12 +165,54 @@ const CheckIcon = ({ size = 14, color = "#00ff99" }) => (
   </svg>
 );
 
-export default function SettingsPage({ settings, setSettings, theme, setTheme, user }) {
+export default function SettingsPage({ settings, setSettings, theme, setTheme, user, onShowUpdateModal }) {
   const [showLogin, setShowLogin] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [displays, setDisplays] = React.useState([]);
   const [activeTab, setActiveTab] = useState("display");
+
+  // Software Update Check State
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState(null);
+  const currentAppVersion = "4.4.1";
+
+  const handleManualUpdateCheck = async () => {
+    setCheckingUpdate(true);
+    setUpdateStatus(null);
+    try {
+      const checker = window.electron?.checkForUpdates || window.api?.checkForUpdates;
+      if (!checker) {
+        setUpdateStatus({ type: "info", message: "Update checking is only available in the desktop app." });
+        setCheckingUpdate(false);
+        return;
+      }
+
+      const info = await checker();
+      setCheckingUpdate(false);
+
+      if (info?.error) {
+        setUpdateStatus({ type: "error", message: `Check failed: ${info.error}` });
+      } else if (info?.updateAvailable) {
+        setUpdateStatus({
+          type: "success",
+          message: `Update v${info.latestVersion} available!`,
+          info
+        });
+        if (onShowUpdateModal) {
+          onShowUpdateModal(info);
+        }
+      } else {
+        setUpdateStatus({
+          type: "info",
+          message: `You're running the latest version (v${info?.currentVersion || currentAppVersion}).`
+        });
+      }
+    } catch (err) {
+      setCheckingUpdate(false);
+      setUpdateStatus({ type: "error", message: "Failed to reach update server." });
+    }
+  };
 
   React.useEffect(() => {
     if (window.api?.getDisplays) {
@@ -660,6 +702,121 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
               </select>
               <div style={{ fontSize: '11px', opacity: 0.55, marginTop: '6px' }}>
                 'Auto' opens on the secondary monitor if available.
+              </div>
+            </SettingsCard>
+
+            {/* About & Updates Card */}
+            <SettingsCard title="About & Software Updates">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: "15px", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span>Scripture Screen</span>
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        padding: "2px 8px",
+                        borderRadius: "12px",
+                        background: theme === "dark" ? "rgba(0, 255, 153, 0.15)" : "rgba(0, 51, 153, 0.1)",
+                        color: theme === "dark" ? "#00ff99" : "#003399",
+                        letterSpacing: "0.5px"
+                      }}
+                    >
+                      v{currentAppVersion}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: "12px", opacity: 0.6, marginTop: "2px" }}>
+                    Modern Church Bible Presentation Software
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "12px" }}>
+                <button
+                  onClick={handleManualUpdateCheck}
+                  disabled={checkingUpdate}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    background: theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)",
+                    border: theme === "dark" ? "1px solid #444" : "1px solid #ccc",
+                    color: "inherit",
+                    fontWeight: 600,
+                    fontSize: "13px",
+                    cursor: checkingUpdate ? "wait" : "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    transition: "all 0.2s ease"
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!checkingUpdate) {
+                      e.currentTarget.style.borderColor = theme === "dark" ? "#00ff99" : "#003399";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = theme === "dark" ? "#444" : "#ccc";
+                  }}
+                >
+                  <span>{checkingUpdate ? "🔄" : "✨"}</span>
+                  <span>{checkingUpdate ? "Checking for updates..." : "Check for Updates"}</span>
+                </button>
+              </div>
+
+              {updateStatus && (
+                <div
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    marginBottom: "10px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    background:
+                      updateStatus.type === "success"
+                        ? (theme === "dark" ? "rgba(0, 255, 153, 0.12)" : "rgba(0, 153, 51, 0.1)")
+                        : updateStatus.type === "error"
+                        ? "rgba(231, 76, 60, 0.15)"
+                        : (theme === "dark" ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.04)"),
+                    color:
+                      updateStatus.type === "success"
+                        ? (theme === "dark" ? "#00ff99" : "#007722")
+                        : updateStatus.type === "error"
+                        ? "#e74c3c"
+                        : "inherit",
+                    border: `1px solid ${
+                      updateStatus.type === "success"
+                        ? (theme === "dark" ? "rgba(0, 255, 153, 0.3)" : "rgba(0, 153, 51, 0.3)")
+                        : updateStatus.type === "error"
+                        ? "rgba(231, 76, 60, 0.3)"
+                        : (theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)")
+                    }`
+                  }}
+                >
+                  <span>{updateStatus.message}</span>
+                  {updateStatus.type === "success" && updateStatus.info && (
+                    <button
+                      onClick={() => onShowUpdateModal && onShowUpdateModal(updateStatus.info)}
+                      style={{
+                        padding: "4px 10px",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        background: theme === "dark" ? "#00ff99" : "#003399",
+                        color: theme === "dark" ? "#000" : "#fff",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer"
+                      }}
+                    >
+                      View & Install
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <div style={{ fontSize: "11px", opacity: 0.5, lineHeight: 1.4 }}>
+                Releases and updates are hosted on GitHub. Automatic checks run quietly when you start Scripture Screen.
               </div>
             </SettingsCard>
 
