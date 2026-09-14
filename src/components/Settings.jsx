@@ -3,6 +3,10 @@ import Login from "./Login/Login";
 import { auth } from "../firebase";
 import { signOut } from "firebase/auth";
 
+import packageInfo from "../../package.json";
+import { isMaintenanceAllowed } from "../utils/maintenanceAuth";
+import { toast } from "react-hot-toast";
+
 // Reusable section card component
 const SettingsCard = ({ title, children, style = {} }) => (
   <div style={{
@@ -166,6 +170,7 @@ const CheckIcon = ({ size = 14, color = "#00ff99" }) => (
 );
 
 export default function SettingsPage({ settings, setSettings, theme, setTheme, user, onShowUpdateModal }) {
+  const isAuthorizedAdmin = isMaintenanceAllowed(user);
   const [showLogin, setShowLogin] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -175,7 +180,64 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
   // Software Update Check State
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [updateStatus, setUpdateStatus] = useState(null);
-  const currentAppVersion = "4.4.1";
+  const [latestVersionInfo, setLatestVersionInfo] = useState(null);
+  const currentAppVersion = packageInfo.version || "4.4.2";
+
+  // Editable Preview Message State (persisted locally so admin drafts are never lost)
+  const DEFAULT_PREVIEW_NOTES = `### 🎉 What's New in Scripture Screen:
+
+- 📋 Quick Media Copy-Paste: Copy images or videos from File Explorer or browser and press Ctrl+V to paste directly into queue.
+- 🔁 Continuous Video Looping: Presented videos now loop automatically and seamlessly without stopping.
+- ⚡ High-Speed Local Media Streaming: Fast timeline scrubber seeking with native byte ranges.
+- 🖥️ Display Device & Clean Layout: Select displays directly in Settings with zero scrolling.`;
+
+  const [previewVersion, setPreviewVersion] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("custom_update_preview_draft") || "{}");
+      return saved.version || "4.5.0";
+    } catch {
+      return "4.5.0";
+    }
+  });
+
+  const [previewNotes, setPreviewNotes] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("custom_update_preview_draft") || "{}");
+      return saved.notes || DEFAULT_PREVIEW_NOTES;
+    } catch {
+      return DEFAULT_PREVIEW_NOTES;
+    }
+  });
+
+  const [showEditUpdateModal, setShowEditUpdateModal] = useState(false);
+
+  // Save preview draft to localStorage
+  const savePreviewDraft = (v = previewVersion, notes = previewNotes) => {
+    try {
+      localStorage.setItem("custom_update_preview_draft", JSON.stringify({ version: v, notes }));
+    } catch (e) {
+      console.warn("Failed to save preview draft:", e);
+    }
+  };
+
+  // Auto-fetch latest release info from GitHub on mount
+  React.useEffect(() => {
+    let isMounted = true;
+    const fetchLatest = async () => {
+      try {
+        const checker = window.electron?.checkForUpdates || window.api?.checkForUpdates;
+        if (!checker) return;
+        const info = await checker();
+        if (isMounted && info) {
+          setLatestVersionInfo(info);
+        }
+      } catch (err) {
+        console.warn("[Settings] Auto update check failed:", err);
+      }
+    };
+    fetchLatest();
+    return () => { isMounted = false; };
+  }, []);
 
   const handleManualUpdateCheck = async () => {
     setCheckingUpdate(true);
@@ -190,6 +252,9 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
 
       const info = await checker();
       setCheckingUpdate(false);
+      if (info) {
+        setLatestVersionInfo(info);
+      }
 
       if (info?.error) {
         setUpdateStatus({ type: "error", message: `Check failed: ${info.error}` });
@@ -211,6 +276,34 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
     } catch (err) {
       setCheckingUpdate(false);
       setUpdateStatus({ type: "error", message: "Failed to reach update server." });
+    }
+  };
+
+  // Preview test update dialog with custom user-edited message without needing to deploy to GitHub
+  const handlePreviewUpdateModal = (customV = previewVersion, customNotes = previewNotes) => {
+    savePreviewDraft(customV, customNotes);
+    const mockInfo = {
+      updateAvailable: true,
+      currentVersion: currentAppVersion,
+      latestVersion: customV || "4.5.0",
+      releaseNotes: customNotes || DEFAULT_PREVIEW_NOTES,
+      releaseUrl: "https://github.com/SamJ1005/Bible-Presenter/releases",
+      downloadUrl: "https://github.com/SamJ1005/Bible-Presenter/releases",
+      assetName: `Scripture Screen Setup ${customV || "4.5.0"}.exe`,
+      assetSize: 85240000,
+      publishedAt: new Date().toISOString(),
+    };
+    if (onShowUpdateModal) {
+      onShowUpdateModal(mockInfo);
+    }
+  };
+
+  const handleCopyNotesForGitHub = () => {
+    try {
+      navigator.clipboard.writeText(previewNotes);
+      toast.success("📋 Copied release notes! Ready to paste into GitHub release.", { duration: 3500 });
+    } catch {
+      toast.error("Failed to copy to clipboard.");
     }
   };
 
@@ -599,10 +692,11 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
           gap: "20px",
           alignItems: "flex-start"
         }}>
+          {/* COLUMN 1: Primary Language -> General App Preferences -> Display Device */}
           <div>
             {/* Primary Translation */}
             <SettingsCard title="Primary Language">
-              <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+              <div style={{ fontSize: '12px', color: theme === 'dark' ? '#a0a0a0' : '#555', marginBottom: '12px', lineHeight: 1.5 }}>
                 Sets which language appears first — in the Bible tab and on-screen presentation.
               </div>
               {["Tamil", "English"].map((lang) => (
@@ -616,7 +710,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                     />
                     <div>
                       <div style={{ fontWeight: 600, fontSize: '14px' }}>{lang}</div>
-                      <div style={{ fontSize: '11px', opacity: 0.6 }}>
+                      <div style={{ fontSize: '12px', color: theme === 'dark' ? '#8e8e8e' : '#666', marginTop: '1px' }}>
                         {lang === "Tamil" ? "Tamil on left / top" : "English on left / top"}
                       </div>
                     </div>
@@ -625,55 +719,30 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
               ))}
             </SettingsCard>
 
-            {/* General preferences are kept with the language choice to avoid a long second column. */}
+            {/* General App Preferences */}
             <SettingsCard title="General App Preferences">
               <div style={{ marginBottom: "16px" }}>
                 <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontSize: "14px" }}>
                   <input type="checkbox" checked={settings.enableTransition} onChange={(e) => setSettings((prev) => ({ ...prev, enableTransition: e.target.checked }))} style={{ width: "16px", height: "16px" }} />
-                  Enable Slide/Fade Transition
+                  <span>Enable Slide/Fade Transition</span>
                 </label>
+                <div style={{ fontSize: '12px', color: theme === 'dark' ? '#a0a0a0' : '#666', marginTop: '3px', marginLeft: '24px', lineHeight: 1.4 }}>
+                  Smoothly cross-fades verses and media slides during transitions.
+                </div>
               </div>
               <div>
                 <label style={{ fontWeight: 600, fontSize: "13px", display: "block", marginBottom: "6px" }}>Custom Watermark</label>
-                <input type="text" value={settings.customWatermark || ""} placeholder="your watermark" onChange={(e) => setSettings((prev) => ({ ...prev, customWatermark: e.target.value }))}
-                  style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box", border: theme === 'dark' ? '1px solid #444' : '1px solid #ccc', background: theme === 'dark' ? '#1a1a1a' : '#fff', color: theme === 'dark' ? '#e0e0e0' : '#222' }}
+                <input type="text" value={settings.customWatermark || ""} placeholder="e.g. Church Name / Logo" onChange={(e) => setSettings((prev) => ({ ...prev, customWatermark: e.target.value }))}
+                  style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box", border: theme === 'dark' ? '1px solid #444' : '1px solid #ccc', background: theme === 'dark' ? '#1a1a1a' : '#fff', color: theme === 'dark' ? '#e0e0e0' : '#222' }}
                 />
               </div>
             </SettingsCard>
-          </div>
 
-          <div>
-            {/* Presentation Windows */}
-            <SettingsCard title="Presentation Windows">
-              <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
-                Choose which presentation windows to display (you can enable both for OBS).
-              </div>
-              <div style={{ marginBottom: '10px' }}>
-                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.showFullscreenWindow !== false}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, showFullscreenWindow: e.target.checked }))}
-                    style={{ width: '16px', height: '16px' }}
-                  />
-                  Show Fullscreen Window
-                </label>
-              </div>
-              <div>
-                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.showLowerThirdWindow === true}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, showLowerThirdWindow: e.target.checked }))}
-                    style={{ width: '16px', height: '16px' }}
-                  />
-                  Show Lower Third Window
-                </label>
-              </div>
-            </SettingsCard>
-
-            {/* Display Device */}
+            {/* Display Device - Moved below General App Preferences */}
             <SettingsCard title="Display Device">
+              <div style={{ fontSize: '12px', color: theme === 'dark' ? '#a0a0a0' : '#555', marginBottom: '8px', lineHeight: 1.5 }}>
+                Select which connected screen or projector to use for presentation:
+              </div>
               <select
                 value={settings.preferredDisplayId || 'auto'}
                 onChange={(e) => {
@@ -692,20 +761,23 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                   outline: 'none'
                 }}
               >
-                <option value="auto">Auto (Prefer Secondary)</option>
+                <option value="auto">Auto (Prefer Secondary Display)</option>
                 {displays.filter(d => d.isPrimary).map(d => (
-                  <option key={d.id} value={d.id}>Primary — {d.width}×{d.height}</option>
+                  <option key={d.id} value={d.id}>Primary Screen — {d.width}×{d.height}</option>
                 ))}
                 {displays.filter(d => !d.isPrimary).map((d, i) => (
-                  <option key={d.id} value={d.id}>Secondary{displays.filter(x => !x.isPrimary).length > 1 ? ` (${i + 1})` : ''} — {d.width}×{d.height}</option>
+                  <option key={d.id} value={d.id}>Secondary Display{displays.filter(x => !x.isPrimary).length > 1 ? ` (${i + 1})` : ''} — {d.width}×{d.height}</option>
                 ))}
               </select>
-              <div style={{ fontSize: '11px', opacity: 0.55, marginTop: '6px' }}>
-                'Auto' opens on the secondary monitor if available.
+              <div style={{ fontSize: '12px', color: theme === 'dark' ? '#8e8e8e' : '#666', marginTop: '6px', lineHeight: 1.4 }}>
+                'Auto' detects and projects directly to the external monitor or projector when plugged in.
               </div>
             </SettingsCard>
+          </div>
 
-            {/* About & Updates Card */}
+          {/* COLUMN 2: About & Software Updates (Top) -> Presentation Windows */}
+          <div>
+            {/* About & Software Updates Card - Moved above to balance height and avoid small scrolling */}
             <SettingsCard title="About & Software Updates">
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
                 <div>
@@ -714,7 +786,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                     <span
                       style={{
                         fontSize: "11px",
-                        fontWeight: 600,
+                        fontWeight: 700,
                         padding: "2px 8px",
                         borderRadius: "12px",
                         background: theme === "dark" ? "rgba(0, 255, 153, 0.15)" : "rgba(0, 51, 153, 0.1)",
@@ -725,28 +797,52 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                       v{currentAppVersion}
                     </span>
                   </div>
-                  <div style={{ fontSize: "12px", opacity: 0.6, marginTop: "2px" }}>
+                  <div style={{ fontSize: "12px", color: theme === "dark" ? "#a0a0a0" : "#666", marginTop: "3px" }}>
                     Modern Church Bible Presentation Software
                   </div>
                 </div>
+
+                {/* Auto-detected latest version badge from GitHub */}
+                {latestVersionInfo?.latestVersion && (
+                  <div style={{
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    padding: "3px 9px",
+                    borderRadius: "8px",
+                    background: latestVersionInfo.updateAvailable
+                      ? (theme === "dark" ? "rgba(255, 170, 0, 0.18)" : "rgba(230, 140, 0, 0.15)")
+                      : (theme === "dark" ? "rgba(0, 255, 153, 0.12)" : "rgba(0, 153, 51, 0.1)"),
+                    color: latestVersionInfo.updateAvailable
+                      ? (theme === "dark" ? "#ffb700" : "#d97706")
+                      : (theme === "dark" ? "#00ff99" : "#059669"),
+                    border: `1px solid ${latestVersionInfo.updateAvailable
+                      ? (theme === "dark" ? "rgba(255, 170, 0, 0.3)" : "rgba(230, 140, 0, 0.3)")
+                      : (theme === "dark" ? "rgba(0, 255, 153, 0.25)" : "rgba(0, 153, 51, 0.25)")}`,
+                  }}>
+                    {latestVersionInfo.updateAvailable
+                      ? `New v${latestVersionInfo.latestVersion} Available!`
+                      : `Latest: v${latestVersionInfo.latestVersion} ✓`}
+                  </div>
+                )}
               </div>
 
-              <div style={{ marginBottom: "12px" }}>
+              {/* Action Buttons: Check for Updates (All Users) */}
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "8px" }}>
                 <button
                   onClick={handleManualUpdateCheck}
                   disabled={checkingUpdate}
                   style={{
-                    padding: "8px 16px",
+                    padding: "7px 14px",
                     borderRadius: "6px",
                     background: theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)",
                     border: theme === "dark" ? "1px solid #444" : "1px solid #ccc",
                     color: "inherit",
                     fontWeight: 600,
-                    fontSize: "13px",
+                    fontSize: "12px",
                     cursor: checkingUpdate ? "wait" : "pointer",
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: "8px",
+                    gap: "6px",
                     transition: "all 0.2s ease"
                   }}
                   onMouseEnter={(e) => {
@@ -759,14 +855,81 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                   }}
                 >
                   <span>{checkingUpdate ? "🔄" : "✨"}</span>
-                  <span>{checkingUpdate ? "Checking for updates..." : "Check for Updates"}</span>
+                  <span>{checkingUpdate ? "Checking..." : "Check for Updates"}</span>
                 </button>
               </div>
+
+              {/* Authorized Admin Only: Preview and Edit Update Message Tools */}
+              {isAuthorizedAdmin && (
+                <div style={{
+                  marginTop: "8px",
+                  marginBottom: "12px",
+                  padding: "10px 12px",
+                  borderRadius: "8px",
+                  background: theme === "dark" ? "rgba(0, 255, 153, 0.05)" : "rgba(0, 51, 153, 0.04)",
+                  border: `1px dashed ${theme === "dark" ? "rgba(0, 255, 153, 0.3)" : "rgba(0, 51, 153, 0.25)"}`,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: theme === "dark" ? "#00ff99" : "#003399", letterSpacing: "0.3px", textTransform: "uppercase" }}>
+                      🛡️ Release & Popup Preview Tools
+                    </span>
+                    <span style={{ fontSize: "11px", color: theme === "dark" ? "#888" : "#777" }}>
+                      Only visible to your admin account
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => handlePreviewUpdateModal(previewVersion, previewNotes)}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: "6px",
+                        background: theme === "dark" ? "#00ff99" : "#003399",
+                        color: theme === "dark" ? "#000" : "#fff",
+                        fontWeight: 700,
+                        fontSize: "12px",
+                        border: "none",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        transition: "opacity 0.2s",
+                      }}
+                      title="Preview update popup with your custom message"
+                    >
+                      <span>👁️</span>
+                      <span>Preview Update Popup</span>
+                    </button>
+
+                    <button
+                      onClick={() => setShowEditUpdateModal(true)}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: "6px",
+                        background: "transparent",
+                        border: `1px solid ${theme === "dark" ? "#555" : "#bbb"}`,
+                        color: "inherit",
+                        fontWeight: 600,
+                        fontSize: "12px",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        transition: "border-color 0.2s",
+                      }}
+                      title="Edit the message and release notes"
+                    >
+                      <span>✏️</span>
+                      <span>Edit Update Message</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {updateStatus && (
                 <div
                   style={{
-                    padding: "10px 12px",
+                    padding: "9px 12px",
                     borderRadius: "6px",
                     fontSize: "12px",
                     marginBottom: "10px",
@@ -815,11 +978,45 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                 </div>
               )}
 
-              <div style={{ fontSize: "11px", opacity: 0.5, lineHeight: 1.4 }}>
-                Releases and updates are hosted on GitHub. Automatic checks run quietly when you start Scripture Screen.
+              <div style={{ fontSize: "12px", color: theme === "dark" ? "#8e8e8e" : "#777", lineHeight: 1.45 }}>
+                Automatic release checks run quietly when Scripture Screen starts.
               </div>
             </SettingsCard>
 
+            {/* Presentation Windows */}
+            <SettingsCard title="Presentation Windows">
+              <div style={{ fontSize: '12px', color: theme === 'dark' ? '#a0a0a0' : '#555', marginBottom: '12px', lineHeight: 1.5 }}>
+                Choose which presentation windows to display (you can enable both for OBS).
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.showFullscreenWindow !== false}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, showFullscreenWindow: e.target.checked }))}
+                    style={{ width: '16px', height: '16px' }}
+                  />
+                  <span>Show Fullscreen Window</span>
+                </label>
+                <div style={{ fontSize: '12px', color: theme === 'dark' ? '#8e8e8e' : '#666', marginTop: '2px', marginLeft: '26px' }}>
+                  Primary projector or stage display
+                </div>
+              </div>
+              <div>
+                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.showLowerThirdWindow === true}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, showLowerThirdWindow: e.target.checked }))}
+                    style={{ width: '16px', height: '16px' }}
+                  />
+                  <span>Show Lower Third Window</span>
+                </label>
+                <div style={{ fontSize: '12px', color: theme === 'dark' ? '#8e8e8e' : '#666', marginTop: '2px', marginLeft: '26px' }}>
+                  Transparent overlay window for live stream / OBS / vMix
+                </div>
+              </div>
+            </SettingsCard>
           </div>
         </div>
       )}
@@ -910,7 +1107,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                     </div>
                   )}
 
-                  <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '13px', padding: '6px 12px', borderRadius: '6px', border: `1.5px dashed ${theme === 'dark' ? '#888' : '#666'}`, color: theme === 'dark' ? '#eee' : '#555', fontWeight: '600', transition: 'all 0.2s ease', background: theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }}>
+                  <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', padding: '6px 12px', borderRadius: '6px', border: `1.5px dashed ${theme === 'dark' ? '#888' : '#666'}`, color: theme === 'dark' ? '#eee' : '#555', fontWeight: '600', transition: 'all 0.2s ease', background: theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }}>
                     + Add Image
                     <input type="file" accept="image/*" multiple style={{ display: 'none' }}
                       onChange={(e) => { const files = Array.from(e.target.files); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const newImg = { id: Date.now() + Math.random(), name: file.name, data: reader.result }; setSettings((prev) => ({ ...prev, bgImageGallery: [...(prev.bgImageGallery || []), newImg], presentationBgImage: prev.presentationBgImage || reader.result, presentationBgImageName: prev.presentationBgImageName || file.name, presentationBgType: 'image' })); }; reader.readAsDataURL(file); }); e.target.value = ''; }}
@@ -918,7 +1115,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                   </label>
 
                   {(settings.bgImageGallery || []).length === 0 && (
-                    <div style={{ fontSize: '11px', opacity: 0.5, marginTop: '6px' }}>Upload images to build a gallery. Click any thumbnail to use it.</div>
+                    <div style={{ fontSize: '12px', color: theme === 'dark' ? '#8e8e8e' : '#666', marginTop: '6px', lineHeight: 1.4 }}>Upload images to build a gallery. Click any thumbnail to use it.</div>
                   )}
                 </div>
               </div>
@@ -932,7 +1129,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                 {settings.presentationBgType === "custom" && (
                   <div style={{ marginTop: "8px", marginLeft: "24px", display: "flex", alignItems: "center", gap: "10px" }}>
                     <input type="color" value={settings.presentationBgColor || "#1a1a2e"} onChange={(e) => setSettings((prev) => ({ ...prev, presentationBgColor: e.target.value }))} style={{ width: "40px", height: "30px", border: "none", cursor: "pointer", borderRadius: "4px" }} />
-                    <span style={{ fontSize: "12px", opacity: 0.6 }}>{settings.presentationBgColor || "#1a1a2e"}</span>
+                    <span style={{ fontSize: "12px", color: theme === 'dark' ? '#8e8e8e' : '#666' }}>{settings.presentationBgColor || "#1a1a2e"}</span>
                   </div>
                 )}
               </div>
@@ -962,7 +1159,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                 {settings.presentationTextColor !== "white" && settings.presentationTextColor !== "black" && (
                   <div style={{ marginTop: "8px", marginLeft: "24px", display: "flex", alignItems: "center", gap: "10px" }}>
                     <input type="color" value={settings.presentationTextColor || "#ffdd57"} onChange={(e) => setSettings((prev) => ({ ...prev, presentationTextColor: e.target.value }))} style={{ width: "40px", height: "30px", border: "none", cursor: "pointer", borderRadius: "4px" }} />
-                    <span style={{ fontSize: "12px", opacity: 0.6 }}>{settings.presentationTextColor}</span>
+                    <span style={{ fontSize: "12px", color: theme === 'dark' ? '#8e8e8e' : '#666' }}>{settings.presentationTextColor}</span>
                   </div>
                 )}
               </div>
@@ -970,7 +1167,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
 
             {/* Language Visibility for Fullscreen */}
             <SettingsCard title="Show Languages">
-              <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+              <div style={{ fontSize: '12px', color: theme === 'dark' ? '#a0a0a0' : '#555', marginBottom: '12px', lineHeight: 1.5 }}>
                 Toggle which languages are shown in the fullscreen presentation.
               </div>
               <div style={{ marginBottom: '10px' }}>
@@ -981,7 +1178,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                     onChange={(e) => setSettings((prev) => ({ ...prev, isTamilEnabled: e.target.checked }))}
                     style={{ width: '16px', height: '16px' }}
                   />
-                  Show Tamil
+                  <span>Show Tamil</span>
                 </label>
               </div>
               <div>
@@ -992,7 +1189,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                     onChange={(e) => setSettings((prev) => ({ ...prev, isEnglishEnabled: e.target.checked }))}
                     style={{ width: '16px', height: '16px' }}
                   />
-                  Show English
+                  <span>Show English</span>
                 </label>
               </div>
             </SettingsCard>
@@ -1011,7 +1208,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
           <div>
             {/* Select Language Radio Button for Lower Third */}
             <SettingsCard title="Lower Third Language">
-              <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+              <div style={{ fontSize: '12px', color: theme === 'dark' ? '#a0a0a0' : '#555', marginBottom: '12px', lineHeight: 1.5 }}>
                 Select which single language is displayed during lower-third presentation.
               </div>
               <div style={{ marginBottom: "10px" }}>
@@ -1024,7 +1221,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                   />
                   <div>
                     <div style={{ fontWeight: 600 }}>Tamil Only</div>
-                    <div style={{ fontSize: '11px', opacity: 0.6 }}>Displays Tamil scripture text in lower third</div>
+                    <div style={{ fontSize: '12px', color: theme === 'dark' ? '#8e8e8e' : '#666', marginTop: '1px' }}>Displays Tamil scripture text in lower third</div>
                   </div>
                 </label>
               </div>
@@ -1038,7 +1235,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                   />
                   <div>
                     <div style={{ fontWeight: 600 }}>English Only</div>
-                    <div style={{ fontSize: '11px', opacity: 0.6 }}>Displays English scripture text in lower third</div>
+                    <div style={{ fontSize: '12px', color: theme === 'dark' ? '#8e8e8e' : '#666', marginTop: '1px' }}>Displays English scripture text in lower third</div>
                   </div>
                 </label>
               </div>
@@ -1046,7 +1243,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
 
             {/* Lower Third Font Color — White/Black/Custom radio */}
             <SettingsCard title="Lower Third Font Color">
-              <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+              <div style={{ fontSize: '12px', color: theme === 'dark' ? '#a0a0a0' : '#555', marginBottom: '12px', lineHeight: 1.5 }}>
                 Select the text color for the lower-third presentation.
               </div>
               <div style={{ marginBottom: "8px" }}>
@@ -1069,7 +1266,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                 {settings.lowerThirdTextColor && settings.lowerThirdTextColor !== "white" && settings.lowerThirdTextColor !== "black" && (
                   <div style={{ marginTop: "8px", marginLeft: "24px", display: "flex", alignItems: "center", gap: "10px" }}>
                     <input type="color" value={settings.lowerThirdTextColor || "#ffdd57"} onChange={(e) => setSettings((prev) => ({ ...prev, lowerThirdTextColor: e.target.value }))} style={{ width: "40px", height: "30px", border: "none", cursor: "pointer", borderRadius: "4px" }} />
-                    <span style={{ fontSize: "12px", opacity: 0.6 }}>{settings.lowerThirdTextColor}</span>
+                    <span style={{ fontSize: "12px", color: theme === 'dark' ? '#8e8e8e' : '#666' }}>{settings.lowerThirdTextColor}</span>
                   </div>
                 )}
               </div>
@@ -1079,7 +1276,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
           <div>
             {/* Lower Third Background — Gallery */}
             <SettingsCard title="Lower Third Background">
-              <div style={{ fontSize: '12px', opacity: 0.65, marginBottom: '12px', lineHeight: 1.5 }}>
+              <div style={{ fontSize: '12px', color: theme === 'dark' ? '#a0a0a0' : '#555', marginBottom: '12px', lineHeight: 1.5 }}>
                 Set a background image for the lower-third. If left blank, the background will be fully transparent.
               </div>
               <div style={{ marginBottom: "8px" }}>
@@ -1116,7 +1313,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                   );
                 })()}
 
-                <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '13px', padding: '6px 12px', borderRadius: '6px', border: `1.5px dashed ${theme === 'dark' ? '#888' : '#666'}`, color: theme === 'dark' ? '#eee' : '#555', fontWeight: '600', transition: 'all 0.2s ease', background: theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }}>
+                <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', padding: '6px 12px', borderRadius: '6px', border: `1.5px dashed ${theme === 'dark' ? '#888' : '#666'}`, color: theme === 'dark' ? '#eee' : '#555', fontWeight: '600', transition: 'all 0.2s ease', background: theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }}>
                   + Add Custom Image
                   <input type="file" accept="image/*" multiple style={{ display: 'none' }}
                     onChange={(e) => { const files = Array.from(e.target.files); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const newImg = { id: Date.now() + Math.random(), name: file.name, data: reader.result }; setSettings((prev) => ({ ...prev, lowerThirdBgGallery: [...(prev.lowerThirdBgGallery || []), newImg], lowerThirdBgImage: prev.lowerThirdBgImage || reader.result, lowerThirdBgImageName: prev.lowerThirdBgImageName || file.name })); }; reader.readAsDataURL(file); }); e.target.value = ''; }}
@@ -1130,11 +1327,272 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                     <button onClick={() => setSettings((prev) => ({ ...prev, lowerThirdBgImage: null, lowerThirdBgImageName: null }))}
                       style={{ position: 'absolute', top: -6, right: -6, width: '18px', height: '18px', background: 'rgba(231,76,60,0.95)', color: '#fff', border: 'none', borderRadius: '50%', cursor: 'pointer', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 }}
                     >×</button>
-                    <div style={{ fontSize: '10px', opacity: 0.5, marginTop: '3px' }}>{settings.lowerThirdBgImageName || 'Active'}</div>
+                    <div style={{ fontSize: '11px', color: theme === 'dark' ? '#8e8e8e' : '#666', marginTop: '3px' }}>{settings.lowerThirdBgImageName || 'Active'}</div>
                   </div>
                 )}
               </div>
             </SettingsCard>
+          </div>
+        </div>
+      )}
+
+      {/* ── Admin Edit Update Message Modal ── */}
+      {isAuthorizedAdmin && showEditUpdateModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.65)",
+            backdropFilter: "blur(5px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 3000,
+            padding: "20px",
+          }}
+          onClick={() => setShowEditUpdateModal(false)}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "580px",
+              background: theme === "dark" ? "#1a1a20" : "#ffffff",
+              color: theme === "dark" ? "#f0f0f0" : "#222222",
+              borderRadius: "14px",
+              boxShadow: theme === "dark"
+                ? "0 24px 48px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)"
+                : "0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.08)",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: "18px 22px 14px",
+                borderBottom: theme === "dark" ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "10px",
+                    background: theme === "dark" ? "rgba(0, 255, 153, 0.15)" : "rgba(0, 51, 153, 0.1)",
+                    color: theme === "dark" ? "#00ff99" : "#003399",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "18px",
+                  }}
+                >
+                  ✏️
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>
+                    Edit Update Popup & Release Notes
+                  </h3>
+                  <div style={{ fontSize: "12px", color: theme === "dark" ? "#a0a0a0" : "#666", marginTop: "2px" }}>
+                    Only accessible by your admin account. Test updates without deploying to GitHub.
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEditUpdateModal(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: theme === "dark" ? "#aaa" : "#666",
+                  fontSize: "18px",
+                  cursor: "pointer",
+                  padding: "4px 8px",
+                  borderRadius: "6px",
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              {/* Target Version Input */}
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Target Release Version
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <input
+                    type="text"
+                    value={previewVersion}
+                    onChange={(e) => {
+                      setPreviewVersion(e.target.value);
+                      savePreviewDraft(e.target.value, previewNotes);
+                    }}
+                    placeholder="e.g. 4.5.0"
+                    style={{
+                      width: "140px",
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      border: theme === "dark" ? "1px solid #444" : "1px solid #ccc",
+                      background: theme === "dark" ? "#121215" : "#f9f9f9",
+                      color: "inherit",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      outline: "none",
+                    }}
+                  />
+                  <div style={{ fontSize: "12px", color: theme === "dark" ? "#888" : "#666" }}>
+                    Installed: <span style={{ fontWeight: 600 }}>v{currentAppVersion}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Release Notes Textarea */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    "What's New" Content & Release Notes
+                  </label>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      onClick={() => {
+                        setPreviewNotes(DEFAULT_PREVIEW_NOTES);
+                        savePreviewDraft(previewVersion, DEFAULT_PREVIEW_NOTES);
+                        toast.success("Reset to default template");
+                      }}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        fontSize: "11px",
+                        color: theme === "dark" ? "#00ff99" : "#003399",
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        textDecoration: "underline",
+                        padding: 0,
+                      }}
+                    >
+                      Reset Template
+                    </button>
+                    <span style={{ fontSize: "11px", color: "#555" }}>•</span>
+                    <button
+                      onClick={handleCopyNotesForGitHub}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        fontSize: "11px",
+                        color: theme === "dark" ? "#00ff99" : "#003399",
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        textDecoration: "underline",
+                        padding: 0,
+                      }}
+                    >
+                      Copy for GitHub
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  rows={8}
+                  value={previewNotes}
+                  onChange={(e) => {
+                    setPreviewNotes(e.target.value);
+                    savePreviewDraft(previewVersion, e.target.value);
+                  }}
+                  placeholder="Enter release notes, features, and announcement text here..."
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: theme === "dark" ? "1px solid #444" : "1px solid #ccc",
+                    background: theme === "dark" ? "#121215" : "#f9f9f9",
+                    color: "inherit",
+                    fontSize: "12px",
+                    lineHeight: "1.6",
+                    fontFamily: "inherit",
+                    outline: "none",
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+
+              {/* Tip Box */}
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  background: theme === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
+                  border: theme === "dark" ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.06)",
+                  fontSize: "11px",
+                  lineHeight: "1.5",
+                  color: theme === "dark" ? "#aaa" : "#555",
+                }}
+              >
+                💡 <strong>Tip:</strong> Changes save automatically as your draft. When ready to publish on GitHub Releases, click <strong>"Copy for GitHub"</strong> and paste it directly into your release description.
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: "14px 22px",
+                borderTop: theme === "dark" ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+                background: theme === "dark" ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.02)",
+              }}
+            >
+              <button
+                onClick={() => setShowEditUpdateModal(false)}
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: "6px",
+                  border: theme === "dark" ? "1px solid #444" : "1px solid #ccc",
+                  background: "transparent",
+                  color: "inherit",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={() => {
+                  savePreviewDraft(previewVersion, previewNotes);
+                  setShowEditUpdateModal(false);
+                  handlePreviewUpdateModal(previewVersion, previewNotes);
+                }}
+                style={{
+                  padding: "7px 18px",
+                  borderRadius: "6px",
+                  border: "none",
+                  background: theme === "dark" ? "#00ff99" : "#003399",
+                  color: theme === "dark" ? "#000" : "#fff",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <span>👁️</span>
+                <span>Test & Preview Now</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
