@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchAllIssueReports, updateIssueStatus } from '../services/issueReportService';
+import { isMaintenanceAllowed } from '../utils/maintenanceAuth';
 import './BibleMaintenance.css';
 
 const STATUS_CONFIG = {
@@ -9,16 +10,19 @@ const STATUS_CONFIG = {
 };
 
 export default function BibleMaintenance({ theme, user }) {
+  const isDark = theme === 'dark';
+  const accent = isDark ? '#00ff99' : '#003399';
+
+  const allowed = isMaintenanceAllowed(user);
+
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [bookFilter, setBookFilter] = useState('');
   const [selectedReport, setSelectedReport] = useState(null); // For viewing full comment / details modal
 
-  const isDark = theme === 'dark';
-  const accent = isDark ? '#00ff99' : '#003399';
-
   const loadReports = useCallback(async () => {
+    if (!allowed) return;
     setLoading(true);
     try {
       const filter = statusFilter === 'all' ? null : statusFilter;
@@ -75,6 +79,17 @@ export default function BibleMaintenance({ theme, user }) {
       return '—';
     }
   };
+
+  if (!allowed) {
+    return (
+      <div style={{ padding: '60px 20px', textAlign: 'center', color: isDark ? '#ff6b6b' : '#c0392b' }}>
+        <h2 style={{ fontSize: '20px', marginBottom: '10px' }}>🔒 Access Restricted</h2>
+        <p style={{ fontSize: '14px', opacity: 0.8 }}>
+          The Bible Maintenance panel is exclusively available to the authorized administrator.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className={`bm-container ${isDark ? 'dark' : 'light'}`}>

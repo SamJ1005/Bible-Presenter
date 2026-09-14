@@ -295,6 +295,7 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
         preload="auto"
         muted={true}
         playsInline
+        loop
         onClick={togglePlay}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={() => {
@@ -312,8 +313,12 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onEnded={() => {
-          setIsPlaying(false);
-          sendSync("pause", duration, false);
+          if (videoRef.current) {
+            videoRef.current.currentTime = 0;
+            videoRef.current.play().catch(() => {});
+            setIsPlaying(true);
+            sendSync("seek", 0, true);
+          }
         }}
         onError={(e) => {
           const err = e.target.error;

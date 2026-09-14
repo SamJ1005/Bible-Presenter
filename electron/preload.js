@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld("electron", {
   },
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
   openExternalUrl: (url) => ipcRenderer.invoke("open-external-url", url),
+  readClipboardMedia: () => ipcRenderer.invoke("read-clipboard-media"),
 });
 
 contextBridge.exposeInMainWorld("api", {
@@ -33,6 +34,7 @@ contextBridge.exposeInMainWorld("api", {
   setPreferredDisplay: (id) => ipcRenderer.send("set-preferred-display", id),
   saveMediaFile: (path) => ipcRenderer.invoke("save-media-file", path),
   downloadMediaFile: (url, uniqueId) => ipcRenderer.invoke("download-media-file", url, uniqueId),
+  readClipboardMedia: () => ipcRenderer.invoke("read-clipboard-media"),
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
   openExternalUrl: (url) => ipcRenderer.invoke("open-external-url", url),
 

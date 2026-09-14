@@ -20,6 +20,7 @@ const PrelistSidebar = ({
   clearQueue,
   removeFromQueue,
   addFileToQueue,
+  onPasteMedia,
   addCustomSlide,
   fileInputRef,
   onFileSelect,
@@ -715,6 +716,8 @@ const CheckIcon = ({ size = 14 }) => (
           editingRefId={editingRefId}
           saveRefEdit={saveRefEdit}
           cancelRefEdit={cancelRefEdit}
+          onPasteMedia={onPasteMedia}
+          activeId={activeId}
         />
       </div>
 

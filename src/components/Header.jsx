@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { isMaintenanceAllowed } from "../utils/maintenanceAuth";
 
 export default function Header({
   theme,
@@ -24,12 +25,8 @@ export default function Header({
   // Clamp helper for font offset
   const clampOffset = (v) => Math.max(-15, Math.min(15, v));
 
-  // Maintenance tab access check (no hardcoded email committed to git)
-  const isMaintenanceAllowed = Boolean(
-    (user?.email && import.meta.env.VITE_MAINTENANCE_EMAIL && user.email === import.meta.env.VITE_MAINTENANCE_EMAIL) ||
-    import.meta.env.VITE_ENABLE_MAINTENANCE === "true" ||
-    (typeof window !== "undefined" && localStorage.getItem("enable_maintenance") === "true")
-  );
+  // Maintenance tab access check (strictly Sam J only)
+  const canAccessMaintenance = isMaintenanceAllowed(user);
 
   return (
     <header
@@ -109,7 +106,7 @@ export default function Header({
             tabHoverBg,
             text
           )}
-          {isMaintenanceAllowed && renderTab(
+          {canAccessMaintenance && renderTab(
             "maintenance",
             "Maintenance",
             activeTab,

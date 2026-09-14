@@ -1,5 +1,5 @@
 // electron/main.js
-const { app, BrowserWindow, ipcMain, screen, Menu, protocol, net, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, screen, Menu, protocol, net, shell, clipboard } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { Readable } = require("stream");
@@ -409,6 +409,85 @@ ipcMain.handle("download-media-file", async (_, fileUrl, uniqueId) => {
   }
 });
 
+// Read media from clipboard (image data or copied file from Windows Explorer)
+ipcMain.handle("read-clipboard-media", async () => {
+  try {
+    // 1. Check if clipboard has file path copied from Windows Explorer (FileNameW / CF_HDROP)
+    if (process.platform === "win32") {
+      try {
+        const buffer = clipboard.readBuffer("FileNameW");
+        if (buffer && buffer.length > 0) {
+          const rawFilePath = buffer.toString("ucs2");
+          const filePath = rawFilePath.replace(new RegExp(String.fromCharCode(0), "g"), "").trim();
+          if (filePath && fs.existsSync(filePath)) {
+            const stats = fs.statSync(filePath);
+            const ext = path.extname(filePath).toLowerCase();
+            const isImg = /\.(png|jpe?g|webp|gif|bmp|svg|ico)$/i.test(ext);
+            const isVid = /\.(mp4|webm|mov|mkv|avi|flv|wmv|m4v|3gp|ts)$/i.test(ext);
+            if (isImg || isVid) {
+              return {
+                type: isVid ? "video" : "image",
+                path: filePath,
+                name: path.basename(filePath),
+                size: stats.size,
+                mimeType: isVid ? `video/${ext.slice(1)}` : `image/${ext.slice(1)}`,
+              };
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[MAIN] Error reading FileNameW from clipboard:", err);
+      }
+    }
+
+    // 2. Check if clipboard has raw image pixels (browser "Copy image", screenshot, snipping tool, etc.)
+    const img = clipboard.readImage();
+    if (!img.isEmpty()) {
+      const dataUrl = img.toDataURL();
+      const pngBuffer = img.toPNG();
+      const mediaDir = path.join(app.getPath("userData"), "media");
+      if (!fs.existsSync(mediaDir)) {
+        fs.mkdirSync(mediaDir, { recursive: true });
+      }
+      const fileName = `pasted_image_${Date.now()}.png`;
+      const filePath = path.join(mediaDir, fileName);
+      await fs.promises.writeFile(filePath, pngBuffer);
+
+      return {
+        type: "image",
+        name: fileName,
+        path: filePath,
+        dataUrl,
+        size: pngBuffer.length,
+        mimeType: "image/png",
+      };
+    }
+
+    // 3. Fallback: check plain text in clipboard - could be a local file path
+    const text = clipboard.readText().trim();
+    if (text && fs.existsSync(text)) {
+      const ext = path.extname(text).toLowerCase();
+      const isImg = /\.(png|jpe?g|webp|gif|bmp|svg|ico)$/i.test(ext);
+      const isVid = /\.(mp4|webm|mov|mkv|avi|flv|wmv|m4v|3gp|ts)$/i.test(ext);
+      if (isImg || isVid) {
+        const stats = fs.statSync(text);
+        return {
+          type: isVid ? "video" : "image",
+          path: text,
+          name: path.basename(text),
+          size: stats.size,
+          mimeType: isVid ? `video/${ext.slice(1)}` : `image/${ext.slice(1)}`,
+        };
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.error("[MAIN] read-clipboard-media failed:", err);
+    return null;
+  }
+});
+
 // Expose the electron directory path so the renderer can build file:// URLs for iframe src
 ipcMain.handle("get-electron-path", () => __dirname.replace(/\\/g, "/"));
 
@@ -561,14 +640,15 @@ function urlToLocalFilePath(requestUrl) {
 
     let filePath = "";
     if (process.platform === "win32") {
-      // Chromium treats "C:" in standard URLs as the host "c"
-      if (drive && drive.length === 1 && /^[a-zA-Z]$/.test(drive)) {
-        filePath = `${drive.toUpperCase()}:${restPath}`;
+      // Chromium treats "C:" in standard URLs as the host "c" or "c:"
+      if (drive && (/^[a-zA-Z]$/.test(drive) || /^[a-zA-Z]:$/.test(drive))) {
+        filePath = `${drive.replace(/:$/, "").toUpperCase()}:${restPath}`;
       } else if (/^\/?[a-zA-Z]:/.test(restPath)) {
         filePath = restPath.replace(/^\//, "");
       } else {
         filePath = path.join(drive, restPath);
       }
+      filePath = filePath.replace(/^\//, "");
     } else {
       filePath = path.join(drive, restPath);
     }
@@ -602,87 +682,78 @@ const MEDIA_MIME_TYPES = {
   ".webp": "image/webp",
   ".gif": "image/gif",
   ".svg": "image/svg+xml",
+  ".bmp": "image/bmp",
+  ".ico": "image/x-icon",
 };
-
-// Robust HTTP 206 Partial Content responder for media files supporting timeline scrubber seeking
-function serveLocalFileWithRange(realPath, request) {
-  try {
-    if (!fs.existsSync(realPath)) {
-      console.warn("[MAIN] local-file not found:", realPath);
-      return new Response("File not found", { status: 404 });
-    }
-
-    const stat = fs.statSync(realPath);
-    const fileSize = stat.size;
-    const ext = path.extname(realPath).toLowerCase();
-    const contentType = MEDIA_MIME_TYPES[ext] || "application/octet-stream";
-    const rangeHeader = request.headers.get("range");
-
-    if (rangeHeader) {
-      const parts = rangeHeader.replace(/bytes=/, "").split("-");
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-
-      if (isNaN(start) || start >= fileSize || end >= fileSize || start > end) {
-        return new Response("Requested range not satisfiable", {
-          status: 416,
-          headers: { "Content-Range": `bytes */${fileSize}` },
-        });
-      }
-
-      const chunksize = end - start + 1;
-      const stream = fs.createReadStream(realPath, { start, end });
-
-      return new Response(Readable.toWeb(stream), {
-        status: 206,
-        statusText: "Partial Content",
-        headers: {
-          "Content-Range": `bytes ${start}-${end}/${fileSize}`,
-          "Accept-Ranges": "bytes",
-          "Content-Length": chunksize.toString(),
-          "Content-Type": contentType,
-          "Access-Control-Allow-Origin": "*",
-        },
-      });
-    }
-
-    // Full file response with Accept-Ranges so Chromium knows seeking is supported
-    const stream = fs.createReadStream(realPath);
-    return new Response(Readable.toWeb(stream), {
-      status: 200,
-      headers: {
-        "Accept-Ranges": "bytes",
-        "Content-Length": fileSize.toString(),
-        "Content-Type": contentType,
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-  } catch (err) {
-    console.error("[MAIN] serveLocalFileWithRange error:", err);
-    return new Response("File error", { status: 500 });
-  }
-}
 
 /* ------------ App Lifecycle ------------ */
 app.whenReady().then(() => {
   // Protocol handlers for streaming local media files with byte-range (HTTP 206) support
-  protocol.handle("local-file", (request) => {
+  protocol.handle("local-file", async (request) => {
     try {
       const realPath = urlToLocalFilePath(request.url);
-      return serveLocalFileWithRange(realPath, request);
+      if (!fs.existsSync(realPath)) {
+        console.warn("[MAIN] local-file not found:", realPath);
+        return new Response("File not found", { status: 404 });
+      }
+
+      const ext = path.extname(realPath).toLowerCase();
+      const contentType = MEDIA_MIME_TYPES[ext] || "application/octet-stream";
+
+      // For image files, read buffer directly to prevent stream abort / net::ERR_FAILED 200 in Chromium
+      if (/^\.(png|jpe?g|webp|gif|bmp|svg|ico)$/i.test(ext)) {
+        const fileBuf = await fs.promises.readFile(realPath);
+        return new Response(fileBuf, {
+          status: 200,
+          headers: {
+            "Content-Type": contentType,
+            "Content-Length": fileBuf.length.toString(),
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=86400",
+          },
+        });
+      }
+
+      // For videos / large streams, use net.fetch with file:// URL for native HTTP 206 byte-range seeking
+      return net.fetch(pathToFileURL(realPath).toString(), {
+        bypassCustomProtocolHandlers: true,
+      });
     } catch (err) {
       console.error("[MAIN] local-file protocol error:", err);
       return new Response("File error", { status: 500 });
     }
   });
 
-  protocol.handle("local-media", (request) => {
+  protocol.handle("local-media", async (request) => {
     try {
       const parsed = new URL(request.url);
       const fileName = decodeURIComponent(parsed.pathname.replace(/^\//, "") || parsed.host);
       const mediaDir = path.join(app.getPath("userData"), "media");
       const fullPath = path.join(mediaDir, fileName);
-      return serveLocalFileWithRange(fullPath, request);
+      if (!fs.existsSync(fullPath)) {
+        console.warn("[MAIN] local-media not found:", fullPath);
+        return new Response("File not found", { status: 404 });
+      }
+
+      const ext = path.extname(fullPath).toLowerCase();
+      const contentType = MEDIA_MIME_TYPES[ext] || "application/octet-stream";
+
+      if (/^\.(png|jpe?g|webp|gif|bmp|svg|ico)$/i.test(ext)) {
+        const fileBuf = await fs.promises.readFile(fullPath);
+        return new Response(fileBuf, {
+          status: 200,
+          headers: {
+            "Content-Type": contentType,
+            "Content-Length": fileBuf.length.toString(),
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=86400",
+          },
+        });
+      }
+
+      return net.fetch(pathToFileURL(fullPath).toString(), {
+        bypassCustomProtocolHandlers: true,
+      });
     } catch (err) {
       console.error("[MAIN] local-media protocol error:", err);
       return new Response("File error", { status: 500 });

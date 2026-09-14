@@ -24,6 +24,7 @@ import Prelist from "./components/Prelist";
 import ReportVerseDialog from "./components/ReportVerseDialog";
 import BibleMaintenance from "./components/BibleMaintenance";
 import UpdateNotificationModal from "./components/UpdateNotificationModal";
+import { isMaintenanceAllowed } from "./utils/maintenanceAuth";
 
 export default function App() {
   const [updateInfo, setUpdateInfo] = useState(null);
@@ -166,6 +167,19 @@ export default function App() {
       if (currentUser) {
         console.log('[AUTH] User logged in:', { uid: currentUser.uid, email: currentUser.email });
         
+        // Populate user profile info (e.g. username) from Firestore if available
+        getDoc(doc(db, "users", currentUser.uid)).then((docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data?.username) {
+              currentUser.username = data.username;
+              setUser((prev) => (prev && prev.uid === currentUser.uid ? { ...prev, username: data.username } : prev));
+            }
+          }
+        }).catch((err) => {
+          console.warn('[AUTH] Failed to fetch user profile doc:', err);
+        });
+
         // If switching from a different user (or from guest), reset local state
         if (!previousUser || previousUser.uid !== currentUser.uid) {
           // Load this specific user's meta from storage, or use default
@@ -207,6 +221,13 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Ensure non-authorized users cannot access or remain on the maintenance tab
+  useEffect(() => {
+    if (activeTab === "maintenance" && !isMaintenanceAllowed(user)) {
+      setActiveTab("bible");
+    }
+  }, [activeTab, user]);
 
   // Helper: Strip large data from items before syncing to cloud
   // Firestore has a 1 MB document size limit. File items with base64 data URLs
@@ -1095,6 +1116,7 @@ export default function App() {
         path: fileObj.path || null,
         isLocalOnly: true,
         cloudUploadStatus: 'local-only',
+        loop: true,
       };
 
       setPrelistedItems((prev) => {
@@ -1110,13 +1132,13 @@ export default function App() {
       });
 
       toast.success(`Added video "${fileObj.name}" (Local playback only)`);
-      return;
+      return newItemId;
     }
 
     // Check size limit for images (Cloudinary image limit is 10 MB)
     const isOverCloudLimit = fileObj.size > 10 * 1024 * 1024;
     if (isOverCloudLimit) {
-      const objUrl = immediateLocalUrl || URL.createObjectURL(fileObj);
+      const objUrl = immediateLocalUrl || (fileObj instanceof Blob ? URL.createObjectURL(fileObj) : `file:///${(fileObj.path || '').replace(/\\/g, '/')}`);
       const newItem = {
         id: newItemId,
         type: 'file',
@@ -1141,7 +1163,39 @@ export default function App() {
       });
 
       toast.success(`Added "${fileObj.name}" for local presentation (>10MB)`);
-      return;
+      return newItemId;
+    }
+
+    // If fileObj has a native disk path (e.g. copied from File Explorer, OneDrive, desktop, or Electron clipboard)
+    if (fileObj.path) {
+      const objUrl = immediateLocalUrl || `local-file:///${fileObj.path.replace(/\\/g, '/')}`;
+      const newItem = {
+        id: newItemId,
+        type: 'file',
+        name: fileObj.name,
+        fileType: fileObj.type || 'image/png',
+        url: objUrl,
+        localUrl: objUrl,
+        localPreview: objUrl,
+        path: fileObj.path,
+        isLocalOnly: true,
+        cloudUploadStatus: 'local-only',
+      };
+
+      setPrelistedItems((prev) => {
+        if (insertAfterId) {
+          const idx = prev.findIndex((item) => item.id === insertAfterId);
+          if (idx !== -1) {
+            const newArr = [...prev];
+            newArr.splice(idx + 1, 0, newItem);
+            return newArr;
+          }
+        }
+        return [...prev, newItem];
+      });
+
+      toast.success(`Added "${fileObj.name}"`);
+      return newItemId;
     }
 
     const reader = new FileReader();
@@ -1236,12 +1290,42 @@ export default function App() {
     };
 
     reader.onerror = (err) => {
-      console.error("Failed to read file", err);
+      console.warn("FileReader encountered an issue, falling back to object URL:", err);
+      try {
+        const fallbackUrl = URL.createObjectURL(fileObj);
+        const fallbackItem = {
+          id: newItemId,
+          type: 'file',
+          name: fileObj.name,
+          fileType: fileObj.type || 'image/png',
+          url: fallbackUrl,
+          localUrl: fallbackUrl,
+          localPreview: fallbackUrl,
+          isLocalOnly: true,
+          cloudUploadStatus: 'local-only',
+        };
+        setPrelistedItems((prev) => {
+          if (insertAfterId) {
+            const idx = prev.findIndex((item) => item.id === insertAfterId);
+            if (idx !== -1) {
+              const newArr = [...prev];
+              newArr.splice(idx + 1, 0, fallbackItem);
+              return newArr;
+            }
+          }
+          return [...prev, fallbackItem];
+        });
+        toast.success(`Added "${fileObj.name}"`);
+      } catch (fallbackErr) {
+        console.error("Failed to read file and object URL fallback failed:", fallbackErr);
+        toast.error(`Could not read file "${fileObj.name}"`);
+      }
     };
 
     if (fileObj) {
       reader.readAsDataURL(fileObj);
     }
+    return newItemId;
   }, [user, updateQueueItem]);
 
   const handlePrelistSearch = useCallback(() => {
@@ -1674,13 +1758,7 @@ export default function App() {
         />
       )}
 
-      {activeTab === "maintenance" && (
-        Boolean(
-          (user?.email && import.meta.env.VITE_MAINTENANCE_EMAIL && user.email === import.meta.env.VITE_MAINTENANCE_EMAIL) ||
-          import.meta.env.VITE_ENABLE_MAINTENANCE === "true" ||
-          (typeof window !== "undefined" && localStorage.getItem("enable_maintenance") === "true")
-        )
-      ) && (
+      {activeTab === "maintenance" && isMaintenanceAllowed(user) && (
         <BibleMaintenance theme={theme} user={user} />
       )}
 

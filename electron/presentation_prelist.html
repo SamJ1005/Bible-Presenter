@@ -501,6 +501,11 @@
               const isSecondary = data.isSecondaryDisplay === true;
               mediaVideo.controls = !isSecondary;
               mediaVideo.style.cursor = isSecondary ? "none" : "default";
+              mediaVideo.loop = true;
+              mediaVideo.onended = () => {
+                mediaVideo.currentTime = 0;
+                mediaVideo.play().catch((e) => console.error("[PRESENTATION PRELIST] Loop play error:", e));
+              };
 
               const currentSrc = mediaVideo.currentSrc || mediaVideo.src || "";
               const normalize = (s) => {

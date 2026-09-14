@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import "./prelist/Prelist.css";
 import { parseReferenceIncludeRange } from "../utils/referenceParser";
 import { getTamilBookName } from "../utils/bibleBooks";
 import { toStreamableMediaUrl } from "../utils/mediaUrl";
+import { getMediaFromClipboard } from "../utils/clipboardMedia";
 import PrelistSidebar from "./prelist/PrelistSidebar";
 import PrelistMainView from "./prelist/PrelistMainView";
 
@@ -282,6 +283,58 @@ const Prelist = React.forwardRef((
     // Clear input so same file can be selected again if needed
     e.target.value = "";
   };
+
+  // Handle pasting media (images/videos) below selected item (or at bottom of list)
+  const handlePasteMedia = useCallback(
+    async (targetInsertAfterId = activeId, event = null) => {
+      try {
+        const media = await getMediaFromClipboard(event);
+        if (media) {
+          if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+          const newId = await addFileToQueue(media, targetInsertAfterId);
+          if (newId && setActiveId) {
+            setActiveId(newId);
+          }
+          toast.success(`📋 Pasted "${media.name || 'media'}" below ${targetInsertAfterId ? 'selected item' : 'list'}`);
+          return true;
+        }
+        return false;
+      } catch (err) {
+        console.error("[Prelist] handlePasteMedia error:", err);
+        return false;
+      }
+    },
+    [activeId, addFileToQueue, setActiveId]
+  );
+
+  // Global window paste listener: Ctrl+V anywhere in playlist pastes media below selected item
+  useEffect(() => {
+    const handleGlobalPaste = async (e) => {
+      const isInput = e.target?.tagName === "INPUT" || e.target?.tagName === "TEXTAREA";
+      const isContentEditable = e.target?.isContentEditable;
+
+      const hasFiles = e.clipboardData?.files?.length > 0;
+      const hasImageItem = Array.from(e.clipboardData?.items || []).some(
+        (it) => it.kind === "file" && it.type.startsWith("image/")
+      );
+
+      // If clipboard has an image or media file, intercept and paste it into queue!
+      if (hasFiles || hasImageItem) {
+        e.preventDefault();
+        e.stopPropagation();
+        await handlePasteMedia(activeId, e);
+      } else if (!isInput && !isContentEditable) {
+        // Not typing in any text box - check native clipboard reader
+        await handlePasteMedia(activeId, e);
+      }
+    };
+
+    window.addEventListener("paste", handleGlobalPaste);
+    return () => window.removeEventListener("paste", handleGlobalPaste);
+  }, [activeId, handlePasteMedia]);
 
   const startEditingRef = (item) => {
     setEditingRefId(item.id);
@@ -758,6 +811,7 @@ const Prelist = React.forwardRef((
         clearQueue={clearQueue}
         removeFromQueue={removeFromQueue}
         addFileToQueue={addFileToQueue}
+        onPasteMedia={handlePasteMedia}
         fileInputRef={fileInputRef}
         onFileSelect={onFileSelect}
         activeId={activeId}
