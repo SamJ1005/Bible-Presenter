@@ -140,6 +140,7 @@ const Prelist = React.forwardRef((
         isPlaying: item.isPlaying !== false,
         volume: item.volume !== undefined ? item.volume : 1,
         isMuted: item.isMuted !== undefined ? item.isMuted : false,
+        isLooping: item.isLooping === true,
         settings,
       });
       return;

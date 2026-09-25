@@ -11,11 +11,18 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isLooping, setIsLooping] = useState(Boolean(item?.isLooping));
   const [showControls, setShowControls] = useState(true);
   const [videoError, setVideoError] = useState(null);
   const controlsTimeoutRef = useRef(null);
   const isRemoteUpdatingRef = useRef(false);
   const lastSyncRef = useRef(0);
+
+  useEffect(() => {
+    if (item?.isLooping !== undefined) {
+      setIsLooping(Boolean(item.isLooping));
+    }
+  }, [item?.isLooping]);
 
   useEffect(() => {
     setVideoError(null);
@@ -67,6 +74,7 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
         action,
         currentTime: time,
         isPlaying: playing,
+        isLooping,
       });
     }
   };
@@ -110,6 +118,10 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
             videoRef.current.currentTime = cmd.currentTime;
             setCurrentTime(cmd.currentTime);
           }
+        } else if (cmd.action === "loop") {
+          if (cmd.isLooping !== undefined) {
+            setIsLooping(!!cmd.isLooping);
+          }
         }
       } finally {
         setTimeout(() => { isRemoteUpdatingRef.current = false; }, 80);
@@ -133,7 +145,21 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
         currentTime: videoRef.current?.currentTime || 0,
         volume: isMuted ? 0 : volume,
         isMuted,
+        isLooping,
         ...extra,
+      });
+    }
+  };
+
+  const toggleLoop = (e) => {
+    e?.stopPropagation();
+    const nextLoop = !isLooping;
+    setIsLooping(nextLoop);
+    ensurePresented({ isLooping: nextLoop });
+    if (window.electron?.sendVideoCommand) {
+      window.electron.sendVideoCommand({
+        action: "loop",
+        isLooping: nextLoop,
       });
     }
   };
@@ -142,7 +168,14 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
     e?.stopPropagation();
     if (!videoRef.current) return;
     const willPlay = !isPlaying;
-    ensurePresented({ isPlaying: willPlay, currentTime: videoRef.current.currentTime });
+
+    if (willPlay && (videoRef.current.ended || (duration > 0 && Math.abs(videoRef.current.currentTime - duration) < 0.2))) {
+      videoRef.current.currentTime = 0;
+      setCurrentTime(0);
+      sendSync("seek", 0, true);
+    }
+
+    ensurePresented({ isPlaying: willPlay, currentTime: videoRef.current.currentTime, isLooping });
 
     if (isPlaying) {
       videoRef.current.pause();
@@ -295,7 +328,7 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
         preload="auto"
         muted={true}
         playsInline
-        loop
+        loop={isLooping}
         onClick={togglePlay}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={() => {
@@ -313,11 +346,13 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onEnded={() => {
-          if (videoRef.current) {
+          if (isLooping && videoRef.current) {
             videoRef.current.currentTime = 0;
             videoRef.current.play().catch(() => {});
             setIsPlaying(true);
             sendSync("seek", 0, true);
+          } else {
+            setIsPlaying(false);
           }
         }}
         onError={(e) => {
@@ -508,8 +543,59 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
             </span>
           </div>
 
-          {/* Right Buttons: Volume, Fullscreen */}
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {/* Right Buttons: Loop, Volume, Fullscreen */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <button
+              type="button"
+              onClick={toggleLoop}
+              title={isLooping ? "Repeat: Enabled (Click to play once)" : "Repeat: Disabled (Click to loop video)"}
+              style={{
+                ...btnControlStyle,
+                color: isLooping ? "#00ff99" : "#ffffff",
+                background: isLooping ? "rgba(0, 255, 153, 0.2)" : "rgba(255, 255, 255, 0.08)",
+                border: isLooping ? "1px solid rgba(0, 255, 153, 0.5)" : "1px solid rgba(255, 255, 255, 0.18)",
+                opacity: isLooping ? 1 : 0.75,
+                padding: "3px 8px",
+                borderRadius: "4px",
+                gap: "5px",
+                display: "inline-flex",
+                alignItems: "center",
+                cursor: "pointer",
+                boxShadow: isLooping ? "0 0 8px rgba(0, 255, 153, 0.3)" : "none",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = "1";
+                if (!isLooping) {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.2)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = isLooping ? "1" : "0.75";
+                if (!isLooping) {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+                }
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="17 1 21 5 17 9" />
+                <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                <polyline points="7 23 3 19 7 15" />
+                <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+              </svg>
+              <span style={{ fontSize: "11px", fontWeight: "700", letterSpacing: "0.4px" }}>
+                {isLooping ? "Loop On" : "Loop"}
+              </span>
+            </button>
+
             <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
               <button
                 type="button"

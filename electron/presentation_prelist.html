@@ -209,8 +209,7 @@
           z-index: 10;
         ">
       <img id="mediaImg" style="width: 100%; height: 100%; object-fit: contain; display: none" />
-      <video id="mediaVideo" style="width: 100%; height: 100%; object-fit: contain; display: none" autoplay controls
-        loop></video>
+      <video id="mediaVideo" style="width: 100%; height: 100%; object-fit: contain; display: none" autoplay controls></video>
     </div>
     <div id="watermark"></div>
   </div>
@@ -501,10 +500,12 @@
               const isSecondary = data.isSecondaryDisplay === true;
               mediaVideo.controls = !isSecondary;
               mediaVideo.style.cursor = isSecondary ? "none" : "default";
-              mediaVideo.loop = true;
+              mediaVideo.loop = data.isLooping === true;
               mediaVideo.onended = () => {
-                mediaVideo.currentTime = 0;
-                mediaVideo.play().catch((e) => console.error("[PRESENTATION PRELIST] Loop play error:", e));
+                if (mediaVideo.loop) {
+                  mediaVideo.currentTime = 0;
+                  mediaVideo.play().catch((e) => console.error("[PRESENTATION PRELIST] Loop play error:", e));
+                }
               };
 
               const currentSrc = mediaVideo.currentSrc || mediaVideo.src || "";
@@ -555,6 +556,9 @@
               } else {
                 if (data.currentTime !== undefined && Math.abs(mediaVideo.currentTime - data.currentTime) > 1.5) {
                   try { mediaVideo.currentTime = data.currentTime; } catch (e) {}
+                }
+                if (data.isLooping !== undefined) {
+                  mediaVideo.loop = data.isLooping === true;
                 }
                 if (data.isPlaying === true && mediaVideo.paused) {
                   mediaVideo.play().catch(e => console.error("[PRESENTATION PRELIST] Play error:", e));
@@ -801,6 +805,10 @@
               }
               if (cmd.isMuted !== undefined) {
                 v.muted = !!cmd.isMuted;
+              }
+            } else if (cmd.action === "loop") {
+              if (cmd.isLooping !== undefined) {
+                v.loop = !!cmd.isLooping;
               }
             }
           });

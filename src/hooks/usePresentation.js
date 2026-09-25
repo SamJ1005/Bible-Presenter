@@ -64,6 +64,7 @@ export default function usePresentation({ getTamilVerse, getEnglishVerse, tamilB
         isPlaying: params.isPlaying,
         volume: params.volume !== undefined ? params.volume : 1,
         isMuted: params.isMuted !== undefined ? params.isMuted : false,
+        isLooping: params.isLooping === true,
         settings,
         presentationBgType: settings.presentationBgType ?? "color",
         presentationBgImage: settings.presentationBgImage ?? "",
