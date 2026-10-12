@@ -39,6 +39,7 @@ const PrelistSidebar = ({
   activeQueueInfo,
   user,
   createQueue,
+  copyQueue,
   switchQueue,
   deleteQueue,
   renameQueue,
@@ -68,6 +69,10 @@ const PlusIcon = ({ size = 14 }) => (
 
 const EditIcon = ({ size = 13 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+);
+
+const CopyIcon = ({ size = 13 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
 );
 
 const TrashIcon = ({ size = 13 }) => (
@@ -387,104 +392,140 @@ const CheckIcon = ({ size = 14 }) => (
           {/* BOTTOM ROW: Other Buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', paddingBottom: '4px' }}>
             {/* Rename Queue */}
-          <button
-            onClick={handleStartRename}
-            title="Rename Queue"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '6px',
-              borderRadius: '6px',
-              color: theme === 'dark' ? '#888' : '#666',
-              display: 'flex',
-              alignItems: 'center',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = theme === 'dark' ? '#fff' : '#000';
-              e.currentTarget.style.background = theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = theme === 'dark' ? '#888' : '#666';
-              e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            <EditIcon />
-          </button>
-
-          {/* Delete Queue (only if more than 1) */}
-          {queueMeta.queues.length > 1 && (
             <button
-              onClick={handleDeleteQueue}
-              title="Delete Queue"
+              onClick={handleStartRename}
+              title="Rename Playlist"
               style={{
                 background: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
                 padding: '6px',
                 borderRadius: '6px',
-                color: theme === 'dark' ? '#666' : '#999',
+                color: theme === 'dark' ? '#888' : '#666',
                 display: 'flex',
                 alignItems: 'center',
                 transition: 'all 0.2s'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.color = '#ff5555';
-                e.currentTarget.style.background = 'rgba(255, 85, 85, 0.08)';
+                e.currentTarget.style.color = theme === 'dark' ? '#fff' : '#000';
+                e.currentTarget.style.background = theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.color = theme === 'dark' ? '#666' : '#999';
+                e.currentTarget.style.color = theme === 'dark' ? '#888' : '#666';
                 e.currentTarget.style.background = 'transparent';
               }}
             >
-              <TrashIcon />
+              <EditIcon />
             </button>
-          )}
-            
-            {/* Manual Save to Cloud */}
-          {user && (
+
+            {/* Copy / Duplicate Playlist */}
             <button
-              onClick={syncQueueNow}
-              title="Save Playlist to Cloud"
+              onClick={() => copyQueue && activeQueueInfo && copyQueue(activeQueueInfo.id)}
+              title="Copy List (Duplicate Playlist)"
               style={{
-                background: syncStatus[queueMeta.activeId] === "unsynced" 
-                  ? (theme === 'dark' ? 'rgba(255, 170, 0, 0.15)' : 'rgba(204, 136, 0, 0.1)') 
-                  : 'transparent',
-                border: syncStatus[queueMeta.activeId] === "unsynced"
-                  ? (theme === 'dark' ? '1px solid #ffaa00' : '1px solid #cc8800')
-                  : (theme === 'dark' ? '1px solid #444' : '1px solid #bbb'),
-                borderRadius: '6px',
-                padding: '4px 8px',
+                background: 'transparent',
+                border: 'none',
                 cursor: 'pointer',
-                color: syncStatus[queueMeta.activeId] === "unsynced"
-                  ? (theme === 'dark' ? '#ffaa00' : '#cc8800')
-                  : (theme === 'dark' ? '#aaa' : '#555'),
+                padding: '6px',
+                borderRadius: '6px',
+                color: theme === 'dark' ? '#888' : '#666',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
-                fontSize: '11px',
-                fontWeight: 600,
-                transition: 'all 0.2s',
-                marginLeft: 'auto'
+                transition: 'all 0.2s'
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.color = theme === 'dark' ? '#00ff99' : '#003399';
-                e.currentTarget.style.borderColor = theme === 'dark' ? '#00ff99' : '#003399';
+                e.currentTarget.style.background = theme === 'dark' ? 'rgba(0,255,153,0.08)' : 'rgba(0,51,153,0.05)';
               }}
               onMouseLeave={(e) => {
-                if (syncStatus[queueMeta.activeId] === "unsynced") {
-                  e.currentTarget.style.color = theme === 'dark' ? '#ffaa00' : '#cc8800';
-                  e.currentTarget.style.borderColor = theme === 'dark' ? '#ffaa00' : '#cc8800';
-                } else {
-                  e.currentTarget.style.color = theme === 'dark' ? '#aaa' : '#555';
-                  e.currentTarget.style.borderColor = theme === 'dark' ? '#444' : '#bbb';
-                }
+                e.currentTarget.style.color = theme === 'dark' ? '#888' : '#666';
+                e.currentTarget.style.background = 'transparent';
               }}
             >
-              ☁ Save
+              <CopyIcon />
             </button>
-          )}
+
+            {/* Delete Queue (only if more than 1) */}
+            {queueMeta.queues.length > 1 && (
+              <button
+                onClick={handleDeleteQueue}
+                title="Delete Playlist"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  color: theme === 'dark' ? '#666' : '#999',
+                  display: 'flex',
+                  alignItems: 'center',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#ff5555';
+                  e.currentTarget.style.background = 'rgba(255, 85, 85, 0.08)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = theme === 'dark' ? '#666' : '#999';
+                  e.currentTarget.style.background = 'transparent';
+                }}
+              >
+                <TrashIcon />
+              </button>
+            )}
+              
+            {/* Manual Save to Cloud */}
+            {user && (
+              <button
+                onClick={syncQueueNow}
+                title="Save Playlist to Cloud"
+                style={{
+                  background: syncStatus[queueMeta.activeId] === "unsynced" 
+                    ? (theme === 'dark' ? 'rgba(255, 170, 0, 0.15)' : 'rgba(204, 136, 0, 0.1)') 
+                    : syncStatus[queueMeta.activeId] === "saving"
+                    ? (theme === 'dark' ? 'rgba(0, 255, 153, 0.15)' : 'rgba(0, 51, 153, 0.1)')
+                    : 'transparent',
+                  border: syncStatus[queueMeta.activeId] === "unsynced"
+                    ? (theme === 'dark' ? '1px solid #ffaa00' : '1px solid #cc8800')
+                    : syncStatus[queueMeta.activeId] === "saving"
+                    ? (theme === 'dark' ? '1px solid #00ff99' : '1px solid #003399')
+                    : (theme === 'dark' ? '1px solid #444' : '1px solid #bbb'),
+                  borderRadius: '6px',
+                  padding: '4px 8px',
+                  cursor: 'pointer',
+                  color: syncStatus[queueMeta.activeId] === "unsynced"
+                    ? (theme === 'dark' ? '#ffaa00' : '#cc8800')
+                    : syncStatus[queueMeta.activeId] === "saving"
+                    ? (theme === 'dark' ? '#00ff99' : '#003399')
+                    : (theme === 'dark' ? '#aaa' : '#555'),
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  transition: 'all 0.2s',
+                  marginLeft: 'auto'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = theme === 'dark' ? '#00ff99' : '#003399';
+                  e.currentTarget.style.borderColor = theme === 'dark' ? '#00ff99' : '#003399';
+                }}
+                onMouseLeave={(e) => {
+                  if (syncStatus[queueMeta.activeId] === "unsynced") {
+                    e.currentTarget.style.color = theme === 'dark' ? '#ffaa00' : '#cc8800';
+                    e.currentTarget.style.borderColor = theme === 'dark' ? '#ffaa00' : '#cc8800';
+                  } else if (syncStatus[queueMeta.activeId] === "saving") {
+                    e.currentTarget.style.color = theme === 'dark' ? '#00ff99' : '#003399';
+                    e.currentTarget.style.borderColor = theme === 'dark' ? '#00ff99' : '#003399';
+                  } else {
+                    e.currentTarget.style.color = theme === 'dark' ? '#aaa' : '#555';
+                    e.currentTarget.style.borderColor = theme === 'dark' ? '#444' : '#bbb';
+                  }
+                }}
+              >
+                {syncStatus[queueMeta.activeId] === "saving" ? "☁ Saving..." : "☁ Save"}
+              </button>
+            )}
           </div>
 
         </div>

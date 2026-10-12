@@ -98,10 +98,10 @@ const Prelist = React.forwardRef((
   useEffect(() => {
     if (activeId) {
       if (sidebarItemRefs.current && sidebarItemRefs.current[activeId]) {
-        sidebarItemRefs.current[activeId].scrollIntoView({ behavior: "instant", block: "nearest" });
+        sidebarItemRefs.current[activeId].scrollIntoView({ behavior: "instant", block: "center" });
       }
       if (itemRefs.current && itemRefs.current[activeId]) {
-        itemRefs.current[activeId].scrollIntoView({ behavior: "instant", block: "nearest" });
+        itemRefs.current[activeId].scrollIntoView({ behavior: "instant", block: "center" });
       }
     }
   }, [activeId]);
@@ -137,7 +137,7 @@ const Prelist = React.forwardRef((
           localPreview: streamUrl,
         },
         currentTime: item.currentTime || 0,
-        isPlaying: item.isPlaying !== false,
+        isPlaying: item.isPlaying === true,
         volume: item.volume !== undefined ? item.volume : 1,
         isMuted: item.isMuted !== undefined ? item.isMuted : false,
         isLooping: item.isLooping === true,
@@ -840,6 +840,7 @@ const Prelist = React.forwardRef((
         loadCloudPlaylist={loadCloudPlaylist}
         fetchCloudPlaylists={fetchCloudPlaylists}
         syncQueueNow={syncQueueNow}
+        settings={settings}
       />
 
       {/* Main table area: Displays Verses corresponding to Queue */}

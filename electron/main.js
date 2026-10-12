@@ -69,6 +69,8 @@ function createMainWindow() {
     title: "Scripture Screen - Control Panel",
     width: 1300,
     height: 800,
+    minWidth: 960,
+    minHeight: 600,
     show: false, // IMPORTANT: show only when ready
     icon: iconPath,
     backgroundColor: "#ffffff",
@@ -688,36 +690,95 @@ const MEDIA_MIME_TYPES = {
 
 /* ------------ App Lifecycle ------------ */
 app.whenReady().then(() => {
+  // Helper for streaming media files with HTTP 206 byte-range seeking support
+  function handleMediaFileStream(filePath, request) {
+    if (!fs.existsSync(filePath)) {
+      return new Response("File not found", { status: 404 });
+    }
+
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = MEDIA_MIME_TYPES[ext] || "application/octet-stream";
+
+    // For image files, read buffer directly to prevent stream abort
+    if (/^\.(png|jpe?g|webp|gif|bmp|svg|ico)$/i.test(ext)) {
+      const fileBuf = fs.readFileSync(filePath);
+      return new Response(fileBuf, {
+        status: 200,
+        headers: {
+          "Content-Type": contentType,
+          "Content-Length": fileBuf.length.toString(),
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "public, max-age=86400",
+        },
+      });
+    }
+
+    const stat = fs.statSync(filePath);
+    const fileSize = stat.size;
+    const rangeHeader = request.headers.get("range") || request.headers.get("Range");
+
+    const toWebStream = (nodeStream) => {
+      const { Readable } = require("stream");
+      if (Readable.toWeb) {
+        return Readable.toWeb(nodeStream);
+      }
+      return new ReadableStream({
+        start(controller) {
+          nodeStream.on("data", (chunk) => controller.enqueue(chunk));
+          nodeStream.on("end", () => controller.close());
+          nodeStream.on("error", (err) => controller.error(err));
+        },
+        cancel() {
+          nodeStream.destroy();
+        },
+      });
+    };
+
+    if (rangeHeader) {
+      const matches = rangeHeader.match(/bytes=(\d*)-(\d*)/);
+      if (matches) {
+        let start = matches[1] ? parseInt(matches[1], 10) : 0;
+        let end = matches[2] ? parseInt(matches[2], 10) : fileSize - 1;
+
+        if (isNaN(start)) start = 0;
+        if (isNaN(end) || end >= fileSize) end = fileSize - 1;
+
+        if (start < fileSize && start <= end) {
+          const chunkSize = end - start + 1;
+          const nodeStream = fs.createReadStream(filePath, { start, end });
+          return new Response(toWebStream(nodeStream), {
+            status: 206,
+            statusText: "Partial Content",
+            headers: {
+              "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+              "Accept-Ranges": "bytes",
+              "Content-Length": chunkSize.toString(),
+              "Content-Type": contentType,
+              "Access-Control-Allow-Origin": "*",
+            },
+          });
+        }
+      }
+    }
+
+    // Default: full file stream with Accept-Ranges
+    const nodeStream = fs.createReadStream(filePath);
+    return new Response(toWebStream(nodeStream), {
+      status: 200,
+      headers: {
+        "Content-Length": fileSize.toString(),
+        "Content-Type": contentType,
+        "Accept-Ranges": "bytes",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+
   // Protocol handlers for streaming local media files with byte-range (HTTP 206) support
   protocol.handle("local-file", async (request) => {
     try {
       const realPath = urlToLocalFilePath(request.url);
-      if (!fs.existsSync(realPath)) {
-        console.warn("[MAIN] local-file not found:", realPath);
-        return new Response("File not found", { status: 404 });
-      }
-
-      const ext = path.extname(realPath).toLowerCase();
-      const contentType = MEDIA_MIME_TYPES[ext] || "application/octet-stream";
-
-      // For image files, read buffer directly to prevent stream abort / net::ERR_FAILED 200 in Chromium
-      if (/^\.(png|jpe?g|webp|gif|bmp|svg|ico)$/i.test(ext)) {
-        const fileBuf = await fs.promises.readFile(realPath);
-        return new Response(fileBuf, {
-          status: 200,
-          headers: {
-            "Content-Type": contentType,
-            "Content-Length": fileBuf.length.toString(),
-            "Access-Control-Allow-Origin": "*",
-            "Cache-Control": "public, max-age=86400",
-          },
-        });
-      }
-
-      // For videos / large streams, use net.fetch with file:// URL for native HTTP 206 byte-range seeking
-      return net.fetch(pathToFileURL(realPath).toString(), {
-        bypassCustomProtocolHandlers: true,
-      });
+      return handleMediaFileStream(realPath, request);
     } catch (err) {
       console.error("[MAIN] local-file protocol error:", err);
       return new Response("File error", { status: 500 });
@@ -730,30 +791,7 @@ app.whenReady().then(() => {
       const fileName = decodeURIComponent(parsed.pathname.replace(/^\//, "") || parsed.host);
       const mediaDir = path.join(app.getPath("userData"), "media");
       const fullPath = path.join(mediaDir, fileName);
-      if (!fs.existsSync(fullPath)) {
-        console.warn("[MAIN] local-media not found:", fullPath);
-        return new Response("File not found", { status: 404 });
-      }
-
-      const ext = path.extname(fullPath).toLowerCase();
-      const contentType = MEDIA_MIME_TYPES[ext] || "application/octet-stream";
-
-      if (/^\.(png|jpe?g|webp|gif|bmp|svg|ico)$/i.test(ext)) {
-        const fileBuf = await fs.promises.readFile(fullPath);
-        return new Response(fileBuf, {
-          status: 200,
-          headers: {
-            "Content-Type": contentType,
-            "Content-Length": fileBuf.length.toString(),
-            "Access-Control-Allow-Origin": "*",
-            "Cache-Control": "public, max-age=86400",
-          },
-        });
-      }
-
-      return net.fetch(pathToFileURL(fullPath).toString(), {
-        bypassCustomProtocolHandlers: true,
-      });
+      return handleMediaFileStream(fullPath, request);
     } catch (err) {
       console.error("[MAIN] local-media protocol error:", err);
       return new Response("File error", { status: 500 });

@@ -55,23 +55,33 @@ export default function Header({
           height: "100%",
         }}
       >
-        {/* Blank + Close buttons tightly clustered */}
-        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-          <HeaderIconButton
+        {/* Joined Blank + Close presentation buttons in a single rectangle */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            border: `1px solid ${border}`,
+            borderRadius: "6px",
+            overflow: "hidden",
+            boxSizing: "border-box",
+            background: theme === "dark" ? "#0f0e0e" : "#ffffff",
+          }}
+        >
+          <PresentationHeaderButton
             onClick={openBlankPresentation}
             title="Blank Presentation"
             theme={theme}
           >
             ☐
-          </HeaderIconButton>
+          </PresentationHeaderButton>
 
-          <HeaderIconButton
+          <PresentationHeaderButton
             onClick={closePresentation}
             title="Close Presentation"
             theme={theme}
           >
             ☒
-          </HeaderIconButton>
+          </PresentationHeaderButton>
         </div>
 
         {/* Subtle divider */}
@@ -292,6 +302,38 @@ function HeaderIconButton({ onClick, title, theme, children }) {
 }
 
 /* ----------------------------------------
+   PresentationHeaderButton — Joined presentation button (borderless, isolated hover)
+----------------------------------------- */
+function PresentationHeaderButton({ onClick, title, theme, children }) {
+  const [hovered, setHovered] = React.useState(false);
+  const hoverBg = theme === "dark" ? "rgba(255, 255, 255, 0.12)" : "rgba(0, 0, 0, 0.08)";
+
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: hovered ? hoverBg : "transparent",
+        color: theme === "dark" ? "#ffffff" : "#000000",
+        border: "none",
+        padding: "5px 10px",
+        cursor: "pointer",
+        fontSize: "17px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "background 0.2s ease, color 0.2s ease",
+        outline: "none",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ----------------------------------------
    FontMiniControl — compact +/- control with language letter
 ----------------------------------------- */
 function FontMiniControl({ letter, fontFamily, value, onChange, theme, title }) {
@@ -329,10 +371,10 @@ function FontMiniControl({ letter, fontFamily, value, onChange, theme, title }) 
           fontFamily,
           fontSize: "15px",
           lineHeight: 1,
-          opacity: 0.75,
+          opacity: 0.85,
           minWidth: "16px",
           textAlign: "center",
-          color: value !== 0 ? accent : (theme === "dark" ? "#aaa" : "#555"),
+          color: value !== 0 ? accent : (theme === "dark" ? "#ffffffff" : "#000000ff"),
           transition: "color 0.2s",
         }}
       >

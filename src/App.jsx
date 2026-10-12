@@ -143,13 +143,25 @@ export default function App() {
       loaded = loadMemory("prelistedItems", []);
     }
     if (!loaded) loaded = [];
-    // Filter out stale blob URLs (they expire on reload)
-    return loaded.filter(item => {
+    // Filter/recover stale blob URLs on reload
+    return loaded.map(item => {
       if (item.type === 'file' && item.url && item.url.startsWith('blob:')) {
-        return false;
+        if (item.path) {
+          const localUrl = `local-file:///${item.path.replace(/\\/g, '/')}`;
+          return {
+            ...item,
+            url: localUrl,
+            localUrl,
+            localPreview: localUrl,
+          };
+        }
+        if (item.localUrl && !item.localUrl.startsWith('blob:') && !item.localUrl.startsWith('[')) {
+          return { ...item, url: item.localUrl };
+        }
+        return null; // Expired blob with no path or localUrl
       }
-      return true;
-    });
+      return item;
+    }).filter(Boolean);
   });
 
   const [prelistActiveId, setPrelistActiveId] = useState(null); // Active item selection
@@ -516,7 +528,7 @@ export default function App() {
     }
   }, [user, queueMeta.activeId, getMemKey]);
 
-  // Persistence Effect — always save locally, auto-sync to Firestore
+  // Persistence Effect — always save locally, auto-sync to Firestore if cloud sync is enabled
   useEffect(() => {
     if (isRemoteUpdate.current) {
       isRemoteUpdate.current = false;
@@ -526,16 +538,39 @@ export default function App() {
     // Always save to localStorage (backup + offline)
     saveMemory(getMemKey(`queue_items_${queueMeta.activeId}`), prelistedItems);
 
-    // We no longer auto-sync to Firestore on every keystroke/change.
-    // Instead we just mark the local queue as unsynced if cloud sync is enabled.
-    // The user must manually click 'Save' to push to cloud to avoid cross-device loop conflicts.
     if (user && settings.cloudSyncEnabled !== false) {
-      setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'unsynced' }));
+      // Auto Cloud Sync is ON in settings: Debounced auto-save to cloud
+      setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'saving' }));
+      const timer = setTimeout(async () => {
+        try {
+          if (!activeQueueInfo) return;
+          const queueRef = doc(db, "users", user.uid, "queues", queueMeta.activeId);
+          const now = new Date().toISOString();
+          const cloudItems = sanitizeItemsForCloud(prelistedItems);
+          await setDoc(queueRef, {
+            name: activeQueueInfo.name,
+            items: cloudItems,
+            lastModified: now,
+          }, { merge: true });
+          saveMemory(getMemKey(`queue_modified_${queueMeta.activeId}`), now);
+          setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'synced' }));
+          fetchCloudPlaylists(user.uid);
+        } catch (err) {
+          console.error('[AUTO-SYNC] Failed:', err);
+          setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'unsynced' }));
+        }
+      }, 1500);
+
+      return () => clearTimeout(timer);
     } else {
-      // Not logged in or sync disabled, mark as local
-      setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'local' }));
+      // Auto Cloud Sync is OFF in settings: User needs manual save button shown in orange
+      if (user) {
+        setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'unsynced' }));
+      } else {
+        setSyncStatus((prev) => ({ ...prev, [queueMeta.activeId]: 'local' }));
+      }
     }
-  }, [prelistedItems, user, queueMeta.activeId, getMemKey]);
+  }, [prelistedItems, user, queueMeta.activeId, settings.cloudSyncEnabled, activeQueueInfo, getMemKey, fetchCloudPlaylists]);
 
   // ---- Queue Management Functions ----
   const getUniqueQueueName = useCallback((baseName, existingQueues) => {
@@ -1352,6 +1387,8 @@ export default function App() {
     <div
       style={{
         height: "100vh",
+        minWidth: "960px",
+        minHeight: "600px",
         display: "flex",
         flexDirection: "column",
         fontFamily: "arial rounded mt",
@@ -1376,23 +1413,12 @@ export default function App() {
         <div
           style={{
             display: "flex",
-            gap: "20px",
             width: "100%",
             flex: 1,
             minHeight: 0,
           }}
         >
-          {/* MAIN LAYOUT: Sidebar + content */}
-          <div
-            style={{
-              display: "flex", // Nested flex to ensure full height?
-              gap: "20px",
-              width: "100%",
-              flex: 1,
-              minHeight: 0,
-            }}
-          >
-            {/* Left Sidebar */}
+          {/* Left Sidebar */}
             <div
               style={{
                 width: "24%",
@@ -1410,44 +1436,39 @@ export default function App() {
                   theme === "dark" ? "1px solid #555" : "1px solid #999",
               }}
             >
-              {/* Search input + previous/next buttons */}
+              {/* Reference input box (rectangle 1) + Action buttons (rectangle 2) */}
               <div
                 style={{
                   display: "flex",
-                  gap: "8px",
                   alignItems: "center",
+                  gap: "8px",
                   width: "100%",
-                  overflow: "visible",
-                  padding: "2px 2px",
-                  boxSizing: "border-box",
+                  marginBottom: "12px",
                 }}
               >
-                {/* Search bar with icon */}
-                {/* Search bar container with focus styling */}
+                {/* 1. Reference input box (standalone rectangle) */}
                 <div
                   style={{
-                    flex: 1,
-                    minWidth: "0", // CRITICAL: Allow container to shrink
                     display: "flex",
                     alignItems: "center",
-                    padding: "8px 10px", // Compact padding
+                    flex: 1,
+                    minWidth: "0",
+                    height: "34px",
                     borderRadius: "6px",
-                    transition:
-                      "background 0.25s ease-in-out, color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out",
-                    background: theme === "dark" ? "#0f0e0eff" : "#fff",
-                    cursor: "text",
-                    border: theme === "dark" ? "1px solid #474747ff" : "1px solid #ddd",
+                    background: theme === "dark" ? "#121212" : "#f8f8f8",
+                    border: theme === "dark" ? "1px solid #444" : "1px solid #ccc",
+                    boxSizing: "border-box",
+                    overflow: "hidden",
+                    transition: "border-color 0.2s ease, box-shadow 0.2s ease",
                   }}
                   className="search-container"
-                  onClick={() => searchInputRef.current?.focus()}
                 >
                   <input
                     ref={searchInputRef}
                     className="search-input"
-                    placeholder="Reference jn03 16" // Shortened placeholder
+                    placeholder="Reference jn03 16"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    // Remove default outline to avoid double focus visual
                     onKeyDown={(e) => {
                       if (
                         [
@@ -1462,129 +1483,153 @@ export default function App() {
                       if (e.key === "Enter") handleSearchWithFocus();
                     }}
                     style={{
-                      flex: 1,
-                      minWidth: "0", // CRITICAL: Allow input to shrink
+                      width: "100%",
+                      minWidth: "0",
+                      height: "100%",
                       border: "none",
                       outline: "none",
                       background: "transparent",
                       color: theme === "dark" ? "white" : "#000",
-                      fontSize: "14px",
+                      fontSize: "13.5px",
                       fontFamily: "inherit",
+                      padding: "0 10px",
+                      boxSizing: "border-box",
                     }}
                   />
+                </div>
+
+                {/* 2. Action buttons (separate rectangle with no in-between lines) */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "stretch",
+                    height: "34px",
+                    borderRadius: "6px",
+                    background: theme === "dark" ? "#121212" : "#f8f8f8",
+                    border: theme === "dark" ? "1px solid #444" : "1px solid #ccc",
+                    overflow: "hidden",
+                    boxSizing: "border-box",
+                    flexShrink: 0,
+                  }}
+                >
                   {/* Search Icon Button */}
-                  <span title="Search Verse" style={{ display: "flex", alignItems: "center" }}>
+                  <button
+                    type="button"
+                    title="Search Verse"
+                    onClick={handleSearchWithFocus}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      padding: "0 9px",
+                      height: "100%",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: theme === "dark" ? "#bbb" : "#555",
+                      transition: "background 0.2s ease, color 0.2s ease",
+                      outline: "none",
+                      flexShrink: 0,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
+                      e.currentTarget.style.color =
+                        theme === "dark" ? "#00ff99" : "#0642bb";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.color =
+                        theme === "dark" ? "#bbb" : "#555";
+                    }}
+                  >
                     <svg
-                      onClick={handleSearchWithFocus}
-                      width="17"
-                      height="18"
+                      width="15"
+                      height="15"
                       viewBox="0 0 24 24"
                       fill="none"
-                      stroke={theme === "dark" ? "#ccccccff" : "#0c0c0cff"}
-                      strokeWidth="2"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      style={{
-                        flexShrink: 0,
-                        marginLeft: "1px",
-                        cursor: "pointer",
-                        transition: "stroke 0.2s ease",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.stroke =
-                          theme === "dark" ? "#00ff99" : "#0642bbff";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.stroke =
-                          theme === "dark" ? "#ccccccff" : "#0c0c0cff";
-                      }}
                     >
                       <circle cx="11" cy="11" r="8" />
                       <path d="m21 21-4.35-4.35" />
                     </svg>
-                  </span>
+                  </button>
+
+                  {/* Prev Button */}
+                  <button
+                    type="button"
+                    title="Previous Verse"
+                    onClick={handlePrev}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      padding: "0 9px",
+                      height: "100%",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: theme === "dark" ? "#ccc" : "#333",
+                      fontSize: "14px",
+                      fontWeight: "bold",
+                      transition: "background 0.2s ease, color 0.2s ease",
+                      outline: "none",
+                      flexShrink: 0,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
+                      e.currentTarget.style.color =
+                        theme === "dark" ? "#00ff99" : "#0642bb";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.color =
+                        theme === "dark" ? "#ccc" : "#333";
+                    }}
+                  >
+                    🡨
+                  </button>
+
+                  {/* Next Button */}
+                  <button
+                    type="button"
+                    title="Next Verse"
+                    onClick={handleNext}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      padding: "0 9px",
+                      height: "100%",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: theme === "dark" ? "#ccc" : "#333",
+                      fontSize: "14px",
+                      fontWeight: "bold",
+                      transition: "background 0.2s ease, color 0.2s ease",
+                      outline: "none",
+                      flexShrink: 0,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
+                      e.currentTarget.style.color =
+                        theme === "dark" ? "#00ff99" : "#0642bb";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.color =
+                        theme === "dark" ? "#ccc" : "#333";
+                    }}
+                  >
+                    🡪
+                  </button>
                 </div>
-
-                {/* Prev / Next buttons */}
-                <button
-                  type="button"
-                  title="Previous Verse"
-                  onClick={handlePrev}
-                  style={{
-                    width: "35px",
-                    height: "35px",
-                    minWidth: "35px",
-                    minHeight: "35px",
-                    maxWidth: "35px",
-                    maxHeight: "35px",
-                    flexShrink: 0,
-                    padding: "0",
-                    borderRadius: "50%",
-                    fontSize: "15px",
-                    background: theme === "dark" ? "#0f0e0eff" : "#eee",
-                    color: theme === "dark" ? "white" : "black",
-                    border:
-                      theme === "dark" ? "1px solid #555" : "1px solid #999",
-                    cursor: "pointer",
-                    transition: "background 0.2s ease",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxSizing: "border-box",
-                    overflow: "hidden",
-                    outline: "none",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background =
-                      theme === "dark" ? "#1a1a1a" : "#d3d3d3";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background =
-                      theme === "dark" ? "#0f0e0eff" : "#eee";
-                  }}
-                >
-                  🡨
-                </button>
-
-                <button
-                  type="button"
-                  title="Next Verse"
-                  onClick={handleNext}
-                  style={{
-                    width: "35px",
-                    height: "35px",
-                    minWidth: "35px",
-                    minHeight: "35px",
-                    maxWidth: "35px",
-                    maxHeight: "35px",
-                    flexShrink: 0,
-                    padding: "0",
-                    borderRadius: "50%",
-                    fontSize: "15px",
-                    background: theme === "dark" ? "#0f0e0eff" : "#eee",
-                    color: theme === "dark" ? "white" : "black",
-                    border:
-                      theme === "dark" ? "1px solid #555" : "1px solid #999",
-                    cursor: "pointer",
-                    transition: "background 0.2s ease",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxSizing: "border-box",
-                    overflow: "hidden",
-                    outline: "none",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background =
-                      theme === "dark" ? "#1a1a1a" : "#d3d3d3";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background =
-                      theme === "dark" ? "#0f0e0eff" : "#eee";
-                  }}
-                >
-                  🡪
-                </button>
               </div>
 
               {/* Books / Chapters / Verses lists */}
@@ -1659,14 +1704,14 @@ export default function App() {
             </div>
 
             {/* Main table area (chapter table) */}
-            <div style={{ flex: 1, padding: "5px" }}>
+            <div style={{ flex: 1, minWidth: 0, padding: 0 }}>
               <div
                 ref={verseTableRef}
                 style={{
-                  height: "calc(100vh - 100px)",
+                  height: "calc(100vh - 75px)",
                   overflowY: "auto",
                   borderTop: "1px solid rgba(255,255,255,0.06)",
-                  paddingTop: "12px",
+                  paddingTop: "6px",
                 }}
               >
                 <ChapterTable
@@ -1693,7 +1738,6 @@ export default function App() {
                 />
               </div>
             </div>
-          </div>
         </div>
       )}
 

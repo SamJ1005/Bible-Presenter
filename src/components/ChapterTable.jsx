@@ -2,11 +2,14 @@
 import React, { useEffect, useRef, useState } from "react";
 
 const ISSUE_HIGHLIGHT = {
-  pending:  { dark: '#3d3520', light: '#fff8e1' },
+  pending:   { dark: '#3d3520', light: '#fff8e1' },
+  reported:  { dark: '#3d3520', light: '#fff8e1' },
+  reviewing: { dark: '#1b324b', light: '#e8f4fd' },
 };
 
 const ISSUE_DOT = {
   reported:  '#ffc107',
+  pending:   '#ffc107',
   reviewing: '#42a5f5',
   resolved:  '#66bb6a',
 };
@@ -25,13 +28,63 @@ export default function ChapterTable({
   resetFontOffsets,
   zeroedSettings,
   getTamilVerse,
-  // New: Issue reporting props
+  // Issue reporting props
   verseIssues = {},
   onReportVerse,
   user,
 }) {
   const primaryIsEnglish = (settings?.primaryTranslation ?? "Tamil") === "English";
   const [hoveredRow, setHoveredRow] = useState(null);
+
+  // Load seen resolved report IDs from localStorage so user only sees green feedback once
+  const [seenResolvedIds, setSeenResolvedIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem("bp_seen_resolved_reports");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Track and mark newly displayed resolved report IDs as seen
+  useEffect(() => {
+    const newlySeenIds = [];
+    Object.values(verseIssues).forEach((issueData) => {
+      if (issueData?.reports) {
+        issueData.reports.forEach((r) => {
+          if (r.status === "resolved" && r.id && !seenResolvedIds.has(r.id)) {
+            newlySeenIds.push(r.id);
+          }
+        });
+      }
+    });
+
+    if (newlySeenIds.length > 0) {
+      // Mark as seen after viewing so they don't see it a second time
+      const timer = setTimeout(() => {
+        setSeenResolvedIds((prev) => {
+          const updated = new Set(prev);
+          newlySeenIds.forEach((id) => updated.add(id));
+          try {
+            localStorage.setItem("bp_seen_resolved_reports", JSON.stringify(Array.from(updated)));
+          } catch {}
+          return updated;
+        });
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [verseIssues]);
+
+  const dismissResolvedFeedback = (reportIds) => {
+    setSeenResolvedIds((prev) => {
+      const updated = new Set(prev);
+      reportIds.forEach((id) => updated.add(id));
+      try {
+        localStorage.setItem("bp_seen_resolved_reports", JSON.stringify(Array.from(updated)));
+      } catch {}
+      return updated;
+    });
+  };
 
   // english verses for chapter
   const englishVerses =
@@ -84,16 +137,29 @@ export default function ChapterTable({
   const selColor = theme === "dark" ? "#00ff99" : "#003399";
   const borderColor = theme === "dark" ? "#ffffff22" : "#dddddd";
 
+  // Column widths (change these percentages to resize columns manually)
+  const tamilWidth = "56%";
+  const englishWidth = "44%";
+
   // Column definitions — order swaps based on primaryTranslation
-  const tamilCol = (vn, isSel, isHovered, hasIssue) => (
-    <td style={{ padding: "14px 18px", borderBottom: `1px solid ${borderColor}`, fontFamily: "TamilBibleFont, sans-serif", position: "relative" }}>
-      <div style={{ display: "flex", alignItems: "flex-start" }}>
+  const tamilCol = (vn, isSel, isHovered, canReport) => (
+    <td style={{
+      width: tamilWidth,
+      padding: "12px 14px",
+      borderBottom: `1px solid ${borderColor}`,
+      fontFamily: "TamilBibleFont, sans-serif",
+      position: "relative",
+      verticalAlign: "top",
+      wordBreak: "break-word",
+      overflowWrap: "break-word",
+    }}>
+      <div style={{ display: "flex", alignItems: "flex-start", minWidth: 0 }}>
         <div style={{ marginRight: 8, fontWeight: 600, flexShrink: 0 }}>{vn}.</div>
-        <div style={{ fontSize: 15, lineHeight: 1.5, color: isSel ? selColor : "inherit", flexGrow: 1 }}>
+        <div style={{ fontSize: 15, lineHeight: 1.5, color: isSel ? selColor : "inherit", flexGrow: 1, minWidth: 0 }}>
           {tamilMap[String(vn)] ?? <span style={{ opacity: 0.5 }}>—</span>}
         </div>
       </div>
-      {(!hasIssue && onReportVerse && user) && (
+      {(canReport && onReportVerse && user) && (
         <button
           title="Report Tamil (BSI) verse"
           onClick={(e) => {
@@ -115,15 +181,23 @@ export default function ChapterTable({
     </td>
   );
 
-  const englishCol = (vn, isSel, isHovered, hasIssue) => (
-    <td style={{ padding: "14px 18px", borderBottom: `1px solid ${borderColor}`, position: "relative" }}>
-      <div style={{ display: "flex", alignItems: "flex-start" }}>
+  const englishCol = (vn, isSel, isHovered, canReport) => (
+    <td style={{
+      width: englishWidth,
+      padding: "12px 14px",
+      borderBottom: `1px solid ${borderColor}`,
+      position: "relative",
+      verticalAlign: "top",
+      wordBreak: "break-word",
+      overflowWrap: "break-word",
+    }}>
+      <div style={{ display: "flex", alignItems: "flex-start", minWidth: 0 }}>
         <div style={{ marginRight: 8, fontWeight: 600, flexShrink: 0 }}>{vn}.</div>
-        <div style={{ fontSize: 15, lineHeight: 1.5, color: isSel ? selColor : "inherit", flexGrow: 1 }}>
+        <div style={{ fontSize: 15, lineHeight: 1.5, color: isSel ? selColor : "inherit", flexGrow: 1, minWidth: 0 }}>
           {engMap[String(vn)] ?? <span style={{ opacity: 0.5 }}>—</span>}
         </div>
       </div>
-      {(!hasIssue && onReportVerse && user) && (
+      {(canReport && onReportVerse && user) && (
         <button
           title="Report English (NKJV) verse"
           onClick={(e) => {
@@ -148,36 +222,71 @@ export default function ChapterTable({
   return (
     <table
       ref={verseTableRef}
-      style={{ width: "100%", borderCollapse: "collapse", color: theme === "dark" ? "white" : "black" }}
+      style={{
+        width: "100%",
+        tableLayout: "fixed",
+        borderCollapse: "collapse",
+        color: theme === "dark" ? "white" : "black"
+      }}
     >
+      <colgroup>
+        {primaryIsEnglish ? (
+          <>
+            <col style={{ width: englishWidth }} />
+            <col style={{ width: tamilWidth }} />
+          </>
+        ) : (
+          <>
+            <col style={{ width: tamilWidth }} />
+            <col style={{ width: englishWidth }} />
+          </>
+        )}
+        <col style={{ width: "28px" }} />
+      </colgroup>
       <thead>
         <tr>
           {primaryIsEnglish ? (
             <>
-              <th style={{ padding: 10, borderBottom: "1px solid #ddd", textAlign: "left" }}>English (NKJV)</th>
-              <th style={{ padding: 10, borderBottom: "1px solid #ddd", textAlign: "left" }}>Tamil</th>
+              <th style={{ padding: "8px 14px", borderBottom: `1px solid ${borderColor}`, textAlign: "left", width: englishWidth }}>English (NKJV)</th>
+              <th style={{ padding: "8px 14px", borderBottom: `1px solid ${borderColor}`, textAlign: "left", width: tamilWidth }}>Tamil</th>
             </>
           ) : (
             <>
-              <th style={{ padding: 10, borderBottom: "1px solid #ddd", textAlign: "left" }}>Tamil</th>
-              <th style={{ padding: 10, borderBottom: "1px solid #ddd", textAlign: "left" }}>English (NKJV)</th>
+              <th style={{ padding: "8px 14px", borderBottom: `1px solid ${borderColor}`, textAlign: "left", width: tamilWidth }}>Tamil</th>
+              <th style={{ padding: "8px 14px", borderBottom: `1px solid ${borderColor}`, textAlign: "left", width: englishWidth }}>English (NKJV)</th>
             </>
           )}
-          <th style={{ padding: 10, borderBottom: "1px solid #ddd", width: 44 }}></th>
+          <th style={{ padding: "8px 2px", borderBottom: `1px solid ${borderColor}`, width: 28, textAlign: "center" }}></th>
         </tr>
       </thead>
       <tbody>
         {verseNums.map((vn) => {
           const isSel = Number(vn) === Number(selectedVerse);
           const issueData = verseIssues[String(vn)];
-          const hasIssue = issueData && issueData.count > 0;
-          const issueStatus = issueData?.status || 'pending';
+          const reports = issueData?.reports || [];
+
+          // Check if there are active (unresolved) issues
+          const hasPendingIssue = reports.some(
+            (r) => r.status === 'pending' || r.status === 'reported' || r.status === 'reviewing'
+          );
+
+          // Check if there are resolved issues that have NOT been seen yet
+          const unseenResolvedReports = reports.filter(
+            (r) => r.status === 'resolved' && r.id && !seenResolvedIds.has(r.id)
+          );
+
+          // Show issue dot/badge if there's a pending issue OR an unseen resolved issue
+          const showDot = hasPendingIssue || unseenResolvedReports.length > 0;
+          const dotStatus = hasPendingIssue ? (issueData?.status || 'pending') : (unseenResolvedReports.length > 0 ? 'resolved' : null);
+
+          // A resolved verse which was reported previously can again be allowed to report!
+          const canReport = !hasPendingIssue;
           const isHovered = hoveredRow === vn;
 
           // Determine row background
           let rowBg = 'transparent';
-          if (hasIssue) {
-            const hl = ISSUE_HIGHLIGHT[issueStatus];
+          if (hasPendingIssue) {
+            const hl = ISSUE_HIGHLIGHT[dotStatus];
             if (hl) {
               rowBg = theme === 'dark' ? hl.dark : hl.light;
             }
@@ -202,34 +311,46 @@ export default function ChapterTable({
               }}
             >
               {primaryIsEnglish ? (
-                <>{englishCol(vn, isSel, isHovered, hasIssue)}{tamilCol(vn, isSel, isHovered, hasIssue)}</>
+                <>{englishCol(vn, isSel, isHovered, canReport)}{tamilCol(vn, isSel, isHovered, canReport)}</>
               ) : (
-                <>{tamilCol(vn, isSel, isHovered, hasIssue)}{englishCol(vn, isSel, isHovered, hasIssue)}</>
+                <>{tamilCol(vn, isSel, isHovered, canReport)}{englishCol(vn, isSel, isHovered, canReport)}</>
               )}
               {/* Report / Issue indicator column */}
               <td style={{
-                padding: '8px 6px',
+                padding: '4px 2px',
                 borderBottom: `1px solid ${borderColor}`,
                 verticalAlign: 'middle',
                 textAlign: 'center',
+                width: 28,
               }}>
-                {hasIssue && (
+                {showDot && (
                   <span
-                    title={`${issueData.count} issue(s) — ${issueStatus}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (dotStatus === 'resolved') {
+                        dismissResolvedFeedback(unseenResolvedReports.map(r => r.id));
+                      }
+                    }}
+                    title={
+                      dotStatus === 'resolved'
+                        ? `${unseenResolvedReports.length} issue(s) resolved (click to dismiss)`
+                        : `${issueData.count} issue(s) — ${dotStatus}`
+                    }
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      width: '22px',
-                      height: '22px',
+                      width: '20px',
+                      height: '20px',
                       borderRadius: '50%',
-                      background: ISSUE_DOT[issueStatus] || '#ffc107',
+                      background: ISSUE_DOT[dotStatus] || '#ffc107',
                       color: '#000',
                       fontSize: '11px',
                       fontWeight: 700,
+                      cursor: dotStatus === 'resolved' ? 'pointer' : 'default',
                     }}
                   >
-                    {issueData.count}
+                    {dotStatus === 'resolved' ? '✓' : issueData.count}
                   </span>
                 )}
               </td>

@@ -14,6 +14,9 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
   const [isLooping, setIsLooping] = useState(Boolean(item?.isLooping));
   const [showControls, setShowControls] = useState(true);
   const [videoError, setVideoError] = useState(null);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubPercent, setScrubPercent] = useState(null);
+  const progressBarRef = useRef(null);
   const controlsTimeoutRef = useRef(null);
   const isRemoteUpdatingRef = useRef(false);
   const lastSyncRef = useRef(0);
@@ -39,25 +42,9 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
     return 0;
   };
 
-  // Selecting an active card prepares playback and syncs presentation window
+  // Card selection only highlights locally - does not auto-trigger secondary presentation screen
   useEffect(() => {
-    const video = videoRef.current;
-    if (!isActive || !video || !resolvedSrc) return;
-
-    ensurePresented({ isPlaying: true, currentTime: video.currentTime || 0 });
-
-    const startCardPlayback = () => {
-      video.play().catch((err) => {
-        console.warn("[PrelistVideoPlayer] Autoplay note:", err);
-      });
-    };
-
-    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
-      startCardPlayback();
-    } else {
-      video.addEventListener("loadedmetadata", startCardPlayback, { once: true });
-      return () => video.removeEventListener("loadedmetadata", startCardPlayback);
-    }
+    // Secondary screen remains untouched until user explicitly plays or presents
   }, [isActive, resolvedSrc]);
 
   const formatTime = (seconds) => {
@@ -192,25 +179,109 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
     e?.stopPropagation();
     if (!videoRef.current) return;
     const cur = Number.isFinite(videoRef.current.currentTime) ? videoRef.current.currentTime : (currentTime || 0);
-    const dur = getPlayableDuration() || duration || Infinity;
-    const newTime = Math.max(0, Math.min(dur, cur + delta));
-    videoRef.current.currentTime = newTime;
+    const dur = getPlayableDuration() || duration;
+    const maxTime = dur > 0 ? dur : Math.max(0, cur + delta);
+    const newTime = Math.max(0, Math.min(maxTime, cur + delta));
+    try {
+      videoRef.current.currentTime = newTime;
+    } catch (err) {
+      console.warn("[PrelistVideoPlayer] skipTime error:", err);
+    }
     setCurrentTime(newTime);
     sendSync("seek", newTime, isPlaying);
   };
 
-  const handleSeek = (e) => {
-    e?.stopPropagation();
-    if (!videoRef.current) return;
-    const dur = getPlayableDuration() || duration;
-    if (!dur) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const newTime = pos * dur;
-    videoRef.current.currentTime = newTime;
-    setCurrentTime(newTime);
-    sendSync("seek", newTime, isPlaying);
+  const getScrubPos = (clientX) => {
+    if (!progressBarRef.current) return 0;
+    const rect = progressBarRef.current.getBoundingClientRect();
+    if (!rect.width) return 0;
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   };
+
+  const handlePointerDown = (e) => {
+    e.stopPropagation();
+    if (e.button !== 0) return;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+    setIsScrubbing(true);
+    const pos = getScrubPos(e.clientX);
+    setScrubPercent(pos * 100);
+    const dur = getPlayableDuration() || duration;
+    if (dur > 0 && videoRef.current) {
+      const newTime = pos * dur;
+      try { videoRef.current.currentTime = newTime; } catch {}
+      setCurrentTime(newTime);
+    }
+  };
+
+  const handlePointerMove = (e) => {
+    if (!isScrubbing) return;
+    e.stopPropagation();
+    const pos = getScrubPos(e.clientX);
+    setScrubPercent(pos * 100);
+    const dur = getPlayableDuration() || duration;
+    if (dur > 0 && videoRef.current) {
+      const newTime = pos * dur;
+      try { videoRef.current.currentTime = newTime; } catch {}
+      setCurrentTime(newTime);
+    }
+  };
+
+  const handlePointerUp = (e) => {
+    if (!isScrubbing) return;
+    e.stopPropagation();
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+    setIsScrubbing(false);
+    const pos = getScrubPos(e.clientX);
+    setScrubPercent(null);
+    const dur = getPlayableDuration() || duration;
+    if (dur > 0 && videoRef.current) {
+      const newTime = pos * dur;
+      try { videoRef.current.currentTime = newTime; } catch {}
+      setCurrentTime(newTime);
+      sendSync("seek", newTime, isPlaying);
+    }
+  };
+
+  const isPlayingRef = useRef(isPlaying);
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  // Allow roll-wheel to move timeline smoothly when cursor is over the scrubber
+  useEffect(() => {
+    const bar = progressBarRef.current;
+    if (!bar) return;
+
+    const handleWheel = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const video = videoRef.current;
+      if (!video) return;
+
+      const dur = getPlayableDuration(video) || duration;
+      if (!dur || dur <= 0) return;
+
+      // deltaY < 0 is scroll up (forward), deltaY > 0 is scroll down (backward)
+      const step = Math.min(Math.max(dur * 0.015, 1), 5);
+      const direction = e.deltaY < 0 ? 1 : -1;
+      const newTime = Math.min(Math.max(video.currentTime + direction * step, 0), dur);
+
+      try {
+        video.currentTime = newTime;
+      } catch {}
+      setCurrentTime(newTime);
+      sendSync("seek", newTime, isPlayingRef.current);
+    };
+
+    bar.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      bar.removeEventListener("wheel", handleWheel);
+    };
+  }, [duration]);
 
   const handleTimeUpdate = () => {
     const cur = videoRef.current?.currentTime || 0;
@@ -316,10 +387,6 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
         boxShadow: "0 4px 14px rgba(0,0,0,0.3)",
         userSelect: "none",
       }}
-      onClick={(e) => {
-        e.stopPropagation();
-        ensurePresented();
-      }}
     >
       <video
         ref={videoRef}
@@ -329,7 +396,6 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
         muted={true}
         playsInline
         loop={isLooping}
-        onClick={togglePlay}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={() => {
           const video = videoRef.current;
@@ -358,14 +424,18 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
         onError={(e) => {
           const err = e.target.error;
           console.error("[PrelistVideoPlayer] video loading error:", err, resolvedSrc);
-          setVideoError(err ? `Video error (${err.code}): Failed to load file` : "Failed to load video file");
+          setVideoError(
+            err?.code === 4 || (resolvedSrc && resolvedSrc.startsWith('local-file:'))
+              ? "Video unavailable on this device (available on original device only)"
+              : err ? `Video error (${err.code}): Failed to load file` : "Failed to load video file"
+          );
         }}
         style={{
           width: "100%",
           height: "100%",
           objectFit: "contain",
           display: videoError ? "none" : "block",
-          cursor: "pointer",
+          cursor: "default",
         }}
       />
 
@@ -461,39 +531,46 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
       >
         {/* Progress Bar / Scrubber */}
         <div
-          onClick={handleSeek}
+          ref={progressBarRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
           style={{
             width: "100%",
-            height: "5px",
+            height: isScrubbing ? "7px" : "5px",
             background: "rgba(255, 255, 255, 0.3)",
             borderRadius: "3px",
             cursor: "pointer",
             position: "relative",
             transition: "height 0.15s ease",
+            touchAction: "none",
           }}
           onMouseEnter={(e) => { e.currentTarget.style.height = "7px"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.height = "5px"; }}
+          onMouseLeave={(e) => { if (!isScrubbing) e.currentTarget.style.height = "5px"; }}
         >
           <div
             style={{
-              width: `${progressPercent}%`,
+              width: `${isScrubbing && scrubPercent !== null ? scrubPercent : progressPercent}%`,
               height: "100%",
               background: "#00ff99",
               borderRadius: "3px",
               position: "relative",
+              transition: isScrubbing ? "none" : "width 0.1s linear",
             }}
           >
             <div
               style={{
                 position: "absolute",
-                right: "-5px",
+                right: "-6px",
                 top: "50%",
                 transform: "translateY(-50%)",
-                width: "11px",
-                height: "11px",
+                width: isScrubbing ? "13px" : "11px",
+                height: isScrubbing ? "13px" : "11px",
                 borderRadius: "50%",
                 background: "#ffffff",
-                boxShadow: "0 0 4px rgba(0,0,0,0.5)",
+                boxShadow: isScrubbing ? "0 0 8px #00ff99" : "0 0 4px rgba(0,0,0,0.5)",
+                transition: "transform 0.1s ease, width 0.1s ease, height 0.1s ease",
               }}
             />
           </div>
@@ -548,18 +625,18 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
             <button
               type="button"
               onClick={toggleLoop}
-              title={isLooping ? "Repeat: Enabled (Click to play once)" : "Repeat: Disabled (Click to loop video)"}
+              title={isLooping ? "Loop: On (Click to play once)" : "Loop: Off (Click to loop video)"}
               style={{
                 ...btnControlStyle,
                 color: isLooping ? "#00ff99" : "#ffffff",
                 background: isLooping ? "rgba(0, 255, 153, 0.2)" : "rgba(255, 255, 255, 0.08)",
                 border: isLooping ? "1px solid rgba(0, 255, 153, 0.5)" : "1px solid rgba(255, 255, 255, 0.18)",
                 opacity: isLooping ? 1 : 0.75,
-                padding: "3px 8px",
+                padding: "4px 6px",
                 borderRadius: "4px",
-                gap: "5px",
                 display: "inline-flex",
                 alignItems: "center",
+                justifyContent: "center",
                 cursor: "pointer",
                 boxShadow: isLooping ? "0 0 8px rgba(0, 255, 153, 0.3)" : "none",
               }}
@@ -591,9 +668,6 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
                 <polyline points="7 23 3 19 7 15" />
                 <path d="M21 13v2a4 4 0 0 1-4 4H3" />
               </svg>
-              <span style={{ fontSize: "11px", fontWeight: "700", letterSpacing: "0.4px" }}>
-                {isLooping ? "Loop On" : "Loop"}
-              </span>
             </button>
 
             <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>

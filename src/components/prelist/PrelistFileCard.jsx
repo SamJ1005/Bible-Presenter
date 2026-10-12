@@ -23,6 +23,7 @@ const PrelistFileCard = ({ item, theme, isActive, handlePresent, handleItemClick
       url: displayUrl || item.url,
       localUrl: displayUrl || item.localUrl,
       localPreview: displayUrl || item.localPreview,
+      isPlaying: false,
       ...extra,
     });
   };
@@ -35,7 +36,7 @@ const PrelistFileCard = ({ item, theme, isActive, handlePresent, handleItemClick
         if (hasCopiedItem) {
           pasteContent?.(item.id);
         } else {
-          triggerPresent();
+          handleItemClick(item.id);
         }
       }}
       style={{
@@ -51,8 +52,32 @@ const PrelistFileCard = ({ item, theme, isActive, handlePresent, handleItemClick
         outline: isActive ? `2px solid ${theme === 'dark' ? '#00ff99' : '#003399'}` : 'none'
       }}
     >
-      <div style={{ marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
-        <span>📄 {item.name}</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', gap: '8px' }}>
+        <span style={{ fontSize: '13px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          📄 {item.name}
+        </span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            triggerPresent({ isPlaying: isVideo ? true : false });
+          }}
+          title="Present to Screen"
+          style={{
+            background: isActive ? (theme === 'dark' ? '#00ff99' : '#003399') : (theme === 'dark' ? '#333' : '#e0e0e0'),
+            color: isActive ? '#000' : (theme === 'dark' ? '#fff' : '#000'),
+            border: 'none',
+            borderRadius: '4px',
+            padding: '3px 7px',
+            fontSize: '12px',
+            lineHeight: 1,
+            cursor: 'pointer',
+            flexShrink: 0,
+            transition: 'all 0.15s ease',
+          }}
+        >
+          📺
+        </button>
       </div>
       {isImage && displayUrl && !imgError && (
         <img
