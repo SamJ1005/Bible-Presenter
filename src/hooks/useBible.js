@@ -76,17 +76,17 @@ export default function useBible() {
 
   async function loadTamilForBook(bookName) {
     if (!bookName) { setTamilBookData(null); return; }
-    if (tamilBookData && tamilBookData.type === "xml_bsi") return tamilBookData;
+    if (tamilBookData && tamilBookData.type === "xml_tamil") return tamilBookData;
 
     setVersesLoading(true);
     setVersesError("");
     try {
-      const r = await fetch("./bible/tamil_bsi.xml");
+      const r = await fetch("./bible/tamil.xml");
       if (!r.ok) throw new Error("Tamil XML file not found");
       const text = await r.text();
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(text, "text/xml");
-      const data = { type: "xml_bsi", xmlDoc };
+      const data = { type: "xml_tamil", xmlDoc };
       setTamilBookData(data);
       setVersesLoading(false);
       return data;
@@ -128,8 +128,8 @@ export default function useBible() {
     const data = dataOverride || tamilBookData;
     if (!data) return "";
 
-    // XML BSI (Zefania)
-    if (data.type === "xml_bsi" && data.xmlDoc) {
+    // XML (Zefania)
+    if (data.type === "xml_tamil" && data.xmlDoc) {
       const bookIndex = booksList.indexOf(bookName) + 1;
       // Try both bnumber and number attributes
       const bookNode = data.xmlDoc.querySelector(`BIBLEBOOK[bnumber="${bookIndex}"], BIBLEBOOK[number="${bookIndex}"]`);

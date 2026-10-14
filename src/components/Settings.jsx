@@ -6,6 +6,7 @@ import { signOut } from "firebase/auth";
 import packageInfo from "../../package.json";
 import { isMaintenanceAllowed } from "../utils/maintenanceAuth";
 import { toast } from "react-hot-toast";
+import { getBundledFullscreenWallpapers, getBundledLowerThirdWallpapers } from "../utils/defaultWallpapers";
 
 // Reusable section card component
 const SettingsCard = ({ title, children, style = {} }) => (
@@ -175,7 +176,20 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [displays, setDisplays] = React.useState([]);
-  const [activeTab, setActiveTab] = useState("display");
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      return localStorage.getItem("settings_active_subtab") || "display";
+    } catch {
+      return "display";
+    }
+  });
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    try {
+      localStorage.setItem("settings_active_subtab", tabId);
+    } catch {}
+  };
 
   // Software Update Check State
   const [checkingUpdate, setCheckingUpdate] = useState(false);
@@ -651,7 +665,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -682,16 +696,15 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
       </div>
       </div>
 
-      {/* TAB CONTENT AREAS */}
+      {/* TAB CONTENT AREAS (kept in DOM with display toggle for zero load time) */}
 
       {/* TAB 1: GENERAL & DISPLAY */}
-      {activeTab === "display" && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "20px",
-          alignItems: "flex-start"
-        }}>
+      <div style={{
+        display: activeTab === "display" ? "grid" : "none",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "20px",
+        alignItems: "flex-start"
+      }}>
           {/* COLUMN 1: Primary Language -> General App Preferences -> Display Device */}
           <div>
             {/* Primary Translation */}
@@ -1019,16 +1032,14 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
             </SettingsCard>
           </div>
         </div>
-      )}
 
       {/* TAB 2: FULLSCREEN PRESENTATION */}
-      {activeTab === "fullscreen" && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "20px",
-          alignItems: "flex-start"
-        }}>
+      <div style={{
+        display: activeTab === "fullscreen" ? "grid" : "none",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "20px",
+        alignItems: "flex-start"
+      }}>
           <div>
             {/* Background Options */}
             <SettingsCard title="Fullscreen Background">
@@ -1086,26 +1097,34 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
 
                 {/* Image Gallery */}
                 <div style={{ marginTop: '10px', marginLeft: '4px' }}>
-                  {(settings.bgImageGallery || []).length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-                      {(settings.bgImageGallery || []).map((img) => {
-                        const isActive = settings.presentationBgImage === img.data;
-                        return (
-                          <div key={img.id} style={{ position: 'relative', cursor: 'pointer' }} title={img.name}>
-                            <img
-                              src={img.data} alt={img.name}
-                              onClick={() => setSettings((prev) => ({ ...prev, presentationBgImage: img.data, presentationBgImageName: img.name, presentationBgType: 'image' }))}
-                              style={{ width: '80px', height: '52px', objectFit: 'cover', borderRadius: '6px', border: isActive ? '2px solid #00ff99' : '2px solid transparent', display: 'block', transition: 'border-color 0.2s' }}
-                            />
-                            {isActive && (<div style={{ position: 'absolute', top: 2, left: 2, background: '#00ff99', color: '#000', fontSize: '9px', fontWeight: 700, padding: '1px 4px', borderRadius: '3px' }}>✓</div>)}
-                            <button onClick={(e) => { e.stopPropagation(); setSettings((prev) => { const gallery = (prev.bgImageGallery || []).filter(x => x.id !== img.id); const wasActive = prev.presentationBgImage === img.data; return { ...prev, bgImageGallery: gallery, presentationBgImage: wasActive ? (gallery[0]?.data || null) : prev.presentationBgImage, presentationBgImageName: wasActive ? (gallery[0]?.name || null) : prev.presentationBgImageName, presentationBgType: wasActive && gallery.length === 0 ? 'black' : prev.presentationBgType }; }); }}
-                              style={{ position: 'absolute', top: 2, right: 2, width: '16px', height: '16px', background: 'rgba(231,76,60,0.85)', color: '#fff', border: 'none', borderRadius: '50%', cursor: 'pointer', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 }}
-                            >×</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                  {(() => {
+                    const bundledFs = getBundledFullscreenWallpapers();
+                    const userGallery = settings.bgImageGallery || [];
+                    const fullGallery = [...bundledFs, ...userGallery];
+
+                    return fullGallery.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                        {fullGallery.map((img) => {
+                          const isActive = settings.presentationBgImage === img.data;
+                          return (
+                            <div key={img.id} style={{ position: 'relative', cursor: 'pointer' }} title={img.name}>
+                              <img
+                                src={img.data} alt={img.name}
+                                onClick={() => setSettings((prev) => ({ ...prev, presentationBgImage: img.data, presentationBgImageName: img.name, presentationBgType: 'image' }))}
+                                style={{ width: '80px', height: '52px', objectFit: 'cover', borderRadius: '6px', border: isActive ? '2px solid #00ff99' : '2px solid transparent', display: 'block', transition: 'border-color 0.2s' }}
+                              />
+                              {isActive && (<div style={{ position: 'absolute', top: 2, left: 2, background: '#00ff99', color: '#000', fontSize: '9px', fontWeight: 700, padding: '1px 4px', borderRadius: '3px' }}>✓</div>)}
+                              {!img.isDefault && (
+                                <button onClick={(e) => { e.stopPropagation(); setSettings((prev) => { const gallery = (prev.bgImageGallery || []).filter(x => x.id !== img.id); const wasActive = prev.presentationBgImage === img.data; return { ...prev, bgImageGallery: gallery, presentationBgImage: wasActive ? (gallery[0]?.data || null) : prev.presentationBgImage, presentationBgImageName: wasActive ? (gallery[0]?.name || null) : prev.presentationBgImageName, presentationBgType: wasActive && gallery.length === 0 ? 'black' : prev.presentationBgType }; }); }}
+                                  style={{ position: 'absolute', top: 2, right: 2, width: '16px', height: '16px', background: 'rgba(231,76,60,0.85)', color: '#fff', border: 'none', borderRadius: '50%', cursor: 'pointer', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 }}
+                                >×</button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
 
                   <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', padding: '6px 12px', borderRadius: '6px', border: `1.5px dashed ${theme === 'dark' ? '#888' : '#666'}`, color: theme === 'dark' ? '#eee' : '#555', fontWeight: '600', transition: 'all 0.2s ease', background: theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }}>
                     + Add Image
@@ -1114,7 +1133,7 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                     />
                   </label>
 
-                  {(settings.bgImageGallery || []).length === 0 && (
+                  {getBundledFullscreenWallpapers().length === 0 && (settings.bgImageGallery || []).length === 0 && (
                     <div style={{ fontSize: '12px', color: theme === 'dark' ? '#8e8e8e' : '#666', marginTop: '6px', lineHeight: 1.4 }}>Upload images to build a gallery. Click any thumbnail to use it.</div>
                   )}
                 </div>
@@ -1195,16 +1214,14 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
             </SettingsCard>
           </div>
         </div>
-      )}
 
       {/* TAB 3: LOWER THIRD PRESENTATION */}
-      {activeTab === "lowerthird" && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "20px",
-          alignItems: "flex-start"
-        }}>
+      <div style={{
+        display: activeTab === "lowerthird" ? "grid" : "none",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "20px",
+        alignItems: "flex-start"
+      }}>
           <div>
             {/* Select Language Radio Button for Lower Third */}
             <SettingsCard title="Lower Third Language">
@@ -1281,14 +1298,9 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
               </div>
               <div style={{ marginBottom: "8px" }}>
                 {(() => {
-                  const defaultTemplates = Array.from({length: 7}, (_, i) => ({
-                    id: `default-lt-${i+1}`,
-                    name: `Template ${i+1}`,
-                    data: `templates/lt ${i+1}.png`,
-                    isDefault: true
-                  }));
+                  const bundledTemplates = getBundledLowerThirdWallpapers();
                   const userGallery = settings.lowerThirdBgGallery || [];
-                  const fullGallery = [...defaultTemplates, ...userGallery];
+                  const fullGallery = [...bundledTemplates, ...userGallery];
 
                   return fullGallery.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
@@ -1320,21 +1332,66 @@ export default function SettingsPage({ settings, setSettings, theme, setTheme, u
                   />
                 </label>
 
-                {/* Legacy single image support */}
-                {settings.lowerThirdBgImage && (settings.lowerThirdBgGallery || []).length === 0 && (
-                  <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
-                    <img src={settings.lowerThirdBgImage} alt="Lower Third Bg" style={{ height: '52px', objectFit: 'cover', borderRadius: '6px', border: '2px solid #00ff99', display: 'block' }} />
-                    <button onClick={() => setSettings((prev) => ({ ...prev, lowerThirdBgImage: null, lowerThirdBgImageName: null }))}
-                      style={{ position: 'absolute', top: -6, right: -6, width: '18px', height: '18px', background: 'rgba(231,76,60,0.95)', color: '#fff', border: 'none', borderRadius: '50%', cursor: 'pointer', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 }}
-                    >×</button>
-                    <div style={{ fontSize: '11px', color: theme === 'dark' ? '#8e8e8e' : '#666', marginTop: '3px' }}>{settings.lowerThirdBgImageName || 'Active'}</div>
+                {/* Active Lower Third Wallpaper Preview */}
+                {settings.lowerThirdBgImage && (
+                  <div style={{ marginTop: '14px' }}>
+                    <div style={{
+                      position: 'relative',
+                      width: '100%',
+                      height: '64px',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      background: theme === 'dark' ? '#141414' : '#ebebeb',
+                      border: `1.5px solid ${theme === 'dark' ? 'rgba(0,255,153,0.6)' : '#003399'}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                    }}>
+                      <img
+                        src={settings.lowerThirdBgImage}
+                        alt=""
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          display: 'block',
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setSettings((prev) => ({ ...prev, lowerThirdBgImage: null, lowerThirdBgImageName: null }))}
+                        title="Remove / Clear wallpaper (Use transparent background)"
+                        style={{
+                          position: 'absolute',
+                          top: 6,
+                          right: 6,
+                          width: '20px',
+                          height: '20px',
+                          background: 'rgba(231,76,60,0.9)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '50%',
+                          cursor: 'pointer',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          lineHeight: 1,
+                          padding: 0,
+                          boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
             </SettingsCard>
           </div>
         </div>
-      )}
 
       {/* ── Admin Edit Update Message Modal ── */}
       {isAuthorizedAdmin && showEditUpdateModal && (

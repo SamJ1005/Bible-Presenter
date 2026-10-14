@@ -36,7 +36,9 @@ const PrelistFileCard = ({ item, theme, isActive, handlePresent, handleItemClick
         if (hasCopiedItem) {
           pasteContent?.(item.id);
         } else {
-          handleItemClick(item.id);
+          // Clicking an item card triggers presentation.
+          // For video, it won't play but remains paused showing the thumbnail.
+          triggerPresent({ isPlaying: false });
         }
       }}
       style={{

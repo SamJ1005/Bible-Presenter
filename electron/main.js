@@ -180,6 +180,12 @@ function createPresentationWindow(type = 'fullscreen', startFile = "presentation
     if (isLowerThird) lowerThirdWin = null;
     else presentationWin = null;
     console.log(`[MAIN] ${type} window closed`);
+
+    const hasOpenPresentation = (presentationWin && !presentationWin.isDestroyed()) || (lowerThirdWin && !lowerThirdWin.isDestroyed());
+    if (!hasOpenPresentation && mainWin && !mainWin.isDestroyed()) {
+      mainWin.webContents.send("control-video", { action: "pause", isPlaying: false });
+      mainWin.webContents.send("presentation-closed");
+    }
   });
 
   return win;
@@ -288,6 +294,10 @@ ipcMain.on("send-presentation", (_, payload) => {
 ipcMain.on("close-presentation", () => {
   if (presentationWin && !presentationWin.isDestroyed()) presentationWin.close();
   if (lowerThirdWin && !lowerThirdWin.isDestroyed()) lowerThirdWin.close();
+  if (mainWin && !mainWin.isDestroyed()) {
+    mainWin.webContents.send("control-video", { action: "pause", isPlaying: false });
+    mainWin.webContents.send("presentation-closed");
+  }
 });
 
 ipcMain.on("presentation-next-verse", () => {
@@ -840,7 +850,7 @@ app.whenReady().then(() => {
           submenu: [
             { label: 'English: NKJV (Default)', type: 'radio', checked: true },
             { label: 'English: KJV', type: 'radio' },
-            { label: 'Tamil: BSI', type: 'radio', checked: true }
+            { label: 'Tamil', type: 'radio', checked: true }
           ]
         },
         { type: 'separator' },

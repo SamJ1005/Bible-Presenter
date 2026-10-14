@@ -361,7 +361,7 @@
       if (!imgPath) return 'none';
       const clean = imgPath.replace(/\\/g, '/');
       if (clean.startsWith('http') || clean.startsWith('data:')) return `url("${clean}")`;
-      if (clean.startsWith('templates/') || clean.startsWith('/templates/')) {
+      if (clean.startsWith('templates/') || clean.startsWith('/templates/') || clean.startsWith('wallpapers/') || clean.startsWith('/wallpapers/')) {
         const tPath = clean.replace(/^\//, '');
         if (window.location.protocol === 'blob:') {
           return `url("/${tPath}")`;

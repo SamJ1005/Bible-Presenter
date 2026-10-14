@@ -18,6 +18,11 @@ contextBridge.exposeInMainWorld("electron", {
     ipcRenderer.on("control-video", listener);
     return () => ipcRenderer.removeListener("control-video", listener);
   },
+  onPresentationClosed: (cb) => {
+    const listener = () => cb && cb();
+    ipcRenderer.on("presentation-closed", listener);
+    return () => ipcRenderer.removeListener("presentation-closed", listener);
+  },
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
   openExternalUrl: (url) => ipcRenderer.invoke("open-external-url", url),
   readClipboardMedia: () => ipcRenderer.invoke("read-clipboard-media"),

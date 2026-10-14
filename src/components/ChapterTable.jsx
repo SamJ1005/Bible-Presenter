@@ -161,10 +161,10 @@ export default function ChapterTable({
       </div>
       {(canReport && onReportVerse && user) && (
         <button
-          title="Report Tamil (BSI) verse"
+          title="Report Tamil verse"
           onClick={(e) => {
             e.stopPropagation();
-            onReportVerse(selectedBook, selectedChapter, vn, "Tamil (BSI)");
+            onReportVerse(selectedBook, selectedChapter, vn, "Tamil");
           }}
           style={{
             position: 'absolute', bottom: '4px', right: '4px',

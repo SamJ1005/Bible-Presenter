@@ -61,8 +61,8 @@ export default function App() {
     return () => clearTimeout(timer);
   }, []);
   
-  const [settings, setSettings] = useState(() =>
-    loadMemory("settings", {
+  const [settings, setSettings] = useState(() => {
+    const loaded = loadMemory("settings", {
       presentationBgType: "solid",
       presentationSolidColor: "#000000",
       presentationBgImage: null,
@@ -75,8 +75,13 @@ export default function App() {
       isTamilEnabled: true,
       isEnglishEnabled: true,
       preferredDisplayId: 'auto',
-    })
-  );
+    });
+    // Clean up removed legacy templates
+    if (loaded && typeof loaded.lowerThirdBgImage === 'string' && loaded.lowerThirdBgImage.startsWith('templates/lt ')) {
+      loaded.lowerThirdBgImage = null;
+    }
+    return loaded;
+  });
 
   useEffect(() => {
     saveMemory("settings", settings);
@@ -906,6 +911,7 @@ export default function App() {
     presentationOpenedRef.current = false;
     // Send a message to fade out the body before closing
     window.electron.sendPresentation?.({ fadeOutOnly: true });
+    window.electron.sendVideoCommand?.({ action: "pause", isPlaying: false });
     setTimeout(() => {
       window.api.closePresentation?.();
     }, 250);
@@ -1151,7 +1157,7 @@ export default function App() {
         path: fileObj.path || null,
         isLocalOnly: true,
         cloudUploadStatus: 'local-only',
-        loop: true,
+        isLooping: false,
       };
 
       setPrelistedItems((prev) => {
@@ -1741,20 +1747,21 @@ export default function App() {
         </div>
       )}
 
-{activeTab === "settings" && (
-        <div style={{ background: theme === "dark" ? "#0f0e0eff" : "#fff" }}>
-          <Settings
-            settings={settings}
-            setSettings={setSettings}
-            user={user}
-            theme={theme}
-            onShowUpdateModal={(info) => {
-              setUpdateInfo(info);
-              setShowUpdateModal(true);
-            }}
-          />
-        </div>
-      )}
+      <div style={{
+        display: activeTab === "settings" ? "block" : "none",
+        background: theme === "dark" ? "#0f0e0eff" : "#fff"
+      }}>
+        <Settings
+          settings={settings}
+          setSettings={setSettings}
+          user={user}
+          theme={theme}
+          onShowUpdateModal={(info) => {
+            setUpdateInfo(info);
+            setShowUpdateModal(true);
+          }}
+        />
+      </div>
 
       {activeTab === "prelisted" && (
         <Prelist

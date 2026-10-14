@@ -464,7 +464,14 @@ const PrelistVerseCard = ({
           background: theme === "dark" ? "#1a1a1a" : "#f8f8f8",
         }}
         onClick={() => {
-          if (!isEditing && !editingRefId && !isFlipped) handleItemClick(item.id);
+          if (!isEditing && !editingRefId && !isFlipped) {
+            if (hasCopiedItem) {
+              pasteContent?.(item.id);
+            } else {
+              handleItemClick(item.id);
+              handlePresent?.(item);
+            }
+          }
         }}
       >
         {/* ═══════════════════════════════════════════════════════════════════
@@ -557,7 +564,7 @@ const PrelistVerseCard = ({
                     title="Report issue with Tamil verse"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onReportVerse(item.book, item.chapter, item.verse, "Tamil (BSI)");
+                      onReportVerse(item.book, item.chapter, item.verse, "Tamil");
                     }}
                     style={{
                       cursor: "pointer",
@@ -1102,7 +1109,7 @@ const PrelistVerseCard = ({
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                 {[
                   { id: "both", label: "Both (Tamil + NKJV)" },
-                  { id: "tamil", label: "Tamil Only (BSI)" },
+                  { id: "tamil", label: "Tamil Only" },
                   { id: "english", label: "English Only (NKJV)" },
                 ].map((opt) => {
                   const isSelected = cardLangMode === opt.id;

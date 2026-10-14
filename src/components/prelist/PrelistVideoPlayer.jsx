@@ -71,7 +71,17 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
     if (!window.electron?.onVideoCommand) return;
 
     const cleanup = window.electron.onVideoCommand((cmd) => {
-      if (!videoRef.current || !isActive) return;
+      if (!videoRef.current) return;
+      if (cmd.action === "pause") {
+        videoRef.current.pause();
+        setIsPlaying(false);
+        if (cmd.currentTime !== undefined && Math.abs(videoRef.current.currentTime - cmd.currentTime) > 0.5) {
+          videoRef.current.currentTime = cmd.currentTime;
+          setCurrentTime(cmd.currentTime);
+        }
+        return;
+      }
+      if (!isActive) return;
       isRemoteUpdatingRef.current = true;
       try {
         if (cmd.action === "play") {
@@ -81,13 +91,6 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
           }
           videoRef.current.play().catch(() => {});
           setIsPlaying(true);
-        } else if (cmd.action === "pause") {
-          videoRef.current.pause();
-          setIsPlaying(false);
-          if (cmd.currentTime !== undefined && Math.abs(videoRef.current.currentTime - cmd.currentTime) > 0.5) {
-            videoRef.current.currentTime = cmd.currentTime;
-            setCurrentTime(cmd.currentTime);
-          }
         } else if (cmd.action === "seek") {
           if (cmd.currentTime !== undefined) {
             videoRef.current.currentTime = cmd.currentTime;
@@ -123,8 +126,30 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
     if (!isActive && isPlaying && videoRef.current) {
       videoRef.current.pause();
       setIsPlaying(false);
+      sendSync("pause", videoRef.current.currentTime, false);
     }
   }, [isActive]);
+
+  // Pause presentation video on unmount if it was playing
+  useEffect(() => {
+    return () => {
+      if (isPlayingRef.current) {
+        sendSync("pause", videoRef.current?.currentTime || 0, false);
+      }
+    };
+  }, []);
+
+  // Pause playback if the presentation window is closed
+  useEffect(() => {
+    if (!window.electron?.onPresentationClosed) return;
+    const cleanup = window.electron.onPresentationClosed(() => {
+      if (videoRef.current) {
+        videoRef.current.pause();
+        setIsPlaying(false);
+      }
+    });
+    return cleanup;
+  }, []);
 
   const ensurePresented = (extra = {}) => {
     if (onPresent) {
@@ -142,7 +167,10 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
     e?.stopPropagation();
     const nextLoop = !isLooping;
     setIsLooping(nextLoop);
-    ensurePresented({ isLooping: nextLoop });
+    if (item) {
+      item.isLooping = nextLoop;
+    }
+    ensurePresented({ isLooping: nextLoop, isPlaying });
     if (window.electron?.sendVideoCommand) {
       window.electron.sendVideoCommand({
         action: "loop",
@@ -154,6 +182,13 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
   const togglePlay = (e) => {
     e?.stopPropagation();
     if (!videoRef.current) return;
+
+    if (!isActive) {
+      // First click: card is not active yet, select card and preview thumbnail paused
+      ensurePresented({ isPlaying: false, currentTime: videoRef.current.currentTime || 0 });
+      return;
+    }
+
     const willPlay = !isPlaying;
 
     if (willPlay && (videoRef.current.ended || (duration > 0 && Math.abs(videoRef.current.currentTime - duration) < 0.2))) {
@@ -284,11 +319,24 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
   }, [duration]);
 
   const handleTimeUpdate = () => {
-    const cur = videoRef.current?.currentTime || 0;
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.ended) {
+      if (!isLooping && isPlaying) {
+        setIsPlaying(false);
+        sendSync("pause", video.duration || 0, false);
+      }
+      return;
+    }
+    const cur = video.currentTime || 0;
     setCurrentTime(cur);
     const playableDuration = getPlayableDuration();
     if (playableDuration && playableDuration !== duration) setDuration(playableDuration);
     if (isActive && isPlaying) {
+      // If we are at the very end and loop is off, don't spam sync true
+      if (!isLooping && playableDuration > 0 && cur >= playableDuration - 0.25) {
+        return;
+      }
       const now = Date.now();
       if (now - lastSyncRef.current > 1000) {
         lastSyncRef.current = now;
@@ -375,6 +423,12 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
   return (
     <div
       ref={containerRef}
+      onClick={(e) => {
+        if (!isActive) {
+          e.stopPropagation();
+          ensurePresented({ isPlaying: false, currentTime: videoRef.current?.currentTime || 0 });
+        }
+      }}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
       style={{
@@ -419,6 +473,7 @@ export default function PrelistVideoPlayer({ src, rawPath, name, theme, item, is
             sendSync("seek", 0, true);
           } else {
             setIsPlaying(false);
+            sendSync("pause", videoRef.current?.duration || 0, false);
           }
         }}
         onError={(e) => {

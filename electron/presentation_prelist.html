@@ -269,7 +269,7 @@
       if (!imgPath) return 'none';
       const clean = imgPath.replace(/\\/g, '/');
       if (clean.startsWith('http') || clean.startsWith('data:')) return `url("${clean}")`;
-      if (clean.startsWith('templates/') || clean.startsWith('/templates/')) {
+      if (clean.startsWith('templates/') || clean.startsWith('/templates/') || clean.startsWith('wallpapers/') || clean.startsWith('/wallpapers/')) {
         const tPath = clean.replace(/^\//, '');
         if (window.location.protocol === 'blob:') {
           return `url("/${tPath}")`;
@@ -505,6 +505,8 @@
                 if (mediaVideo.loop) {
                   mediaVideo.currentTime = 0;
                   mediaVideo.play().catch((e) => console.error("[PRESENTATION PRELIST] Loop play error:", e));
+                } else {
+                  mediaVideo.pause();
                 }
               };
 
@@ -794,7 +796,12 @@
               }
               if (cmd.isPlaying !== undefined) {
                 if (cmd.isPlaying && v.paused) {
-                  v.play().catch(() => {});
+                  // If loop is off and video has ended or is near the end, do not restart
+                  if (!v.loop && (v.ended || (v.duration > 0 && Math.abs(v.currentTime - v.duration) < 0.3))) {
+                    // Do not restart
+                  } else {
+                    v.play().catch(() => {});
+                  }
                 } else if (!cmd.isPlaying && !v.paused) {
                   v.pause();
                 }
@@ -809,6 +816,9 @@
             } else if (cmd.action === "loop") {
               if (cmd.isLooping !== undefined) {
                 v.loop = !!cmd.isLooping;
+                if (!cmd.isLooping && (v.ended || (v.duration > 0 && Math.abs(v.currentTime - v.duration) < 0.3))) {
+                  v.pause();
+                }
               }
             }
           });
